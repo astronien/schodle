@@ -17,8 +17,9 @@ export function useData() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+
     setError(null);
     try {
       const [posRes, empRes, shiftRes, schedRes, settingsRes] = await Promise.all([
@@ -287,8 +288,9 @@ export function useData() {
       console.error('[updateSettings] Error:', err1 || err2);
       throw err1 || err2;
     }
-    await fetchAll();
+    await fetchAll(true);
   }, [fetchAll]);
+
 
   return {
 

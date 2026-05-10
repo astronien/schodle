@@ -164,7 +164,7 @@ function App() {
     role: 'employee',
   } as Employee);
 
-  if (loading) {
+  if (loading && employees.length === 0) {
     return (
       <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
         <div className="flex flex-col items-center gap-3">

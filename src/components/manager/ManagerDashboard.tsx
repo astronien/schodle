@@ -59,6 +59,11 @@ export function ManagerDashboard({
   const [activeAdminTab, setActiveAdminTab] = useState<'employees' | 'shifts' | 'positions' | 'settings'>('employees');
 
   const [editingCell, setEditingCell] = useState<{ employeeId: string; date: string; currentShiftId?: string } | null>(null);
+  
+  // Local state for settings to avoid jumping on every keystroke
+  const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
 
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const summaryScrollRef = useRef<HTMLDivElement>(null);
@@ -197,7 +202,20 @@ export function ManagerDashboard({
     });
   };
 
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      await updateSettings(localSettings);
+      alert('บันทึกการตั้งค่าสำเร็จ');
+    } catch (err) {
+      alert('บันทึกการตั้งค่าไม่สำเร็จ');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
+
 
   return (
     <div className="w-full space-y-5 sm:space-y-6">
@@ -1177,8 +1195,8 @@ export function ManagerDashboard({
                     </label>
                     <input
                       type="text"
-                      value={settings.storeName}
-                      onChange={(e) => updateSettings({ ...settings, storeName: e.target.value })}
+                      value={localSettings.storeName}
+                      onChange={(e) => setLocalSettings({ ...localSettings, storeName: e.target.value })}
                       className="input-field w-full"
                       placeholder="เช่น Central Plaza Rama 9"
                     />
@@ -1190,13 +1208,31 @@ export function ManagerDashboard({
                     </label>
                     <input
                       type="text"
-                      value={settings.appName}
-                      onChange={(e) => updateSettings({ ...settings, appName: e.target.value })}
+                      value={localSettings.appName}
+                      onChange={(e) => setLocalSettings({ ...localSettings, appName: e.target.value })}
                       className="input-field w-full"
                       placeholder="เช่น ShiftFlow"
                     />
                   </div>
                 </div>
+                
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={handleSaveSettings}
+                    disabled={isSavingSettings}
+                    className="btn btn-primary px-8"
+                  >
+                    {isSavingSettings ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        บันทึกการตั้งค่า
+                      </>
+                    )}
+                  </button>
+                </div>
+
                 
                 <div className="p-4 bg-brand/10 border border-brand/20 rounded-xl">
                   <p className="text-xs text-brand font-medium leading-relaxed">
