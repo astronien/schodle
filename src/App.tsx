@@ -53,6 +53,19 @@ function App() {
     uploadFile,
   } = useData();
 
+  // Periodic check for SW updates (every 60s)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const interval = setInterval(() => {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.update();
+        });
+      }, 60000);
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+
 
 
   // Reset role to employee for non-managers

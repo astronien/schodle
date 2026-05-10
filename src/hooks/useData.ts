@@ -123,7 +123,7 @@ export function useData() {
   }, []);
 
 
-  const updateSchedule = useCallback(async (entry: ScheduleEntry) => {
+  const updateSchedule = useCallback(async (entry: ScheduleEntry, forceNotify?: boolean) => {
     const { error } = await supabase.from('schedules').upsert({
       id: entry.id,
       employee_id: entry.employeeId,
@@ -139,14 +139,18 @@ export function useData() {
 
     if (error) throw error;
 
-    // Check for status changes to notify employee
+    // Check for status changes or swap approvals to notify employee
     const oldEntry = schedules.find(s => s.id === entry.id);
-    if (oldEntry && oldEntry.status !== entry.status) {
+    const statusChanged = oldEntry && oldEntry.status !== entry.status;
+    
+    if (statusChanged || forceNotify) {
       let title = 'อัปเดตตารางงาน';
       let body = '';
       
       if (entry.status === 'approved') {
-        body = `กะงานวันที่ ${entry.date} ได้รับการอนุมัติแล้ว`;
+        body = forceNotify 
+          ? `กะงานวันที่ ${entry.date} มีการเปลี่ยนแปลง (สลับกะ)`
+          : `กะงานวันที่ ${entry.date} ได้รับการอนุมัติแล้ว`;
       } else if (entry.status === 'rejected') {
         body = `กะงานวันที่ ${entry.date} ไม่ได้รับการอนุมัติ`;
       }
@@ -158,7 +162,8 @@ export function useData() {
 
     await fetchAll();
 
-  }, [fetchAll]);
+  }, [fetchAll, schedules, sendPush]);
+
 
   const deleteSchedule = useCallback(async (id: string) => {
     const { error } = await supabase.from('schedules').delete().eq('id', id);

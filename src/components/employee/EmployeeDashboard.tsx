@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import {
   Clock, ChevronRight, ChevronLeft, Save, AlertCircle,
-  XCircle, CheckCircle2, Plus, Users, Check, LayoutGrid
+  XCircle, CheckCircle2, Plus, Users, Check, LayoutGrid, Bell
+
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, addMonths, subMonths, isSameDay
 } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
+import { subscribeToNotifications } from '../../lib/push';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
+
 
 interface EmployeeDashboardProps {
   currentUser: Employee;
@@ -42,6 +45,20 @@ export function EmployeeDashboard({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSwapping, setIsSwapping] = useState(false);
   const [targetSwapId, setTargetSwapId] = useState<string | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  const handleEnableNotifications = async () => {
+    setIsSubscribing(true);
+    try {
+      await subscribeToNotifications(currentUser.id);
+      alert('เปิดการแจ้งเตือนสำเร็จ!');
+    } catch (err: any) {
+      alert(err.message || 'ไม่สามารถเปิดการแจ้งเตือนได้');
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
 
   const userSchedules = schedules.filter((s) => s.employeeId === currentUser.id);
 
@@ -203,6 +220,15 @@ export function EmployeeDashboard({
               >
                 วันนี้
               </button>
+              <button
+              onClick={handleEnableNotifications}
+              disabled={isSubscribing}
+              className="p-2 text-text-quaternary hover:text-brand transition-colors rounded-lg hover:bg-brand/5 relative group"
+              title="เปิดการแจ้งเตือน"
+            >
+              <Bell className={cn("w-5 h-5", isSubscribing && "animate-pulse text-brand")} />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-brand rounded-full border-2 border-bg-panel"></span>
+            </button>
               <div className="flex bg-bg-surface p-0.5 rounded-lg border border-white/[0.05]">
                 <button
                   onClick={() => setActiveView('calendar')}

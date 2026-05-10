@@ -129,11 +129,12 @@ export function ManagerDashboard({
           const requesterShiftTypeId = requesterShift.shiftTypeId;
           const targetShiftTypeId = targetShift.shiftTypeId;
 
-          // Update both shifts persistently
+          // Update both shifts persistently and force notifications
           await Promise.all([
-            updateSchedule({ ...requesterShift, shiftTypeId: targetShiftTypeId, status: 'approved', swapWithId: undefined }),
-            updateSchedule({ ...targetShift, shiftTypeId: requesterShiftTypeId, status: 'approved' })
+            updateSchedule({ ...requesterShift, shiftTypeId: targetShiftTypeId, status: 'approved', swapWithId: undefined }, true),
+            updateSchedule({ ...targetShift, shiftTypeId: requesterShiftTypeId, status: 'approved' }, true)
           ]);
+
         }
       } else {
         await updateSchedule({ ...request, status });
