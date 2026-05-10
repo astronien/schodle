@@ -70,7 +70,6 @@ function App() {
     });
 
     const newEntries: ScheduleEntry[] = [];
-    let scheduleId = Date.now();
 
     const lateShifts = ['XC', 'EV', 'A2'];
     const earlyShifts = ['M1', 'M2'];
@@ -106,7 +105,7 @@ function App() {
           }
 
           newEntries.push({
-            id: (scheduleId++).toString(),
+            id: crypto.randomUUID(),
             employeeId: employee.id,
             shiftTypeId: shiftType.id,
             date: dateStr,

@@ -119,7 +119,7 @@ export function ManagerDashboard({
       return [
         ...prev,
         {
-          id: Math.random().toString(36).substr(2, 9),
+          id: crypto.randomUUID(),
           employeeId,
           date,
           shiftTypeId,

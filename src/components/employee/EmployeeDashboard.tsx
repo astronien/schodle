@@ -85,7 +85,7 @@ export function EmployeeDashboard({ currentUser, schedules, setSchedules, shiftT
         setSchedules((prev) => [
           ...prev,
           {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             employeeId: currentUser.id,
             date: dateStr,
             shiftTypeId: shiftId,
