@@ -1,13 +1,15 @@
-import { Clock, Bell, Users } from 'lucide-react';
+import { Clock, Bell, Users, LogOut } from 'lucide-react';
 import type { Employee, UserRole } from '../../types';
 
 interface HeaderProps {
   currentUser: Employee;
   role: UserRole;
+  isManager: boolean;
   onToggleRole: () => void;
+  onLogout: () => void;
 }
 
-export function Header({ currentUser, role, onToggleRole }: HeaderProps) {
+export function Header({ currentUser, role, isManager, onToggleRole, onLogout }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl">
       <div className="w-full px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
@@ -35,12 +37,23 @@ export function Header({ currentUser, role, onToggleRole }: HeaderProps) {
                 {role === 'employee' ? 'พนักงาน' : 'ผู้จัดการ'}
               </p>
             </div>
+
+            {isManager && (
+              <button
+                onClick={onToggleRole}
+                className="w-9 h-9 bg-white/[0.04] hover:bg-white/[0.07] rounded-md flex items-center justify-center transition-all duration-200 border border-white/[0.08]"
+                title="สลับบทบาท"
+              >
+                <Users className="w-4 h-4 text-text-tertiary" />
+              </button>
+            )}
+
             <button
-              onClick={onToggleRole}
-              className="w-9 h-9 bg-white/[0.04] hover:bg-white/[0.07] rounded-md flex items-center justify-center transition-all duration-200 border border-white/[0.08]"
-              title="สลับบทบาท"
+              onClick={onLogout}
+              className="w-9 h-9 bg-white/[0.04] hover:bg-danger/10 hover:border-danger/30 rounded-md flex items-center justify-center transition-all duration-200 border border-white/[0.08]"
+              title="ออกจากระบบ"
             >
-              <Users className="w-4 h-4 text-text-tertiary" />
+              <LogOut className="w-4 h-4 text-text-tertiary" />
             </button>
           </div>
         </div>

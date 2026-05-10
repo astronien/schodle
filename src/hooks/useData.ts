@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../types';
 
@@ -131,6 +132,7 @@ export function useData() {
       phone: employee.phone || null,
       email: employee.email || null,
       avatar: employee.avatar || null,
+      password_hash: bcrypt.hashSync(employee.employeeCode, 10),
     };
     console.log('[createEmployee] payload:', payload);
 

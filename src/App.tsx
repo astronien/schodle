@@ -1,14 +1,26 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Clock, Settings } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import type { ScheduleEntry, UserRole, Employee } from './types/index';
 import { useData } from './hooks/useData';
+import { useAuth } from './hooks/useAuth';
 import { Header } from './components/layout/Header';
 import { MobileNav } from './components/layout/MobileNav';
+import { LoginPage } from './components/auth/LoginPage';
 import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
 import { ManagerDashboard } from './components/manager/ManagerDashboard';
 
 function App() {
+  const {
+    currentEmployee,
+    isLoggedIn,
+    isManager,
+    isLoading: authLoading,
+    authError,
+    login,
+    logout,
+  } = useAuth();
+
   const [role, setRole] = useState<UserRole>('employee');
   const [activeMobileTab, setActiveMobileTab] = useState<'schedule' | 'requests' | 'settings'>('schedule');
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -33,7 +45,31 @@ function App() {
     deleteShiftType,
   } = useData();
 
-  const currentUser = employees[0] || ({
+  // Reset role to employee for non-managers
+  useEffect(() => {
+    if (!isManager && role === 'manager') {
+      setRole('employee');
+    }
+  }, [isManager, role]);
+
+  // Auth loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-text-tertiary">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={login} error={authError} isLoading={authLoading} />;
+  }
+
+  const currentUser: Employee = currentEmployee || ({
     id: '',
     employeeCode: '',
     fullName: 'Loading...',
@@ -154,7 +190,9 @@ function App() {
       <Header
         currentUser={currentUser}
         role={role}
+        isManager={isManager}
         onToggleRole={() => setRole(role === 'employee' ? 'manager' : 'employee')}
+        onLogout={logout}
       />
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl mx-auto">
@@ -189,7 +227,7 @@ function App() {
               </div>
             )}
           </>
-        ) : (
+        ) : isManager ? (
           <ManagerDashboard
             schedules={schedules}
             setSchedules={setSchedules}
@@ -207,6 +245,15 @@ function App() {
             currentMonth={currentMonth}
             setCurrentMonth={setCurrentMonth}
             generateSmartSchedule={generateSmartSchedule}
+          />
+        ) : (
+          <EmployeeDashboard
+            currentUser={currentUser}
+            schedules={schedules}
+            setSchedules={setSchedules}
+            shiftTypes={shiftTypes}
+            employees={employees}
+            positions={positions}
           />
         )}
       </main>

@@ -29,6 +29,7 @@ CREATE TABLE employees (
   phone text,
   email text,
   avatar text,
+  password_hash text,
   created_at timestamptz DEFAULT now()
 );
 
