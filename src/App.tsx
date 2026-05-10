@@ -45,7 +45,9 @@ function App() {
     deleteShiftType,
     settings,
     updateSettings,
+    uploadFile,
   } = useData();
+
 
 
   // Reset role to employee for non-managers
@@ -209,11 +211,14 @@ function App() {
               <EmployeeDashboard
                 currentUser={currentUser}
                 schedules={schedules}
-                setSchedules={setSchedules}
+                updateSchedule={updateSchedule}
                 shiftTypes={shiftTypes}
+
                 employees={employees}
                 positions={positions}
+                uploadFile={uploadFile}
               />
+
             )}
             {activeMobileTab === 'requests' && (
               <div className="card p-10 text-center">

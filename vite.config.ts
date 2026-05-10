@@ -9,8 +9,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
+
       manifest: {
         name: 'ShiftFlow Premium Scheduler',
         short_name: 'ShiftFlow',

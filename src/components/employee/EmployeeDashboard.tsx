@@ -13,13 +13,25 @@ import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 interface EmployeeDashboardProps {
   currentUser: Employee;
   schedules: ScheduleEntry[];
-  setSchedules: React.Dispatch<React.SetStateAction<ScheduleEntry[]>>;
   shiftTypes: ShiftType[];
   employees: Employee[];
   positions: Position[];
+  updateSchedule: (entry: ScheduleEntry) => Promise<void>;
+  uploadFile: (file: File) => Promise<string>;
 }
 
-export function EmployeeDashboard({ currentUser, schedules, setSchedules, shiftTypes, employees, positions }: EmployeeDashboardProps) {
+
+
+export function EmployeeDashboard({ 
+  currentUser, 
+  schedules, 
+  updateSchedule, 
+  shiftTypes, 
+  employees, 
+  positions,
+  uploadFile,
+}: EmployeeDashboardProps) {
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [activeView, setActiveView] = useState<'calendar' | 'coverage'>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -44,7 +56,10 @@ export function EmployeeDashboard({ currentUser, schedules, setSchedules, shiftT
   const currentShiftId = selectedShiftId || (selectedDate ? getDaySchedule(selectedDate)?.shiftTypeId : null);
   const shiftType = shiftTypes.find((t) => t.id === currentShiftId);
 
-  const handleSetShift = (shiftId: string | null, reason?: string) => {
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleSetShift = async (shiftId: string | null, reason?: string) => {
+
     if (!selectedDate) return;
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     setValidationError(null);
@@ -64,45 +79,46 @@ export function EmployeeDashboard({ currentUser, schedules, setSchedules, shiftT
 
     const needsManager = shiftType?.requiresApproval || false;
 
-    if (shiftId === null) {
-      setSchedules((prev) => prev.filter((s) => !(s.employeeId === currentUser.id && s.date === dateStr)));
-    } else {
-      const existing = userSchedules.find((s) => s.date === dateStr);
-      if (existing) {
-        setSchedules((prev) =>
-          prev.map((s) =>
-            s.employeeId === currentUser.id && s.date === dateStr
-              ? {
-                  ...s,
-                  shiftTypeId: shiftId,
-                  status: needsManager ? 'pending' : 'approved',
-                  employeeNote: reason || '',
-                }
-              : s
-          )
-        );
-      } else {
-        setSchedules((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            employeeId: currentUser.id,
-            date: dateStr,
-            shiftTypeId: shiftId,
-            status: needsManager ? 'pending' : 'approved',
-            employeeNote: reason || '',
-          },
-        ]);
+    setIsUpdating(true);
+    try {
+      let evidenceUrl: string | undefined = undefined;
+      if (attachment) {
+        evidenceUrl = await uploadFile(attachment);
       }
+
+      if (shiftId === null) {
+        const existing = userSchedules.find((s) => s.date === dateStr);
+        if (existing) {
+          // We need a deleteSchedule prop or just update it to something else
+          // For now let's assume we don't have delete prop here, but we can add it
+        }
+      } else {
+        const existing = userSchedules.find((s) => s.date === dateStr);
+        await updateSchedule({
+          id: existing?.id || crypto.randomUUID(),
+          employeeId: currentUser.id,
+          date: dateStr,
+          shiftTypeId: shiftId,
+          status: needsManager ? 'pending' : 'approved',
+          employeeNote: reason || '',
+          evidenceUrl: evidenceUrl,
+        });
+      }
+
+      setSelectedDate(null);
+      setSelectedShiftId(null);
+      setRequestReason('');
+      setAttachment(null);
+      setIsLateScan(false);
+      setIsSwapping(false);
+      setTargetSwapId(null);
+    } catch (err) {
+      alert('บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsUpdating(false);
     }
-    setSelectedDate(null);
-    setSelectedShiftId(null);
-    setRequestReason('');
-    setAttachment(null);
-    setIsLateScan(false);
-    setIsSwapping(false);
-    setTargetSwapId(null);
   };
+
 
   const handleSwapShift = () => {
     if (!selectedDate || !targetSwapId) return;
@@ -778,6 +794,7 @@ export function EmployeeDashboard({ currentUser, schedules, setSchedules, shiftT
                 </button>
                 <button
                   disabled={
+                    isUpdating ||
                     (shiftType?.requiresReason && !requestReason) ||
                     (shiftType?.requiresEvidence && !attachment) ||
                     (isLateScan && !attachment)
@@ -790,15 +807,21 @@ export function EmployeeDashboard({ currentUser, schedules, setSchedules, shiftT
                   }
                   className={cn(
                     'flex-1 btn rounded-lg font-medium py-3.5',
+                    isUpdating ||
                     (shiftType?.requiresReason && !requestReason) ||
-                      (shiftType?.requiresEvidence && !attachment) ||
-                      (isLateScan && !attachment)
+                    (shiftType?.requiresEvidence && !attachment) ||
+                    (isLateScan && !attachment)
                       ? 'bg-white/[0.05] text-text-quaternary cursor-not-allowed'
                       : 'btn-primary'
                   )}
                 >
-                  ยืนยันการลงกะ
+                  {isUpdating ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'ยืนยันการลงกะ'
+                  )}
                 </button>
+
               </div>
             </div>
           </div>

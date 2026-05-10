@@ -60,7 +60,9 @@ CREATE TABLE schedules (
   employee_note text,
   manager_remark text,
   swap_with_id uuid REFERENCES employees(id),
+  evidence_url text,
   created_at timestamptz DEFAULT now(),
+
   updated_at timestamptz DEFAULT now()
 );
 
@@ -70,6 +72,16 @@ CREATE TABLE settings (
   value text NOT NULL,
   updated_at timestamptz DEFAULT now()
 );
+
+-- Push Subscriptions
+CREATE TABLE push_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id uuid REFERENCES employees(id) ON DELETE CASCADE,
+  subscription jsonb NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(employee_id, subscription)
+);
+
 
 -- Indexes
 CREATE INDEX idx_schedules_employee_date ON schedules(employee_id, date);

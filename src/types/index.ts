@@ -44,7 +44,9 @@ export type ScheduleEntry = {
   employeeNote?: string;
   managerRemark?: string;
   swapWithId?: string;
-};
+  evidenceUrl?: string;
+}
+;
 
 export type MonthlyCoverage = {
   date: string;

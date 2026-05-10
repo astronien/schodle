@@ -85,7 +85,9 @@ export function useData() {
           employeeNote: s.employee_note || undefined,
           managerRemark: s.manager_remark || undefined,
           swapWithId: s.swap_with_id || undefined,
+          evidenceUrl: s.evidence_url || undefined,
         }))
+
       );
 
       if (settingsRes.data) {
@@ -120,8 +122,10 @@ export function useData() {
       employee_note: entry.employeeNote || null,
       manager_remark: entry.managerRemark || null,
       swap_with_id: entry.swapWithId || null,
+      evidence_url: entry.evidenceUrl || null,
       updated_at: new Date().toISOString(),
     });
+
     if (error) throw error;
     await fetchAll();
   }, [fetchAll]);
@@ -132,7 +136,29 @@ export function useData() {
     await fetchAll();
   }, [fetchAll]);
 
+  const uploadFile = useCallback(async (file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `evidence/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('attachments')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('[uploadFile] Error:', uploadError);
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage
+      .from('attachments')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  }, []);
+
   const createEmployee = useCallback(async (employee: Omit<Employee, 'id'>) => {
+
     // 1. Check for duplicate employee_code
     const dup = employees.find((e) => e.employeeCode === employee.employeeCode);
     if (dup) {
@@ -314,6 +340,8 @@ export function useData() {
     deleteShiftType,
     settings,
     updateSettings,
+    uploadFile,
   };
+
 
 }

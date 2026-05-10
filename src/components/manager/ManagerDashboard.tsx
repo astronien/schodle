@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus, PlusCircle, Check,
-  AlertTriangle, Trash2, Users, XCircle, CheckCircle2
+  AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell, Clock
 } from 'lucide-react';
+import { subscribeToNotifications } from '../../lib/push';
+
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths
 } from 'date-fns';
@@ -62,6 +64,20 @@ export function ManagerDashboard({
   
   // Local state for settings to avoid jumping on every keystroke
   const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  const handleEnableNotifications = async () => {
+    setIsSubscribing(true);
+    try {
+      await subscribeToNotifications(currentUser.id);
+      alert('เปิดการแจ้งเตือนสำเร็จ!');
+    } catch (err: any) {
+      alert(err.message || 'ไม่สามารถเปิดการแจ้งเตือนได้');
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
 
@@ -1214,6 +1230,27 @@ export function ManagerDashboard({
                       placeholder="เช่น ShiftFlow"
                     />
                   </div>
+
+                <div className="pt-6 border-t border-white/10">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-primary-light" />
+                        <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider">การแจ้งเตือนผ่านมือถือ (Native Notifications)</h4>
+                      </div>
+                      <p className="text-xs text-text-tertiary">รับการแจ้งเตือนทันทีบน iOS และ Android เมื่อมีการอัปเดตตารางงานหรือคำขอลา</p>
+                    </div>
+                    <button 
+                      type="button"
+                      disabled={isSubscribing}
+                      onClick={handleEnableNotifications}
+                      className="btn btn-secondary text-xs px-6 py-2.5 whitespace-nowrap"
+                    >
+                      {isSubscribing ? 'กำลังตั้งค่า...' : 'เปิดใช้งานบนอุปกรณ์นี้'}
+                    </button>
+                  </div>
+                </div>
+
                 </div>
                 
                 <div className="flex justify-end pt-2">
