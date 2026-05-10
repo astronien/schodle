@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+
 import { Clock, Settings } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import type { ScheduleEntry, UserRole, Employee } from './types/index';
