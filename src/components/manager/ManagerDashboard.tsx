@@ -19,8 +19,8 @@ interface ManagerDashboardProps {
   currentUser: Employee;
 
   schedules: ScheduleEntry[];
-  setSchedules: React.Dispatch<React.SetStateAction<ScheduleEntry[]>>;
   employees: Employee[];
+
   shiftTypes: ShiftType[];
   positions: Position[];
   createEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
@@ -30,7 +30,9 @@ interface ManagerDashboardProps {
   updateShiftType: (shiftType: ShiftType) => Promise<void>;
   deleteShiftType: (id: string) => Promise<void>;
   createPosition: (position: Omit<Position, 'id'>) => Promise<void>;
+  updatePosition: (position: Position) => Promise<void>;
   deletePosition: (id: string) => Promise<void>;
+
   updateSchedule: (entry: ScheduleEntry) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
   currentMonth: Date;
@@ -46,8 +48,8 @@ export function ManagerDashboard({
   currentUser,
   schedules,
 
-  setSchedules,
   employees,
+
   shiftTypes,
   positions,
   createEmployee,
@@ -57,7 +59,9 @@ export function ManagerDashboard({
   updateShiftType,
   deleteShiftType,
   createPosition,
+  updatePosition,
   deletePosition,
+
   updateSchedule,
   deleteSchedule,
   currentMonth,

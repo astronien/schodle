@@ -41,8 +41,10 @@ function App() {
     updateEmployee,
     deleteEmployee,
     createPosition,
+    updatePosition,
     deletePosition,
     createShiftType,
+
     updateShiftType,
     deleteShiftType,
     settings,
@@ -244,8 +246,8 @@ function App() {
         ) : isManager ? (
           <ManagerDashboard
             schedules={schedules}
-            setSchedules={setSchedules}
             employees={employees}
+
             shiftTypes={shiftTypes}
             positions={positions}
             createEmployee={createEmployee}

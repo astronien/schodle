@@ -282,6 +282,21 @@ export function useData() {
     await fetchAll();
   }, [fetchAll]);
 
+  const updatePosition = useCallback(async (position: Position) => {
+    const { error } = await supabase.from('positions').update({
+      code: position.code,
+      name: position.name,
+      min_required: position.minRequired,
+    }).eq('id', position.id);
+    if (error) {
+      console.error('[updatePosition] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase update failed');
+    }
+    await fetchAll();
+  }, [fetchAll]);
+
+
   const createShiftType = useCallback(async (shiftType: Omit<ShiftType, 'id'>) => {
     const { error } = await supabase.from('shift_types').insert({
       code: shiftType.code,
@@ -364,7 +379,9 @@ export function useData() {
     updateEmployee,
     deleteEmployee,
     createPosition,
+    updatePosition,
     deletePosition,
+
     createShiftType,
     updateShiftType,
     deleteShiftType,
