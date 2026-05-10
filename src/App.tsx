@@ -43,7 +43,10 @@ function App() {
     createShiftType,
     updateShiftType,
     deleteShiftType,
+    settings,
+    updateSettings,
   } = useData();
+
 
   // Reset role to employee for non-managers
   useEffect(() => {
@@ -149,8 +152,9 @@ function App() {
 
   // Not logged in
   if (!isLoggedIn) {
-    return <LoginPage onLogin={login} error={authError} isLoading={authLoading} />;
+    return <LoginPage onLogin={login} error={authError} isLoading={authLoading} appName={settings.appName} />;
   }
+
 
   const currentUser: Employee = currentEmployee || ({
     id: '',
@@ -193,7 +197,9 @@ function App() {
         isManager={isManager}
         onToggleRole={() => setRole(role === 'employee' ? 'manager' : 'employee')}
         onLogout={logout}
+        appName={settings.appName}
       />
+
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl mx-auto">
         {role === 'employee' ? (
@@ -245,7 +251,10 @@ function App() {
             currentMonth={currentMonth}
             setCurrentMonth={setCurrentMonth}
             generateSmartSchedule={generateSmartSchedule}
+            settings={settings}
+            updateSettings={updateSettings}
           />
+
         ) : (
           <EmployeeDashboard
             currentUser={currentUser}

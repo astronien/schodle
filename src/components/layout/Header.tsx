@@ -7,9 +7,11 @@ interface HeaderProps {
   isManager: boolean;
   onToggleRole: () => void;
   onLogout: () => void;
+  appName: string;
 }
 
-export function Header({ currentUser, role, isManager, onToggleRole, onLogout }: HeaderProps) {
+export function Header({ currentUser, role, isManager, onToggleRole, onLogout, appName }: HeaderProps) {
+
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl">
       <div className="w-full px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
@@ -18,8 +20,9 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout }:
             <Clock className="text-white w-4 h-4" />
           </div>
           <h1 className="text-lg sm:text-xl font-medium tracking-tight text-text-primary">
-            ShiftFlow
+            {appName}
           </h1>
+
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">

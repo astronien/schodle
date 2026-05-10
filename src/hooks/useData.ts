@@ -1,26 +1,34 @@
 import { useEffect, useState, useCallback } from 'react';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
-import type { Employee, Position, ScheduleEntry, ShiftType } from '../types';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../types';
+
 
 export function useData() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+  const [settings, setSettings] = useState<AppSettings>({
+    storeName: 'Central Plaza Rama 9',
+    appName: 'ShiftFlow',
+  });
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [posRes, empRes, shiftRes, schedRes] = await Promise.all([
+      const [posRes, empRes, shiftRes, schedRes, settingsRes] = await Promise.all([
         supabase.from('positions').select('*').order('code'),
         supabase.from('employees').select('*').order('full_name'),
         supabase.from('shift_types').select('*').order('code'),
         supabase.from('schedules').select('*').order('date'),
+        supabase.from('settings').select('*'),
       ]);
+
 
       if (posRes.error) throw posRes.error;
       if (empRes.error) throw empRes.error;
@@ -78,6 +86,18 @@ export function useData() {
           swapWithId: s.swap_with_id || undefined,
         }))
       );
+
+      if (settingsRes.data) {
+        const settingsMap: Record<string, string> = {};
+        settingsRes.data.forEach((s) => {
+          settingsMap[s.key] = s.value;
+        });
+        setSettings({
+          storeName: settingsMap['store_name'] || 'Central Plaza Rama 9',
+          appName: settingsMap['app_name'] || 'ShiftFlow',
+        });
+      }
+
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
     } finally {
@@ -259,7 +279,19 @@ export function useData() {
     await fetchAll();
   }, [fetchAll]);
 
+  const updateSettings = useCallback(async (newSettings: AppSettings) => {
+    const { error: err1 } = await supabase.from('settings').upsert({ key: 'store_name', value: newSettings.storeName });
+    const { error: err2 } = await supabase.from('settings').upsert({ key: 'app_name', value: newSettings.appName });
+    
+    if (err1 || err2) {
+      console.error('[updateSettings] Error:', err1 || err2);
+      throw err1 || err2;
+    }
+    await fetchAll();
+  }, [fetchAll]);
+
   return {
+
     employees,
     positions,
     shiftTypes,
@@ -278,5 +310,8 @@ export function useData() {
     createShiftType,
     updateShiftType,
     deleteShiftType,
+    settings,
+    updateSettings,
   };
+
 }

@@ -8,7 +8,8 @@ import {
 } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
-import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../../types';
+
 
 interface ManagerDashboardProps {
   schedules: ScheduleEntry[];
@@ -27,7 +28,10 @@ interface ManagerDashboardProps {
   currentMonth: Date;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   generateSmartSchedule: () => void;
+  settings: AppSettings;
+  updateSettings: (settings: AppSettings) => Promise<void>;
 }
+
 
 export function ManagerDashboard({
   schedules,
@@ -46,9 +50,14 @@ export function ManagerDashboard({
   currentMonth,
   setCurrentMonth,
   generateSmartSchedule,
+  settings,
+  updateSettings,
 }: ManagerDashboardProps) {
+
+
   const [activeTab, setActiveTab] = useState<'coverage' | 'requests' | 'admin'>('coverage');
-  const [activeAdminTab, setActiveAdminTab] = useState<'employees' | 'shifts' | 'positions'>('employees');
+  const [activeAdminTab, setActiveAdminTab] = useState<'employees' | 'shifts' | 'positions' | 'settings'>('employees');
+
   const [editingCell, setEditingCell] = useState<{ employeeId: string; date: string; currentShiftId?: string } | null>(null);
 
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -197,7 +206,8 @@ export function ManagerDashboard({
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <h2 className="text-lg sm:text-xl font-bold text-text-primary">Manager Control</h2>
-            <p className="text-text-tertiary font-medium text-xs sm:text-sm">Store: Central Plaza Rama 9</p>
+            <p className="text-text-tertiary font-medium text-xs sm:text-sm">Store: {settings.storeName}</p>
+
           </div>
           {activeTab === 'coverage' && (
             <div className="flex items-center gap-2 bg-bg-surface px-3 py-1.5 rounded-lg border border-surface-200 shadow-sm">
@@ -742,7 +752,7 @@ export function ManagerDashboard({
                 </h2>
               </div>
               <div className="flex bg-bg-surface p-1 rounded-lg">
-                {(['employees', 'shifts', 'positions'] as const).map((tab) => (
+                {(['employees', 'shifts', 'positions', 'settings'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveAdminTab(tab)}
@@ -756,9 +766,11 @@ export function ManagerDashboard({
                     {tab === 'employees' && 'พนักงาน'}
                     {tab === 'shifts' && 'กะงาน'}
                     {tab === 'positions' && 'ตำแหน่ง'}
+                    {tab === 'settings' && 'ตั้งค่าแอป'}
                   </button>
                 ))}
               </div>
+
             </div>
 
             {activeAdminTab === 'employees' && (
@@ -1149,6 +1161,51 @@ export function ManagerDashboard({
                 </div>
               </div>
             )}
+
+            {activeAdminTab === 'settings' && (
+              <div className="animate-fade-in space-y-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-text-tertiary">
+                    ตั้งค่าชื่อร้านและชื่อแอปพลิเคชัน
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-text-secondary uppercase tracking-wider">
+                      ชื่อร้าน (Store Name)
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.storeName}
+                      onChange={(e) => updateSettings({ ...settings, storeName: e.target.value })}
+                      className="input-field w-full"
+                      placeholder="เช่น Central Plaza Rama 9"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-text-secondary uppercase tracking-wider">
+                      ชื่อเว็บ / แอป (App Name)
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.appName}
+                      onChange={(e) => updateSettings({ ...settings, appName: e.target.value })}
+                      className="input-field w-full"
+                      placeholder="เช่น ShiftFlow"
+                    />
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-brand/10 border border-brand/20 rounded-xl">
+                  <p className="text-xs text-brand font-medium leading-relaxed">
+                    * การเปลี่ยนชื่อร้านและชื่อแอปจะมีผลกับพนักงานทุกคนทันทีในหน้า Login และหน้า Header
+                  </p>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}

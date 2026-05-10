@@ -5,9 +5,11 @@ interface LoginPageProps {
   onLogin: (employeeCode: string, password: string) => Promise<boolean>;
   error: string | null;
   isLoading: boolean;
+  appName: string;
 }
 
-export function LoginPage({ onLogin, error, isLoading }: LoginPageProps) {
+export function LoginPage({ onLogin, error, isLoading, appName }: LoginPageProps) {
+
   const [employeeCode, setEmployeeCode] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -34,8 +36,9 @@ export function LoginPage({ onLogin, error, isLoading }: LoginPageProps) {
             <Clock className="text-white w-5 h-5" />
           </div>
           <h1 className="text-2xl font-medium tracking-tight text-text-primary">
-            ShiftFlow
+            {appName}
           </h1>
+
         </div>
 
         <div className="card p-6 animate-fade-in">
@@ -98,7 +101,8 @@ export function LoginPage({ onLogin, error, isLoading }: LoginPageProps) {
         </div>
 
         <p className="text-center text-xs text-text-quaternary mt-6">
-          ระบบจัดการตารางงาน ShiftFlow
+          ระบบจัดการตารางงาน {appName}
+
         </p>
       </div>
     </div>

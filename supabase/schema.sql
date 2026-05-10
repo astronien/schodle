@@ -64,6 +64,13 @@ CREATE TABLE schedules (
   updated_at timestamptz DEFAULT now()
 );
 
+-- Settings
+CREATE TABLE settings (
+  key text PRIMARY KEY,
+  value text NOT NULL,
+  updated_at timestamptz DEFAULT now()
+);
+
 -- Indexes
 CREATE INDEX idx_schedules_employee_date ON schedules(employee_id, date);
 CREATE INDEX idx_schedules_date ON schedules(date);
@@ -73,10 +80,14 @@ CREATE POLICY "Allow all" ON positions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON employees FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON shift_types FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON schedules FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
 
--- SEED DATA
+INSERT INTO settings (key, value) VALUES
+  ('store_name', 'Central Plaza Rama 9'),
+  ('app_name', 'ShiftFlow');
 
 INSERT INTO positions (code, name, min_required) VALUES
+
   ('BSM', 'Branch Store Manager', 1),
   ('ABSM', 'Asst. Branch Store Manager', 1),
   ('Cashier', 'Cashier', 2),

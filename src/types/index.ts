@@ -51,3 +51,7 @@ export type MonthlyCoverage = {
   counts: Record<string, number>; // shiftCode -> count
   isShortage: boolean;
 };
+export type AppSettings = {
+  storeName: string;
+  appName: string;
+};
