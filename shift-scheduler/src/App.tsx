@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Clock, Settings } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
-import { SHIFT_TYPES, MOCK_EMPLOYEES, MOCK_SCHEDULES, POSITIONS } from './data/mockData';
-import type { ShiftType, ScheduleEntry, UserRole, Employee, Position } from './types/index';
+import type { ScheduleEntry, UserRole, Employee } from './types/index';
+import { useData } from './hooks/useData';
 import { Header } from './components/layout/Header';
 import { MobileNav } from './components/layout/MobileNav';
 import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
@@ -11,24 +11,58 @@ import { ManagerDashboard } from './components/manager/ManagerDashboard';
 function App() {
   const [role, setRole] = useState<UserRole>('employee');
   const [activeMobileTab, setActiveMobileTab] = useState<'schedule' | 'requests' | 'settings'>('schedule');
-  const [currentUser] = useState<Employee>(MOCK_EMPLOYEES[0]);
-  const [schedules, setSchedules] = useState<ScheduleEntry[]>(MOCK_SCHEDULES);
-  const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
-  const [shiftTypes, setShiftTypes] = useState<ShiftType[]>(SHIFT_TYPES);
-  const [positions, setPositions] = useState<Position[]>(POSITIONS);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const generateSmartSchedule = () => {
+  const {
+    employees,
+    positions,
+    shiftTypes,
+    schedules,
+    loading,
+    error,
+    refresh,
+    updateSchedule,
+    deleteSchedule,
+  } = useData();
+
+  const currentUser = employees[0] || ({
+    id: '',
+    employeeCode: '',
+    fullName: 'Loading...',
+    positionId: '',
+    role: 'employee',
+  } as Employee);
+
+  const setSchedules = useCallback((action: React.SetStateAction<ScheduleEntry[]>) => {
+    const next = typeof action === 'function'
+      ? (action as (prev: ScheduleEntry[]) => ScheduleEntry[])(schedules)
+      : action;
+
+    const oldMap = new Map(schedules.map((s) => [s.id, s]));
+    const newMap = new Map(next.map((s) => [s.id, s]));
+
+    for (const entry of next) {
+      const old = oldMap.get(entry.id);
+      if (!old || JSON.stringify(old) !== JSON.stringify(entry)) {
+        updateSchedule(entry).catch(console.error);
+      }
+    }
+
+    for (const [id] of oldMap) {
+      if (!newMap.has(id)) {
+        deleteSchedule(id).catch(console.error);
+      }
+    }
+  }, [schedules, updateSchedule, deleteSchedule]);
+
+  const generateSmartSchedule = async () => {
     const days = eachDayOfInterval({
       start: startOfMonth(currentMonth),
       end: endOfMonth(currentMonth),
     });
 
-    const newSchedules: ScheduleEntry[] = [];
+    const newEntries: ScheduleEntry[] = [];
     let scheduleId = Date.now();
-
-    const monthStr = format(currentMonth, 'yyyy-MM');
-    const otherMonthsSchedules = schedules.filter((s) => !s.date.startsWith(monthStr));
 
     const lateShifts = ['XC', 'EV', 'A2'];
     const earlyShifts = ['M1', 'M2'];
@@ -48,7 +82,7 @@ function App() {
 
           if (dayIdx > 0) {
             const yesterdayDateStr = format(days[dayIdx - 1], 'yyyy-MM-dd');
-            const yesterdayShift = newSchedules.find(
+            const yesterdayShift = newEntries.find(
               (s) => s.employeeId === employee.id && s.date === yesterdayDateStr
             );
             if (yesterdayShift) {
@@ -63,7 +97,7 @@ function App() {
             }
           }
 
-          newSchedules.push({
+          newEntries.push({
             id: (scheduleId++).toString(),
             employeeId: employee.id,
             shiftTypeId: shiftType.id,
@@ -76,9 +110,37 @@ function App() {
       });
     });
 
-    setSchedules([...otherMonthsSchedules, ...newSchedules]);
+    for (const entry of newEntries) {
+      await updateSchedule(entry);
+    }
+    await refresh();
     alert('จัดตารางอัตโนมัติสำเร็จ! ระบบได้ตรวจสอบเงื่อนไขกะดึก-เช้าเรียบร้อยแล้ว');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-text-tertiary">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
+        <div className="text-center space-y-3">
+          <p className="text-danger font-medium">โหลดข้อมูลไม่สำเร็จ</p>
+          <p className="text-sm text-text-tertiary">{error}</p>
+          <button onClick={refresh} className="btn btn-primary text-sm">
+            ลองใหม่
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-bg-primary text-text-secondary font-sans pb-20 sm:pb-0 overflow-x-hidden">
@@ -125,11 +187,11 @@ function App() {
             schedules={schedules}
             setSchedules={setSchedules}
             employees={employees}
-            setEmployees={setEmployees}
+            setEmployees={() => {}}
             shiftTypes={shiftTypes}
-            setShiftTypes={setShiftTypes}
+            setShiftTypes={() => {}}
             positions={positions}
-            setPositions={setPositions}
+            setPositions={() => {}}
             currentMonth={currentMonth}
             setCurrentMonth={setCurrentMonth}
             generateSmartSchedule={generateSmartSchedule}
