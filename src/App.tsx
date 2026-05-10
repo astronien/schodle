@@ -181,7 +181,8 @@ function App() {
         <div className="text-center space-y-3">
           <p className="text-danger font-medium">โหลดข้อมูลไม่สำเร็จ</p>
           <p className="text-sm text-text-tertiary">{error}</p>
-          <button onClick={refresh} className="btn btn-primary text-sm">
+          <button onClick={() => refresh()} className="btn btn-primary text-sm">
+
             ลองใหม่
           </button>
         </div>
@@ -251,6 +252,7 @@ function App() {
             currentMonth={currentMonth}
             setCurrentMonth={setCurrentMonth}
             generateSmartSchedule={generateSmartSchedule}
+
             settings={settings}
             updateSettings={updateSettings}
           />

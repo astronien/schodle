@@ -17,7 +17,7 @@ export function useData() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAll = useCallback(async (silent = false) => {
+  const fetchAll = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
 
     setError(null);
