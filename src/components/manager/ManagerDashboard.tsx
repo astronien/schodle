@@ -772,14 +772,19 @@ export function ManagerDashboard({
                       const name = prompt('ชื่อพนักงาน:');
                       const code = prompt('รหัสพนักงาน:');
                       if (name && code) {
+                        const defaultPos = positions.find((p) => p.code === 'Cashier') || positions[0];
+                        if (!defaultPos) {
+                          alert('ไม่พบตำแหน่งงาน กรุณาเพิ่มตำแหน่งก่อน');
+                          return;
+                        }
                         createEmployee({
                           fullName: name,
                           employeeCode: code,
-                          positionId: '3',
+                          positionId: defaultPos.id,
                           role: 'employee',
                           email: `${code}@example.com`,
                           avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-                        }).catch(console.error);
+                        }).catch((err) => alert(err.message || 'เพิ่มพนักงานไม่สำเร็จ'));
                       }
                     }}
                     className="btn btn-primary text-xs py-2 shadow-raised"
@@ -806,7 +811,7 @@ export function ManagerDashboard({
                         </div>
                       </div>
                       <button
-                        onClick={() => deleteEmployee(emp.id).catch(console.error)}
+                        onClick={() => deleteEmployee(emp.id).catch((err) => alert(err.message || 'ลบพนักงานไม่สำเร็จ'))}
                         className="opacity-0 group-hover:opacity-100 p-2 text-danger hover:bg-danger/10 rounded-lg transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -838,7 +843,7 @@ export function ManagerDashboard({
                           requiresReason: false,
                           requiresEvidence: false,
                           isVisible: true,
-                        }).catch(console.error);
+                        }).catch((err) => alert(err.message || 'เพิ่มกะงานไม่สำเร็จ'));
                       }
                     }}
                     className="btn btn-primary text-xs py-2 shadow-raised"
@@ -864,7 +869,7 @@ export function ManagerDashboard({
                           </div>
                         </div>
                         <button
-                          onClick={() => deleteShiftType(type.id).catch(console.error)}
+                          onClick={() => deleteShiftType(type.id).catch((err) => alert(err.message || 'ลบกะงานไม่สำเร็จ'))}
                           className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -889,7 +894,7 @@ export function ManagerDashboard({
                             onChange={(e) => {
                               const shift = shiftTypes.find((t) => t.id === type.id);
                               if (shift) {
-                                updateShiftType({ ...shift, targetStaff: parseInt(e.target.value) || 0 }).catch(console.error);
+                                updateShiftType({ ...shift, targetStaff: parseInt(e.target.value) || 0 }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
                               }
                             }}
                             className="w-full bg-transparent text-center text-sm font-bold text-brand focus:outline-none"
@@ -914,7 +919,7 @@ export function ManagerDashboard({
                               onClick={() => {
                                 const shift = shiftTypes.find((t) => t.id === type.id);
                                 if (shift) {
-                                  updateShiftType({ ...shift, [item.key]: !shift[item.key as keyof ShiftType] }).catch(console.error);
+                                  updateShiftType({ ...shift, [item.key]: !shift[item.key as keyof ShiftType] }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
                                 }
                               }}
                               className={cn(
@@ -965,7 +970,10 @@ export function ManagerDashboard({
                         if (employeeId) {
                           const employee = employees.find((e) => e.id === employeeId);
                           if (employee) {
-                            updateEmployee({ ...employee, positionId: '' }).catch(console.error);
+                            const fallback = positions[0];
+                            if (fallback) {
+                              updateEmployee({ ...employee, positionId: fallback.id }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
+                            }
                           }
                         }
                       }}
@@ -1033,7 +1041,7 @@ export function ManagerDashboard({
                           const name = prompt('ชื่อตำแหน่ง:');
                           const code = prompt('รหัสตำแหน่ง:');
                           if (name && code) {
-                            createPosition({ code, name, minRequired: 1 }).catch(console.error);
+                            createPosition({ code, name, minRequired: 1 }).catch((err) => alert(err.message || 'เพิ่มตำแหน่งไม่สำเร็จ'));
                           }
                         }}
                         className="btn btn-primary text-xs py-2 shadow-raised"
@@ -1063,7 +1071,7 @@ export function ManagerDashboard({
                               if (employeeId) {
                                 const employee = employees.find((e) => e.id === employeeId);
                                 if (employee) {
-                                  updateEmployee({ ...employee, positionId: pos.id }).catch(console.error);
+                                  updateEmployee({ ...employee, positionId: pos.id }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
                                 }
                               }
                             }}
@@ -1083,7 +1091,10 @@ export function ManagerDashboard({
                                       employees
                                         .filter((e) => e.positionId === pos.id)
                                         .forEach((e) => {
-                                          updateEmployee({ ...e, positionId: '' }).catch(console.error);
+                                          const fallback = positions[0];
+                                          if (fallback) {
+                                            updateEmployee({ ...e, positionId: fallback.id }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
+                                          }
                                         })
                                     }
                                     className="p-2 text-text-quaternary hover:text-warn hover:bg-warn/10 rounded-lg transition-all"
@@ -1093,7 +1104,7 @@ export function ManagerDashboard({
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => deletePosition(pos.id).catch(console.error)}
+                                  onClick={() => deletePosition(pos.id).catch((err) => alert(err.message || 'ลบตำแหน่งไม่สำเร็จ'))}
                                   className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
