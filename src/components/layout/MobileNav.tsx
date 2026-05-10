@@ -14,7 +14,8 @@ export function MobileNav({ activeTab, onChangeTab }: MobileNavProps) {
   ];
 
   return (
-    <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-bg-panel/80 backdrop-blur-xl border-t border-white/[0.08] px-6 py-2 flex justify-between items-center z-50">
+    <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-bg-panel/80 backdrop-blur-xl border-t border-white/[0.08] px-6 py-2 flex justify-between items-center z-50 safe-bottom">
+
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (

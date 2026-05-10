@@ -9,6 +9,8 @@ import { MobileNav } from './components/layout/MobileNav';
 import { LoginPage } from './components/auth/LoginPage';
 import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
 import { ManagerDashboard } from './components/manager/ManagerDashboard';
+import { UpdatePrompt } from './components/layout/UpdatePrompt';
+
 
 function App() {
   const {
@@ -279,7 +281,9 @@ function App() {
       </main>
 
       <MobileNav activeTab={activeMobileTab} onChangeTab={setActiveMobileTab} />
+      <UpdatePrompt />
     </div>
+
   );
 }
 
