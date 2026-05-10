@@ -9,7 +9,7 @@
 ## 2. สร้าง Database
 
 1. ไปที่ **SQL Editor** ใน Supabase Dashboard
-2. New query → วางโค้ดจากไฟล์ `shift-scheduler/supabase/schema.sql`
+2. New query → วางโค้ดจากไฟล์ `supabase/schema.sql`
 3. กด **Run**
 4. ตรวจสอบใน **Table Editor** ว่ามี tables: `positions`, `employees`, `shift_types`, `schedules`
 
@@ -22,7 +22,7 @@
 
 ## 4. สร้าง .env
 
-ในโฟลเดอร์ `shift-scheduler/` สร้างไฟล์ `.env`:
+สร้างไฟล์ `.env` ที่ root:
 
 ```env
 VITE_SUPABASE_URL=https://xxxx.supabase.co
@@ -33,7 +33,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 1. ไป [vercel.com](https://vercel.com) → Import Project → เลือก GitHub repo `astronien/schodle`
 2. Framework Preset: `Vite`
-3. Root Directory: `shift-scheduler`
+3. Root Directory: `.`
 4. Environment Variables:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
