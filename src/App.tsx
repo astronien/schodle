@@ -52,31 +52,6 @@ function App() {
     }
   }, [isManager, role]);
 
-  // Auth loading
-  if (authLoading) {
-    return (
-      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-text-tertiary">กำลังโหลด...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Not logged in
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={login} error={authError} isLoading={authLoading} />;
-  }
-
-  const currentUser: Employee = currentEmployee || ({
-    id: '',
-    employeeCode: '',
-    fullName: 'Loading...',
-    positionId: '',
-    role: 'employee',
-  } as Employee);
-
   const setSchedules = useCallback((action: React.SetStateAction<ScheduleEntry[]>) => {
     const next = typeof action === 'function'
       ? (action as (prev: ScheduleEntry[]) => ScheduleEntry[])(schedules)
@@ -159,6 +134,31 @@ function App() {
     await refresh();
     alert('จัดตารางอัตโนมัติสำเร็จ! ระบบได้ตรวจสอบเงื่อนไขกะดึก-เช้าเรียบร้อยแล้ว');
   };
+
+  // Auth loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-text-tertiary">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={login} error={authError} isLoading={authLoading} />;
+  }
+
+  const currentUser: Employee = currentEmployee || ({
+    id: '',
+    employeeCode: '',
+    fullName: 'Loading...',
+    positionId: '',
+    role: 'employee',
+  } as Employee);
 
   if (loading) {
     return (
