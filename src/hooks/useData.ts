@@ -111,7 +111,19 @@ export function useData() {
   }, [fetchAll]);
 
   const createEmployee = useCallback(async (employee: Omit<Employee, 'id'>) => {
-    const { error } = await supabase.from('employees').insert({
+    // 1. Check for duplicate employee_code
+    const dup = employees.find((e) => e.employeeCode === employee.employeeCode);
+    if (dup) {
+      throw new Error(`รหัสพนักงาน "${employee.employeeCode}" ซ้ำ (มีอยู่แล้ว)`);
+    }
+
+    // 2. Validate UUID format for position_id
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(employee.positionId)) {
+      throw new Error(`position_id "${employee.positionId}" ไม่ใช่ UUID ที่ถูกต้อง`);
+    }
+
+    const payload = {
       employee_code: employee.employeeCode,
       full_name: employee.fullName,
       position_id: employee.positionId,
@@ -119,12 +131,27 @@ export function useData() {
       phone: employee.phone || null,
       email: employee.email || null,
       avatar: employee.avatar || null,
-    });
-    if (error) throw error;
+    };
+    console.log('[createEmployee] payload:', payload);
+
+    const { error } = await supabase.from('employees').insert(payload);
+    if (error) {
+      console.error('[createEmployee] Supabase error:', error);
+      const msg = [
+        error.message,
+        error.details,
+        error.hint,
+        `code: ${error.code}`,
+      ]
+        .filter(Boolean)
+        .join(' | ');
+      throw new Error(msg || 'Supabase insert failed');
+    }
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, employees]);
 
   const updateEmployee = useCallback(async (employee: Employee) => {
+    console.log('[updateEmployee] payload:', employee);
     const { error } = await supabase.from('employees').update({
       employee_code: employee.employeeCode,
       full_name: employee.fullName,
@@ -134,13 +161,21 @@ export function useData() {
       email: employee.email || null,
       avatar: employee.avatar || null,
     }).eq('id', employee.id);
-    if (error) throw error;
+    if (error) {
+      console.error('[updateEmployee] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase update failed');
+    }
     await fetchAll();
   }, [fetchAll]);
 
   const deleteEmployee = useCallback(async (id: string) => {
     const { error } = await supabase.from('employees').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error('[deleteEmployee] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase delete failed');
+    }
     await fetchAll();
   }, [fetchAll]);
 
@@ -150,13 +185,21 @@ export function useData() {
       name: position.name,
       min_required: position.minRequired,
     });
-    if (error) throw error;
+    if (error) {
+      console.error('[createPosition] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase insert failed');
+    }
     await fetchAll();
   }, [fetchAll]);
 
   const deletePosition = useCallback(async (id: string) => {
     const { error } = await supabase.from('positions').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error('[deletePosition] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase delete failed');
+    }
     await fetchAll();
   }, [fetchAll]);
 
@@ -174,7 +217,11 @@ export function useData() {
       target_staff: shiftType.targetStaff || null,
       category: shiftType.category || null,
     });
-    if (error) throw error;
+    if (error) {
+      console.error('[createShiftType] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase insert failed');
+    }
     await fetchAll();
   }, [fetchAll]);
 
@@ -192,13 +239,21 @@ export function useData() {
       target_staff: shiftType.targetStaff || null,
       category: shiftType.category || null,
     }).eq('id', shiftType.id);
-    if (error) throw error;
+    if (error) {
+      console.error('[updateShiftType] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase update failed');
+    }
     await fetchAll();
   }, [fetchAll]);
 
   const deleteShiftType = useCallback(async (id: string) => {
     const { error } = await supabase.from('shift_types').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error('[deleteShiftType] Supabase error:', error);
+      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
+      throw new Error(msg || 'Supabase delete failed');
+    }
     await fetchAll();
   }, [fetchAll]);
 
