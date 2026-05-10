@@ -61,27 +61,7 @@ function App() {
     }
   }, [isManager, role]);
 
-  const setSchedules = useCallback((action: React.SetStateAction<ScheduleEntry[]>) => {
-    const next = typeof action === 'function'
-      ? (action as (prev: ScheduleEntry[]) => ScheduleEntry[])(schedules)
-      : action;
 
-    const oldMap = new Map(schedules.map((s) => [s.id, s]));
-    const newMap = new Map(next.map((s) => [s.id, s]));
-
-    for (const entry of next) {
-      const old = oldMap.get(entry.id);
-      if (!old || JSON.stringify(old) !== JSON.stringify(entry)) {
-        updateSchedule(entry).catch(console.error);
-      }
-    }
-
-    for (const [id] of oldMap) {
-      if (!newMap.has(id)) {
-        deleteSchedule(id).catch(console.error);
-      }
-    }
-  }, [schedules, updateSchedule, deleteSchedule]);
 
   const generateSmartSchedule = async () => {
     const days = eachDayOfInterval({
