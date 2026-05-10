@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import {
-  AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell
+  AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell,
+  ChevronLeft, ChevronRight, Plus, PlusCircle, Check
 } from 'lucide-react';
 
 
