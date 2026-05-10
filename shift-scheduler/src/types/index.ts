@@ -30,9 +30,10 @@ export type Employee = {
   role: UserRole;
   phone?: string;
   email?: string;
+  avatar?: string;
 };
 
-export type ScheduleStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+export type ScheduleStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';
 
 export type ScheduleEntry = {
   id: string;
