@@ -23,6 +23,14 @@ function App() {
     refresh,
     updateSchedule,
     deleteSchedule,
+    createEmployee,
+    updateEmployee,
+    deleteEmployee,
+    createPosition,
+    deletePosition,
+    createShiftType,
+    updateShiftType,
+    deleteShiftType,
   } = useData();
 
   const currentUser = employees[0] || ({
@@ -187,11 +195,16 @@ function App() {
             schedules={schedules}
             setSchedules={setSchedules}
             employees={employees}
-            setEmployees={() => {}}
             shiftTypes={shiftTypes}
-            setShiftTypes={() => {}}
             positions={positions}
-            setPositions={() => {}}
+            createEmployee={createEmployee}
+            updateEmployee={updateEmployee}
+            deleteEmployee={deleteEmployee}
+            createShiftType={createShiftType}
+            updateShiftType={updateShiftType}
+            deleteShiftType={deleteShiftType}
+            createPosition={createPosition}
+            deletePosition={deletePosition}
             currentMonth={currentMonth}
             setCurrentMonth={setCurrentMonth}
             generateSmartSchedule={generateSmartSchedule}

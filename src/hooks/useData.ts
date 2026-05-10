@@ -110,6 +110,98 @@ export function useData() {
     await fetchAll();
   }, [fetchAll]);
 
+  const createEmployee = useCallback(async (employee: Omit<Employee, 'id'>) => {
+    const { error } = await supabase.from('employees').insert({
+      employee_code: employee.employeeCode,
+      full_name: employee.fullName,
+      position_id: employee.positionId,
+      role: employee.role,
+      phone: employee.phone || null,
+      email: employee.email || null,
+      avatar: employee.avatar || null,
+    });
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const updateEmployee = useCallback(async (employee: Employee) => {
+    const { error } = await supabase.from('employees').update({
+      employee_code: employee.employeeCode,
+      full_name: employee.fullName,
+      position_id: employee.positionId,
+      role: employee.role,
+      phone: employee.phone || null,
+      email: employee.email || null,
+      avatar: employee.avatar || null,
+    }).eq('id', employee.id);
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const deleteEmployee = useCallback(async (id: string) => {
+    const { error } = await supabase.from('employees').delete().eq('id', id);
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const createPosition = useCallback(async (position: Omit<Position, 'id'>) => {
+    const { error } = await supabase.from('positions').insert({
+      code: position.code,
+      name: position.name,
+      min_required: position.minRequired,
+    });
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const deletePosition = useCallback(async (id: string) => {
+    const { error } = await supabase.from('positions').delete().eq('id', id);
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const createShiftType = useCallback(async (shiftType: Omit<ShiftType, 'id'>) => {
+    const { error } = await supabase.from('shift_types').insert({
+      code: shiftType.code,
+      name: shiftType.name,
+      start_time: shiftType.startTime,
+      end_time: shiftType.endTime,
+      color: shiftType.color,
+      requires_approval: shiftType.requiresApproval,
+      requires_reason: shiftType.requiresReason,
+      requires_evidence: shiftType.requiresEvidence,
+      is_visible: shiftType.isVisible,
+      target_staff: shiftType.targetStaff || null,
+      category: shiftType.category || null,
+    });
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const updateShiftType = useCallback(async (shiftType: ShiftType) => {
+    const { error } = await supabase.from('shift_types').update({
+      code: shiftType.code,
+      name: shiftType.name,
+      start_time: shiftType.startTime,
+      end_time: shiftType.endTime,
+      color: shiftType.color,
+      requires_approval: shiftType.requiresApproval,
+      requires_reason: shiftType.requiresReason,
+      requires_evidence: shiftType.requiresEvidence,
+      is_visible: shiftType.isVisible,
+      target_staff: shiftType.targetStaff || null,
+      category: shiftType.category || null,
+    }).eq('id', shiftType.id);
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const deleteShiftType = useCallback(async (id: string) => {
+    const { error } = await supabase.from('shift_types').delete().eq('id', id);
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
   return {
     employees,
     positions,
@@ -121,5 +213,13 @@ export function useData() {
     refresh: fetchAll,
     updateSchedule,
     deleteSchedule,
+    createEmployee,
+    updateEmployee,
+    deleteEmployee,
+    createPosition,
+    deletePosition,
+    createShiftType,
+    updateShiftType,
+    deleteShiftType,
   };
 }

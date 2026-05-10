@@ -14,11 +14,16 @@ interface ManagerDashboardProps {
   schedules: ScheduleEntry[];
   setSchedules: React.Dispatch<React.SetStateAction<ScheduleEntry[]>>;
   employees: Employee[];
-  setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
   shiftTypes: ShiftType[];
-  setShiftTypes: React.Dispatch<React.SetStateAction<ShiftType[]>>;
   positions: Position[];
-  setPositions: React.Dispatch<React.SetStateAction<Position[]>>;
+  createEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
+  updateEmployee: (employee: Employee) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
+  createShiftType: (shiftType: Omit<ShiftType, 'id'>) => Promise<void>;
+  updateShiftType: (shiftType: ShiftType) => Promise<void>;
+  deleteShiftType: (id: string) => Promise<void>;
+  createPosition: (position: Omit<Position, 'id'>) => Promise<void>;
+  deletePosition: (id: string) => Promise<void>;
   currentMonth: Date;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   generateSmartSchedule: () => void;
@@ -28,11 +33,16 @@ export function ManagerDashboard({
   schedules,
   setSchedules,
   employees,
-  setEmployees,
   shiftTypes,
-  setShiftTypes,
   positions,
-  setPositions,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  createShiftType,
+  updateShiftType,
+  deleteShiftType,
+  createPosition,
+  deletePosition,
   currentMonth,
   setCurrentMonth,
   generateSmartSchedule,
@@ -762,18 +772,14 @@ export function ManagerDashboard({
                       const name = prompt('ชื่อพนักงาน:');
                       const code = prompt('รหัสพนักงาน:');
                       if (name && code) {
-                        setEmployees([
-                          ...employees,
-                          {
-                            id: `e${Date.now()}`,
-                            fullName: name,
-                            employeeCode: code,
-                            positionId: '3',
-                            role: 'employee',
-                            email: `${code}@example.com`,
-                            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-                          },
-                        ]);
+                        createEmployee({
+                          fullName: name,
+                          employeeCode: code,
+                          positionId: '3',
+                          role: 'employee',
+                          email: `${code}@example.com`,
+                          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+                        }).catch(console.error);
                       }
                     }}
                     className="btn btn-primary text-xs py-2 shadow-raised"
@@ -800,7 +806,7 @@ export function ManagerDashboard({
                         </div>
                       </div>
                       <button
-                        onClick={() => setEmployees(employees.filter((e) => e.id !== emp.id))}
+                        onClick={() => deleteEmployee(emp.id).catch(console.error)}
                         className="opacity-0 group-hover:opacity-100 p-2 text-danger hover:bg-danger/10 rounded-lg transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -822,21 +828,17 @@ export function ManagerDashboard({
                       const code = prompt('รหัสกะ (เช่น M3):');
                       const name = prompt('ชื่อกะ (เช่น Morning 3):');
                       if (code && name) {
-                        setShiftTypes([
-                          ...shiftTypes,
-                          {
-                            id: code.toLowerCase(),
-                            code,
-                            name,
-                            startTime: '09:00',
-                            endTime: '18:00',
-                            color: '#' + Math.floor(Math.random() * 16777215).toString(16),
-                            requiresApproval: false,
-                            requiresReason: false,
-                            requiresEvidence: false,
-                            isVisible: true,
-                          },
-                        ]);
+                        createShiftType({
+                          code,
+                          name,
+                          startTime: '09:00',
+                          endTime: '18:00',
+                          color: '#' + Math.floor(Math.random() * 16777215).toString(16),
+                          requiresApproval: false,
+                          requiresReason: false,
+                          requiresEvidence: false,
+                          isVisible: true,
+                        }).catch(console.error);
                       }
                     }}
                     className="btn btn-primary text-xs py-2 shadow-raised"
@@ -862,7 +864,7 @@ export function ManagerDashboard({
                           </div>
                         </div>
                         <button
-                          onClick={() => setShiftTypes(shiftTypes.filter((t) => t.id !== type.id))}
+                          onClick={() => deleteShiftType(type.id).catch(console.error)}
                           className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -884,13 +886,12 @@ export function ManagerDashboard({
                             type="number"
                             min="0"
                             value={type.targetStaff || 0}
-                            onChange={(e) =>
-                              setShiftTypes(
-                                shiftTypes.map((t) =>
-                                  t.id === type.id ? { ...t, targetStaff: parseInt(e.target.value) || 0 } : t
-                                )
-                              )
-                            }
+                            onChange={(e) => {
+                              const shift = shiftTypes.find((t) => t.id === type.id);
+                              if (shift) {
+                                updateShiftType({ ...shift, targetStaff: parseInt(e.target.value) || 0 }).catch(console.error);
+                              }
+                            }}
                             className="w-full bg-transparent text-center text-sm font-bold text-brand focus:outline-none"
                           />
                         </div>
@@ -910,15 +911,12 @@ export function ManagerDashboard({
                               {item.label}
                             </span>
                             <button
-                              onClick={() =>
-                                setShiftTypes(
-                                  shiftTypes.map((t) =>
-                                    t.id === type.id
-                                      ? { ...t, [item.key]: !t[item.key as keyof ShiftType] }
-                                      : t
-                                  )
-                                )
-                              }
+                              onClick={() => {
+                                const shift = shiftTypes.find((t) => t.id === type.id);
+                                if (shift) {
+                                  updateShiftType({ ...shift, [item.key]: !shift[item.key as keyof ShiftType] }).catch(console.error);
+                                }
+                              }}
                               className={cn(
                                 'w-10 h-5 rounded-full transition-colors relative',
                                 type[item.key as keyof ShiftType] ? item.activeColor : 'bg-bg-elevated'
@@ -965,9 +963,10 @@ export function ManagerDashboard({
                         (e.currentTarget as HTMLDivElement).classList.remove('bg-danger/10', 'border-danger/40', 'scale-[1.02]');
                         const employeeId = e.dataTransfer.getData('employeeId');
                         if (employeeId) {
-                          setEmployees((prev) =>
-                            prev.map((emp) => (emp.id === employeeId ? { ...emp, positionId: '' } : emp))
-                          );
+                          const employee = employees.find((e) => e.id === employeeId);
+                          if (employee) {
+                            updateEmployee({ ...employee, positionId: '' }).catch(console.error);
+                          }
                         }
                       }}
                       className="p-5 border-2 border-dashed border-surface-200 rounded-xl flex flex-col items-center justify-center gap-3 text-text-quaternary transition-all duration-200 hover:border-danger/30 hover:bg-danger/10 group"
@@ -1034,7 +1033,7 @@ export function ManagerDashboard({
                           const name = prompt('ชื่อตำแหน่ง:');
                           const code = prompt('รหัสตำแหน่ง:');
                           if (name && code) {
-                            setPositions([...positions, { id: code.toLowerCase(), code, name, minRequired: 1 }]);
+                            createPosition({ code, name, minRequired: 1 }).catch(console.error);
                           }
                         }}
                         className="btn btn-primary text-xs py-2 shadow-raised"
@@ -1062,9 +1061,10 @@ export function ManagerDashboard({
                               (e.currentTarget as HTMLDivElement).classList.remove('bg-brand/15', 'border-brand', 'scale-[1.01]');
                               const employeeId = e.dataTransfer.getData('employeeId');
                               if (employeeId) {
-                                setEmployees((prev) =>
-                                  prev.map((emp) => (emp.id === employeeId ? { ...emp, positionId: pos.id } : emp))
-                                );
+                                const employee = employees.find((e) => e.id === employeeId);
+                                if (employee) {
+                                  updateEmployee({ ...employee, positionId: pos.id }).catch(console.error);
+                                }
                               }
                             }}
                             className="card p-5 rounded-xl border-2 border-dashed border-surface-200 flex flex-col gap-4 hover:border-brand/30 transition-all duration-200"
@@ -1080,9 +1080,11 @@ export function ManagerDashboard({
                                 {assignedEmployees.length > 0 && (
                                   <button
                                     onClick={() =>
-                                      setEmployees((prev) =>
-                                        prev.map((e) => (e.positionId === pos.id ? { ...e, positionId: '' } : e))
-                                      )
+                                      employees
+                                        .filter((e) => e.positionId === pos.id)
+                                        .forEach((e) => {
+                                          updateEmployee({ ...e, positionId: '' }).catch(console.error);
+                                        })
                                     }
                                     className="p-2 text-text-quaternary hover:text-warn hover:bg-warn/10 rounded-lg transition-all"
                                     title="ล้างพนักงานทั้งหมดในตำแหน่งนี้"
@@ -1091,7 +1093,7 @@ export function ManagerDashboard({
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => setPositions(positions.filter((p) => p.id !== pos.id))}
+                                  onClick={() => deletePosition(pos.id).catch(console.error)}
                                   className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
