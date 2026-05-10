@@ -93,6 +93,8 @@ CREATE POLICY "Allow all" ON employees FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON shift_types FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON schedules FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON push_subscriptions FOR ALL USING (true) WITH CHECK (true);
+
 
 INSERT INTO settings (key, value) VALUES
   ('store_name', 'Central Plaza Rama 9'),
