@@ -1,8 +1,6 @@
-import { useState, useRef } from 'react';
-import {
-  ChevronLeft, ChevronRight, Plus, PlusCircle, Check,
-  AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell, Clock
+  AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell
 } from 'lucide-react';
+
 import { subscribeToNotifications } from '../../lib/push';
 
 import {
@@ -14,6 +12,8 @@ import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '
 
 
 interface ManagerDashboardProps {
+  currentUser: Employee;
+
   schedules: ScheduleEntry[];
   setSchedules: React.Dispatch<React.SetStateAction<ScheduleEntry[]>>;
   employees: Employee[];
@@ -36,7 +36,9 @@ interface ManagerDashboardProps {
 
 
 export function ManagerDashboard({
+  currentUser,
   schedules,
+
   setSchedules,
   employees,
   shiftTypes,

@@ -1,10 +1,14 @@
+/// <reference lib="webworker" />
+
 import { precacheAndRoute } from 'workbox-precaching';
 
-declare let self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope;
+
 
 precacheAndRoute(self.__WB_MANIFEST);
 
-self.addEventListener('push', (event) => {
+self.addEventListener('push', (event: PushEvent) => {
+
   const data = event.data ? event.data.json() : { title: 'Notification', body: 'You have a new update!' };
   
   const options = {
@@ -23,7 +27,8 @@ self.addEventListener('push', (event) => {
   );
 });
 
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+
   event.notification.close();
   event.waitUntil(
     self.clients.openWindow(event.notification.data)

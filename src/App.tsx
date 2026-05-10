@@ -260,18 +260,22 @@ function App() {
 
             settings={settings}
             updateSettings={updateSettings}
+            currentUser={currentUser!}
           />
+
 
         ) : (
           <EmployeeDashboard
-            currentUser={currentUser}
+            currentUser={currentUser!}
             schedules={schedules}
-            setSchedules={setSchedules}
+            updateSchedule={updateSchedule}
             shiftTypes={shiftTypes}
             employees={employees}
             positions={positions}
+            uploadFile={uploadFile}
           />
         )}
+
       </main>
 
       <MobileNav activeTab={activeMobileTab} onChangeTab={setActiveMobileTab} />
