@@ -120,29 +120,30 @@ export function EmployeeDashboard({
   };
 
 
-  const handleSwapShift = () => {
+  const handleSwapShift = async () => {
     if (!selectedDate || !targetSwapId) return;
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const targetEmp = employees.find((e) => e.id === targetSwapId);
+    const existing = userSchedules.find((s) => s.date === dateStr);
 
-    setSchedules((prev) =>
-      prev.map((s) => {
-        if (s.employeeId === currentUser.id && s.date === dateStr) {
-          return {
-            ...s,
-            status: 'pending',
-            swapWithId: targetSwapId,
-            employeeNote: `ขอสลับกะกับ ${targetEmp?.fullName}`,
-          };
-        }
-        return s;
-      })
-    );
+    if (!existing) return;
 
-    setSelectedDate(null);
-    setIsSwapping(false);
-    setTargetSwapId(null);
+    try {
+      await updateSchedule({
+        ...existing,
+        status: 'pending',
+        swapWithId: targetSwapId,
+        employeeNote: `ขอสลับกะกับ ${targetEmp?.fullName}`,
+      });
+      
+      setSelectedDate(null);
+      setIsSwapping(false);
+      setTargetSwapId(null);
+    } catch (err) {
+      alert('ไม่สามารถส่งคำขอสลับกะได้');
+    }
   };
+
 
   return (
     <div className="w-full space-y-5 sm:space-y-6">
