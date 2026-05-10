@@ -255,7 +255,10 @@ function App() {
             updateShiftType={updateShiftType}
             deleteShiftType={deleteShiftType}
             createPosition={createPosition}
+            updatePosition={updatePosition}
             deletePosition={deletePosition}
+            updateSchedule={updateSchedule}
+            deleteSchedule={deleteSchedule}
             currentMonth={currentMonth}
             setCurrentMonth={setCurrentMonth}
             generateSmartSchedule={generateSmartSchedule}

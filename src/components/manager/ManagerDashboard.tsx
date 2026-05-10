@@ -31,7 +31,10 @@ interface ManagerDashboardProps {
   deleteShiftType: (id: string) => Promise<void>;
   createPosition: (position: Omit<Position, 'id'>) => Promise<void>;
   deletePosition: (id: string) => Promise<void>;
+  updateSchedule: (entry: ScheduleEntry) => Promise<void>;
+  deleteSchedule: (id: string) => Promise<void>;
   currentMonth: Date;
+
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   generateSmartSchedule: () => void;
   settings: AppSettings;
@@ -55,7 +58,10 @@ export function ManagerDashboard({
   deleteShiftType,
   createPosition,
   deletePosition,
+  updateSchedule,
+  deleteSchedule,
   currentMonth,
+
   setCurrentMonth,
   generateSmartSchedule,
   settings,
@@ -102,36 +108,37 @@ export function ManagerDashboard({
     }
   };
 
-  const handleUpdateShiftStatus = (id: string, status: 'approved' | 'rejected') => {
-    setSchedules((prev) => {
-      const request = prev.find((s) => s.id === id);
-      if (status === 'approved' && request?.swapWithId) {
+  const handleUpdateShiftStatus = async (id: string, status: 'approved' | 'rejected') => {
+    const request = schedules.find((s) => s.id === id);
+    if (!request) return;
+
+    try {
+      if (status === 'approved' && request.swapWithId) {
         const requesterId = request.employeeId;
         const targetId = request.swapWithId;
         const date = request.date;
 
-        const requesterShift = prev.find((s) => s.employeeId === requesterId && s.date === date);
-        const targetShift = prev.find((s) => s.employeeId === targetId && s.date === date);
+        const requesterShift = schedules.find((s) => s.employeeId === requesterId && s.date === date);
+        const targetShift = schedules.find((s) => s.employeeId === targetId && s.date === date);
 
         if (requesterShift && targetShift) {
           const requesterShiftTypeId = requesterShift.shiftTypeId;
           const targetShiftTypeId = targetShift.shiftTypeId;
 
-          return prev.map((s) => {
-            if (s.employeeId === requesterId && s.date === date) {
-              return { ...s, shiftTypeId: targetShiftTypeId, status: 'approved' as const, swapWithId: undefined };
-            }
-            if (s.employeeId === targetId && s.date === date) {
-              return { ...s, shiftTypeId: requesterShiftTypeId, status: 'approved' as const };
-            }
-            return s;
-          });
+          // Update both shifts persistently
+          await Promise.all([
+            updateSchedule({ ...requesterShift, shiftTypeId: targetShiftTypeId, status: 'approved', swapWithId: undefined }),
+            updateSchedule({ ...targetShift, shiftTypeId: requesterShiftTypeId, status: 'approved' })
+          ]);
         }
+      } else {
+        await updateSchedule({ ...request, status });
       }
-
-      return prev.map((s) => (s.id === id ? { ...s, status } : s));
-    });
+    } catch (err: any) {
+      alert('ทำรายการไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    }
   };
+
 
   const handleOpenEditCell = (employeeId: string, date: string) => {
     const shift = schedules.find(
@@ -140,40 +147,45 @@ export function ManagerDashboard({
     setEditingCell({ employeeId, date, currentShiftId: shift?.shiftTypeId });
   };
 
-  const handleAssignShift = (shiftTypeId: string) => {
+  const handleAssignShift = async (shiftTypeId: string) => {
     if (!editingCell) return;
     const { employeeId, date } = editingCell;
-    setSchedules((prev) => {
-      const existing = prev.find((s) => s.employeeId === employeeId && s.date === date);
+    
+    try {
+      const existing = schedules.find((s) => s.employeeId === employeeId && s.date === date);
       if (existing) {
-        return prev.map((s) =>
-          s.employeeId === employeeId && s.date === date
-            ? { ...s, shiftTypeId, status: 'approved' as const }
-            : s
-        );
-      }
-      return [
-        ...prev,
-        {
+        await updateSchedule({ ...existing, shiftTypeId, status: 'approved' });
+      } else {
+        await updateSchedule({
           id: crypto.randomUUID(),
           employeeId,
           date,
           shiftTypeId,
-          status: 'approved' as const,
-        },
-      ];
-    });
-    setEditingCell(null);
+          status: 'approved',
+        });
+      }
+      setEditingCell(null);
+    } catch (err: any) {
+      alert('บันทึกไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    }
   };
 
-  const handleClearShift = () => {
+  const handleClearShift = async () => {
     if (!editingCell) return;
     const { employeeId, date } = editingCell;
-    setSchedules((prev) => prev.filter((s) => !(s.employeeId === employeeId && s.date === date)));
-    setEditingCell(null);
+    try {
+      const existing = schedules.find((s) => s.employeeId === employeeId && s.date === date);
+      if (existing) {
+        await deleteSchedule(existing.id);
+      }
+      setEditingCell(null);
+    } catch (err: any) {
+      alert('ลบไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    }
   };
 
-  const handleDropShift = (
+
+  const handleDropShift = async (
     e: React.DragEvent<HTMLTableCellElement>,
     targetEmployeeId: string,
     targetDate: string
@@ -185,44 +197,33 @@ export function ManagerDashboard({
 
     if (sourceEmployeeId === targetEmployeeId && sourceDate === targetDate) return;
 
-    setSchedules((prev) => {
-      const sourceShift = prev.find(
+    try {
+      const sourceShift = schedules.find(
         (s) => s.employeeId === sourceEmployeeId && s.date === sourceDate && s.status === 'approved'
       );
-      const targetShift = prev.find(
+      const targetShift = schedules.find(
         (s) => s.employeeId === targetEmployeeId && s.date === targetDate && s.status === 'approved'
       );
 
-      if (!sourceShift) return prev;
-
-      let next = [...prev];
+      if (!sourceShift) return;
 
       if (targetShift) {
         // swap shift types between two employees
         const sourceShiftTypeId = sourceShift.shiftTypeId;
         const targetShiftTypeId = targetShift.shiftTypeId;
-        next = next.map((s) => {
-          if (s.employeeId === sourceEmployeeId && s.date === sourceDate) {
-            return { ...s, shiftTypeId: targetShiftTypeId };
-          }
-          if (s.employeeId === targetEmployeeId && s.date === targetDate) {
-            return { ...s, shiftTypeId: sourceShiftTypeId };
-          }
-          return s;
-        });
+        await Promise.all([
+          updateSchedule({ ...sourceShift, shiftTypeId: targetShiftTypeId }),
+          updateSchedule({ ...targetShift, shiftTypeId: sourceShiftTypeId })
+        ]);
       } else {
-        // move shift from source to target (source becomes empty)
-        next = next.map((s) => {
-          if (s.employeeId === sourceEmployeeId && s.date === sourceDate) {
-            return { ...s, employeeId: targetEmployeeId };
-          }
-          return s;
-        });
+        // move shift from source to target
+        await updateSchedule({ ...sourceShift, employeeId: targetEmployeeId });
       }
-
-      return next;
-    });
+    } catch (err: any) {
+      alert('ย้ายกะไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    }
   };
+
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
