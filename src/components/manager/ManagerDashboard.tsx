@@ -515,7 +515,7 @@ export function ManagerDashboard({
               className="overflow-x-auto custom-scrollbar bg-bg-panel rounded-xl border border-success/20"
             >
               <div className="flex min-w-max">
-                <div className="sticky left-0 z-10 bg-bg-surface p-3 sm:p-4 min-w-[120px] sm:min-w-[180px] border-r border-surface-200 flex flex-col justify-center">
+                <div className="sticky left-0 z-10 bg-bg-surface p-3 sm:p-4 min-w-[140px] sm:min-w-[200px] border-r border-surface-200 flex flex-col justify-center">
                   <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider leading-none">
                     สถานะความครบ
                   </span>
@@ -529,12 +529,16 @@ export function ManagerDashboard({
                   return (
                     <div
                       key={day.toString()}
-                      className="p-2 sm:p-3 min-w-[72px] sm:min-w-[100px] border-r border-success/20 last:border-r-0 flex flex-col gap-1.5"
+                      className="p-2 sm:p-3 min-w-[48px] sm:min-w-[56px] border-r border-success/20 last:border-r-0 flex flex-col gap-1.5"
                     >
                       {shiftTypes
                         .filter((t) => t.targetStaff && t.targetStaff > 0)
                         .map((type) => {
-                          const count = dailySchedules.filter((s) => s.shiftTypeId === type.id).length;
+                          const count = new Set(
+                            dailySchedules
+                              .filter((s) => s.shiftTypeId === type.id)
+                              .map((s) => s.employeeId)
+                          ).size;
                           const target = type.targetStaff || 0;
                           const isShort = count < target;
                           const isOver = count > target;
