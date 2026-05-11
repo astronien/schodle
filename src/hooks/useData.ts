@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../types';
 
-
 export function useData() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -110,6 +109,48 @@ export function useData() {
 
   useEffect(() => {
     fetchAll();
+  }, [fetchAll]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime:schedules')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'schedules' },
+        () => {
+          fetchAll(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAll]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      fetchAll(true);
+    }, 15000);
+
+    const onFocus = () => {
+      fetchAll(true);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAll(true);
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [fetchAll]);
 
   const sendPush = useCallback(async (employeeId: string, title: string, body: string, url?: string) => {
