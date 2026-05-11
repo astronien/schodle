@@ -529,10 +529,10 @@ export function EmployeeDashboard({
             onClick={() => setSelectedDate(null)}
           ></div>
 
-          <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+          <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08] flex flex-col max-h-[85vh]">
             <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
 
-            <div className="p-5 sm:p-5">
+            <div className="p-5 sm:p-5 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h3 className="text-lg font-medium text-text-primary">เลือกกะงาน</h3>
@@ -562,254 +562,256 @@ export function EmployeeDashboard({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-2 max-h-[45vh] overflow-y-auto custom-scrollbar pr-1">
-                {shiftTypes
-                  .filter((t) => t.isVisible || t.id === 'xc')
-                  .map((type) => {
-                    const isSelected =
-                      selectedShiftId === type.id ||
-                      (!selectedShiftId && getDaySchedule(selectedDate)?.shiftTypeId === type.id);
-                    const count = schedules.filter(
-                      (s) =>
-                        isSameDay(new Date(s.date), selectedDate) &&
-                        s.shiftTypeId === type.id &&
-                        s.status !== 'rejected'
-                    ).length;
-                    const isFull = count >= 3 && type.id !== 'xc';
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1 pb-4">
+                <div className="grid grid-cols-1 gap-2">
+                  {shiftTypes
+                    .filter((t) => t.isVisible || t.id === 'xc')
+                    .map((type) => {
+                      const isSelected =
+                        selectedShiftId === type.id ||
+                        (!selectedShiftId && getDaySchedule(selectedDate)?.shiftTypeId === type.id);
+                      const count = schedules.filter(
+                        (s) =>
+                          isSameDay(new Date(s.date), selectedDate) &&
+                          s.shiftTypeId === type.id &&
+                          s.status !== 'rejected'
+                      ).length;
+                      const isFull = count >= 3 && type.id !== 'xc';
 
-                    return (
-                      <button
-                        key={type.id}
-                        disabled={isFull}
-                        onClick={() => {
-                          setSelectedShiftId(type.id);
-                          setValidationError(null);
-                        }}
-                        className={cn(
-                          'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
-                          isSelected
-                            ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
-                            : isFull
-                            ? 'border-white/[0.05] bg-white/[0.02] opacity-50 cursor-not-allowed'
-                            : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              'w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium text-white',
-                              isFull && 'grayscale'
-                            )}
-                            style={{ backgroundColor: type.color }}
-                          >
-                            {type.code}
-                          </div>
-                          <div className="text-left">
-                            <p className={cn('font-medium text-sm', isFull ? 'text-text-quaternary' : 'text-text-primary')}>
-                              {type.name}
-                            </p>
-                            <p className="text-xs text-text-tertiary font-medium">
-                              {type.startTime} - {type.endTime}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {type.id !== 'xc' && (
-                            <span
+                      return (
+                        <button
+                          key={type.id}
+                          disabled={isFull}
+                          onClick={() => {
+                            setSelectedShiftId(type.id);
+                            setValidationError(null);
+                          }}
+                          className={cn(
+                            'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
+                            isSelected
+                              ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
+                              : isFull
+                              ? 'border-white/[0.05] bg-white/[0.02] opacity-50 cursor-not-allowed'
+                              : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
                               className={cn(
-                                'text-[10px] font-medium px-2 py-1 rounded-md',
-                                isFull
-                                  ? 'bg-danger/10 text-danger'
-                                  : 'bg-white/[0.05] text-text-quaternary'
+                                'w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium text-white',
+                                isFull && 'grayscale'
+                              )}
+                              style={{ backgroundColor: type.color }}
+                            >
+                              {type.code}
+                            </div>
+                            <div className="text-left">
+                              <p className={cn('font-medium text-sm', isFull ? 'text-text-quaternary' : 'text-text-primary')}>
+                                {type.name}
+                              </p>
+                              <p className="text-xs text-text-tertiary font-medium">
+                                {type.startTime} - {type.endTime}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {type.id !== 'xc' && (
+                              <span
+                                className={cn(
+                                  'text-[10px] font-medium px-2 py-1 rounded-md',
+                                  isFull
+                                    ? 'bg-danger/10 text-danger'
+                                    : 'bg-white/[0.05] text-text-quaternary'
+                                )}
+                              >
+                                {isFull ? 'เต็ม' : `${count}/3`}
+                              </span>
+                            )}
+                            {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {/* Swap Shift Feature */}
+                {getDaySchedule(selectedDate) && !isSwapping && (
+                  <button
+                    onClick={() => setIsSwapping(true)}
+                    className="mt-3 w-full p-3.5 bg-brand/10 border border-brand/20 rounded-lg flex items-center justify-between group hover:bg-brand/15 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-brand text-white rounded-md group-hover:scale-110 transition-transform">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-medium text-text-primary uppercase tracking-wide">ขอสลับกะงาน</p>
+                        <p className="text-[10px] text-brand-accent font-medium">แลกกะกับเพื่อนร่วมงานในวันนี้</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-brand-muted" />
+                  </button>
+                )}
+
+                {isSwapping && (
+                  <div className="mt-3 p-4 bg-brand/10 rounded-lg border border-brand/20 animate-fade-in">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium text-text-primary uppercase tracking-wide">
+                        เลือกเพื่อนที่จะสลับกะด้วย
+                      </span>
+                      <button
+                        onClick={() => setIsSwapping(false)}
+                        className="text-xs font-medium text-text-quaternary hover:text-text-primary"
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                      {employees
+                        .filter((e) => e.id !== currentUser.id)
+                        .map((emp) => {
+                          const empShift = schedules.find(
+                            (s) => s.employeeId === emp.id && s.date === format(selectedDate, 'yyyy-MM-dd')
+                          );
+                          if (!empShift) return null;
+                          const empShiftType = shiftTypes.find((t) => t.id === empShift.shiftTypeId);
+
+                          return (
+                            <button
+                              key={emp.id}
+                              onClick={() => setTargetSwapId(emp.id)}
+                              className={cn(
+                                'w-full p-3 rounded-md border flex items-center justify-between transition-all',
+                                targetSwapId === emp.id
+                                  ? 'bg-bg-surface border-brand shadow-raised'
+                                  : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.12]'
                               )}
                             >
-                              {isFull ? 'เต็ม' : `${count}/3`}
-                            </span>
-                          )}
-                          {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}
-                        </div>
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-md overflow-hidden bg-bg-elevated">
+                                  <img
+                                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
+                                    alt=""
+                                    className="w-full h-full"
+                                  />
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-xs font-medium text-text-primary">{emp.fullName}</p>
+                                  <p className="text-[10px] font-medium text-text-quaternary">
+                                    {empShiftType?.name} ({empShiftType?.startTime})
+                                  </p>
+                                </div>
+                              </div>
+                              {targetSwapId === emp.id && <Check className="w-4 h-4 text-brand-accent" />}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    {targetSwapId && (
+                      <button
+                        onClick={handleSwapShift}
+                        className="mt-3 w-full py-3 bg-brand text-white rounded-lg text-sm font-medium shadow-raised hover:bg-brand-hover transition-colors"
+                      >
+                        ยืนยันการขอสลับกะ
                       </button>
-                    );
-                  })}
-              </div>
-
-              {/* Swap Shift Feature */}
-              {getDaySchedule(selectedDate) && !isSwapping && (
-                <button
-                  onClick={() => setIsSwapping(true)}
-                  className="mt-3 w-full p-3.5 bg-brand/10 border border-brand/20 rounded-lg flex items-center justify-between group hover:bg-brand/15 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-brand text-white rounded-md group-hover:scale-110 transition-transform">
-                      <Users className="w-4 h-4" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-xs font-medium text-text-primary uppercase tracking-wide">ขอสลับกะงาน</p>
-                      <p className="text-[10px] text-brand-accent font-medium">แลกกะกับเพื่อนร่วมงานในวันนี้</p>
-                    </div>
+                    )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-brand-muted" />
-                </button>
-              )}
+                )}
 
-              {isSwapping && (
-                <div className="mt-3 p-4 bg-brand/10 rounded-lg border border-brand/20 animate-fade-in">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-medium text-text-primary uppercase tracking-wide">
-                      เลือกเพื่อนที่จะสลับกะด้วย
-                    </span>
-                    <button
-                      onClick={() => setIsSwapping(false)}
-                      className="text-xs font-medium text-text-quaternary hover:text-text-primary"
-                    >
-                      ยกเลิก
-                    </button>
-                  </div>
-                  <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                    {employees
-                      .filter((e) => e.id !== currentUser.id)
-                      .map((emp) => {
-                        const empShift = schedules.find(
-                          (s) => s.employeeId === emp.id && s.date === format(selectedDate, 'yyyy-MM-dd')
-                        );
-                        if (!empShift) return null;
-                        const empShiftType = shiftTypes.find((t) => t.id === empShift.shiftTypeId);
-
-                        return (
-                          <button
-                            key={emp.id}
-                            onClick={() => setTargetSwapId(emp.id)}
-                            className={cn(
-                              'w-full p-3 rounded-md border flex items-center justify-between transition-all',
-                              targetSwapId === emp.id
-                                ? 'bg-bg-surface border-brand shadow-raised'
-                                : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.12]'
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-md overflow-hidden bg-bg-elevated">
-                                <img
-                                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
-                                  alt=""
-                                  className="w-full h-full"
-                                />
-                              </div>
-                              <div className="text-left">
-                                <p className="text-xs font-medium text-text-primary">{emp.fullName}</p>
-                                <p className="text-[10px] font-medium text-text-quaternary">
-                                  {empShiftType?.name} ({empShiftType?.startTime})
-                                </p>
-                              </div>
+                <div className="space-y-3 mt-5">
+                  {/* Dynamic Configuration UI */}
+                  {shiftType && (
+                    <>
+                      {shiftType.requiresEvidence && (
+                        <div className="p-4 bg-brand/10 border border-dashed border-brand/20 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
+                          <input
+                            type="file"
+                            id="evidence"
+                            className="hidden"
+                            onChange={(e) => setAttachment(e.target.files ? e.target.files[0] : null)}
+                          />
+                          <label htmlFor="evidence" className="flex flex-col items-center cursor-pointer group">
+                            <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-white/[0.08]">
+                              <Plus className="w-5 h-5" />
                             </div>
-                            {targetSwapId === emp.id && <Check className="w-4 h-4 text-brand-accent" />}
-                          </button>
-                        );
-                      })}
-                  </div>
-                  {targetSwapId && (
+                            <span className="text-xs font-medium text-brand-accent uppercase tracking-wide">
+                              {attachment ? attachment.name : 'แนบหลักฐานรูปภาพ'}
+                            </span>
+                          </label>
+                        </div>
+                      )}
+
+                      {shiftType.requiresReason && (
+                        <div className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.05] animate-fade-in">
+                          <label className="block text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">
+                            ระบุเหตุผลความจำเป็น
+                          </label>
+                          <textarea
+                            value={requestReason}
+                            onChange={(e) => setRequestReason(e.target.value)}
+                            placeholder="กรุณาระบุรายละเอียดเพิ่มเติม..."
+                            className="input-field"
+                            rows={2}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Late Scan Toggle */}
+                  <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-lg border border-white/[0.05]">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          'p-2 rounded-md transition-colors',
+                          isLateScan ? 'bg-warn/15 text-warn' : 'bg-white/[0.05] text-text-quaternary'
+                        )}
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-text-primary">มาสาย / ลืมแสกนนิ้ว</p>
+                        <p className="text-[10px] text-text-tertiary">ต้องแนบหลักฐานเพื่อยืนยัน</p>
+                      </div>
+                    </div>
                     <button
-                      onClick={handleSwapShift}
-                      className="mt-3 w-full py-3 bg-brand text-white rounded-lg text-sm font-medium shadow-raised hover:bg-brand-hover transition-colors"
+                      onClick={() => setIsLateScan(!isLateScan)}
+                      className={cn(
+                        'w-11 h-6 rounded-full transition-colors relative',
+                        isLateScan ? 'bg-warn' : 'bg-white/[0.1]'
+                      )}
                     >
-                      ยืนยันการขอสลับกะ
+                      <div
+                        className={cn(
+                          'absolute top-1 w-4 h-4 bg-bg-surface rounded-full shadow-sm transition-all',
+                          isLateScan ? 'right-1' : 'left-1'
+                        )}
+                      ></div>
                     </button>
+                  </div>
+
+                  {isLateScan && !shiftType?.requiresEvidence && (
+                    <div className="p-4 bg-brand/10 border border-dashed border-brand/20 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
+                      <input
+                        type="file"
+                        id="evidence-late"
+                        className="hidden"
+                        onChange={(e) => setAttachment(e.target.files ? e.target.files[0] : null)}
+                      />
+                      <label htmlFor="evidence-late" className="flex flex-col items-center cursor-pointer group">
+                        <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-white/[0.08]">
+                          <Plus className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs font-medium text-brand-accent uppercase tracking-wide">
+                          {attachment ? attachment.name : 'แนบหลักฐาน (มาสาย)'}
+                        </span>
+                      </label>
+                    </div>
                   )}
                 </div>
-              )}
-
-              <div className="space-y-3 mt-5">
-                {/* Dynamic Configuration UI */}
-                {shiftType && (
-                  <>
-                    {shiftType.requiresEvidence && (
-                      <div className="p-4 bg-brand/10 border border-dashed border-brand/20 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
-                        <input
-                          type="file"
-                          id="evidence"
-                          className="hidden"
-                          onChange={(e) => setAttachment(e.target.files ? e.target.files[0] : null)}
-                        />
-                        <label htmlFor="evidence" className="flex flex-col items-center cursor-pointer group">
-                          <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-white/[0.08]">
-                            <Plus className="w-5 h-5" />
-                          </div>
-                          <span className="text-xs font-medium text-brand-accent uppercase tracking-wide">
-                            {attachment ? attachment.name : 'แนบหลักฐานรูปภาพ'}
-                          </span>
-                        </label>
-                      </div>
-                    )}
-
-                    {shiftType.requiresReason && (
-                      <div className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.05] animate-fade-in">
-                        <label className="block text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">
-                          ระบุเหตุผลความจำเป็น
-                        </label>
-                        <textarea
-                          value={requestReason}
-                          onChange={(e) => setRequestReason(e.target.value)}
-                          placeholder="กรุณาระบุรายละเอียดเพิ่มเติม..."
-                          className="input-field"
-                          rows={2}
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Late Scan Toggle */}
-                <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-lg border border-white/[0.05]">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        'p-2 rounded-md transition-colors',
-                        isLateScan ? 'bg-warn/15 text-warn' : 'bg-white/[0.05] text-text-quaternary'
-                      )}
-                    >
-                      <AlertCircle className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-text-primary">มาสาย / ลืมแสกนนิ้ว</p>
-                      <p className="text-[10px] text-text-tertiary">ต้องแนบหลักฐานเพื่อยืนยัน</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setIsLateScan(!isLateScan)}
-                    className={cn(
-                      'w-11 h-6 rounded-full transition-colors relative',
-                      isLateScan ? 'bg-warn' : 'bg-white/[0.1]'
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'absolute top-1 w-4 h-4 bg-bg-surface rounded-full shadow-sm transition-all',
-                        isLateScan ? 'right-1' : 'left-1'
-                      )}
-                    ></div>
-                  </button>
-                </div>
-
-                {isLateScan && !shiftType?.requiresEvidence && (
-                  <div className="p-4 bg-brand/10 border border-dashed border-brand/20 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
-                    <input
-                      type="file"
-                      id="evidence-late"
-                      className="hidden"
-                      onChange={(e) => setAttachment(e.target.files ? e.target.files[0] : null)}
-                    />
-                    <label htmlFor="evidence-late" className="flex flex-col items-center cursor-pointer group">
-                      <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-white/[0.08]">
-                        <Plus className="w-5 h-5" />
-                      </div>
-                      <span className="text-xs font-medium text-brand-accent uppercase tracking-wide">
-                        {attachment ? attachment.name : 'แนบหลักฐาน (มาสาย)'}
-                      </span>
-                    </label>
-                  </div>
-                )}
               </div>
 
-              <div className="mt-6 flex gap-3">
+              <div className="mt-4 pt-4 border-t border-white/[0.05] flex gap-3 shrink-0 pb-[env(safe-area-inset-bottom)]">
                 <button
                   onClick={() => handleSetShift(null)}
                   className="btn btn-ghost px-5 py-3.5 rounded-lg font-medium"
