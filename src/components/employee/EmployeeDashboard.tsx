@@ -19,7 +19,8 @@ interface EmployeeDashboardProps {
   shiftTypes: ShiftType[];
   employees: Employee[];
   positions: Position[];
-  updateSchedule: (entry: ScheduleEntry) => Promise<void>;
+  updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
+
   uploadFile: (file: File) => Promise<string>;
 }
 

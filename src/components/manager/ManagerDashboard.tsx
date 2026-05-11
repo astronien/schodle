@@ -33,7 +33,8 @@ interface ManagerDashboardProps {
   updatePosition: (position: Position) => Promise<void>;
   deletePosition: (id: string) => Promise<void>;
 
-  updateSchedule: (entry: ScheduleEntry) => Promise<void>;
+  updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
+
   deleteSchedule: (id: string) => Promise<void>;
   currentMonth: Date;
 
