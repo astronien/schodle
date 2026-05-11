@@ -276,14 +276,45 @@ export function useData() {
     await fetchAll();
   }, [fetchAll]);
 
+  const compressImage = (file: File, maxDim = 1200, quality = 0.7): Promise<File> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) { resolve(file); return; }
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const uploadFile = useCallback(async (file: File) => {
-    const fileExt = file.name.split('.').pop();
+    const compressed = await compressImage(file);
+    const fileExt = compressed.name.split('.').pop();
     const fileName = `${crypto.randomUUID()}.${fileExt}`;
     const filePath = `evidence/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('attachments')
-      .upload(filePath, file);
+      .upload(filePath, compressed);
 
     if (uploadError) {
       console.error('[uploadFile] Error:', uploadError);

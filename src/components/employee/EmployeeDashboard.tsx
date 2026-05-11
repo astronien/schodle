@@ -130,8 +130,14 @@ export function EmployeeDashboard({
       setIsLateScan(false);
       setIsSwapping(false);
       setTargetSwapId(null);
-    } catch (err) {
-      alert('บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    } catch (err: any) {
+      console.error('[handleSetShift] Failed:', err);
+      const msg =
+        err?.message ||
+        err?.error_description ||
+        (typeof err === 'string' ? err : null) ||
+        'บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+      alert(msg);
     } finally {
       setIsUpdating(false);
     }

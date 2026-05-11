@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell,
-  ChevronLeft, ChevronRight, Plus, PlusCircle, Check
+  ChevronLeft, ChevronRight, Plus, PlusCircle, Check, Image
 } from 'lucide-react';
 
 
@@ -757,6 +757,30 @@ export function ManagerDashboard({
                           <p className="text-sm font-semibold text-warn leading-relaxed">
                             &ldquo;{request.employeeNote}&rdquo;
                           </p>
+                        </div>
+                      )}
+
+                      {request.evidenceUrl && (
+                        <div className="p-3 bg-brand/10 rounded-lg border border-brand/20">
+                          <span className="text-[10px] font-bold text-brand uppercase tracking-wide block mb-2">
+                            หลักฐานแนบ
+                          </span>
+                          <a
+                            href={request.evidenceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-lg overflow-hidden border border-white/[0.08] hover:border-brand/40 transition-colors"
+                          >
+                            <img
+                              src={request.evidenceUrl}
+                              alt="หลักฐาน"
+                              className="w-full h-32 object-cover"
+                            />
+                            <div className="flex items-center justify-center gap-1.5 py-1.5 bg-white/[0.03] text-brand-accent text-[10px] font-semibold uppercase tracking-wide">
+                              <Image className="w-3.5 h-3.5" />
+                              ดูรูปเต็มขนาด
+                            </div>
+                          </a>
                         </div>
                       )}
                     </div>
