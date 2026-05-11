@@ -582,12 +582,8 @@ export function EmployeeDashboard({
                         key={type.id}
                         disabled={isFull}
                         onClick={() => {
-                          if (type.id === 'xc') {
-                            setSelectedShiftId('xc');
-                            setValidationError(null);
-                          } else {
-                            handleSetShift(type.id);
-                          }
+                          setSelectedShiftId(type.id);
+                          setValidationError(null);
                         }}
                         className={cn(
                           'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',

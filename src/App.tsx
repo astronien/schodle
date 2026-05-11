@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 import { Clock, Settings } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInCalendarWeeks } from 'date-fns';
 import type { ScheduleEntry, UserRole, Employee } from './types/index';
 import { useData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
@@ -83,6 +83,11 @@ function App() {
       end: endOfMonth(currentMonth),
     });
 
+    const monthStart = startOfMonth(currentMonth);
+    const employeeOrder = [...employees]
+      .slice()
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
     const newEntries: ScheduleEntry[] = [];
 
     const lateShifts = ['XC', 'EV', 'A2'];
@@ -92,6 +97,13 @@ function App() {
       const dateStr = format(day, 'yyyy-MM-dd');
       const assignedThisDay = new Set<string>();
       const shuffledEmployees = [...employees].sort(() => Math.random() - 0.5);
+
+      const weekIndex = differenceInCalendarWeeks(day, monthStart, { weekStartsOn: 1 });
+      const getWeeklyPreferred = (employeeId: string): 'morning' | 'afternoon' => {
+        const idx = employeeOrder.findIndex((e) => e.id === employeeId);
+        const base: 'morning' | 'afternoon' = idx % 2 === 0 ? 'morning' : 'afternoon';
+        return weekIndex % 2 === 0 ? base : base === 'morning' ? 'afternoon' : 'morning';
+      };
 
       const targetShiftTypes = shiftTypes.filter((t) => (t.targetStaff || 0) > 0);
       const remainingByType = new Map<string, number>(
@@ -153,25 +165,43 @@ function App() {
         const shiftType = candidateTypes[0];
         if (!shiftType) break;
 
+        const shiftCategory = (shiftType.category || 'other') as 'morning' | 'afternoon' | 'other';
+
         let assigned = false;
-        for (const employee of shuffledEmployees) {
-          if (!canAssignEmployeeToShift(employee.id, shiftType.id)) continue;
+        const tryAssignFrom = (candidates: Employee[]) => {
+          for (const employee of candidates) {
+            if (!canAssignEmployeeToShift(employee.id, shiftType.id)) continue;
 
-          newEntries.push({
-            id: crypto.randomUUID(),
-            employeeId: employee.id,
-            shiftTypeId: shiftType.id,
-            date: dateStr,
-            status: 'approved',
-          });
-          assignedThisDay.add(employee.id);
-          remainingByType.set(shiftType.id, (remainingByType.get(shiftType.id) || 0) - 1);
+            newEntries.push({
+              id: crypto.randomUUID(),
+              employeeId: employee.id,
+              shiftTypeId: shiftType.id,
+              date: dateStr,
+              status: 'approved',
+            });
+            assignedThisDay.add(employee.id);
+            remainingByType.set(shiftType.id, (remainingByType.get(shiftType.id) || 0) - 1);
 
-          if (shiftType.category === 'morning') assignedMorningSlots++;
-          if (shiftType.category === 'afternoon') assignedAfternoonSlots++;
+            if (shiftType.category === 'morning') assignedMorningSlots++;
+            if (shiftType.category === 'afternoon') assignedAfternoonSlots++;
 
-          assigned = true;
-          break;
+            assigned = true;
+            return;
+          }
+        };
+
+        if (shiftCategory === 'morning' || shiftCategory === 'afternoon') {
+          const preferred = shuffledEmployees.filter(
+            (e) => getWeeklyPreferred(e.id) === shiftCategory
+          );
+          const nonPreferred = shuffledEmployees.filter(
+            (e) => getWeeklyPreferred(e.id) !== shiftCategory
+          );
+
+          tryAssignFrom(preferred);
+          if (!assigned) tryAssignFrom(nonPreferred);
+        } else {
+          tryAssignFrom(shuffledEmployees);
         }
 
         if (!assigned) {
