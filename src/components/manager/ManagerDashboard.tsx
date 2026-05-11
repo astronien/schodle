@@ -99,18 +99,8 @@ export function ManagerDashboard({
 
 
   const tableScrollRef = useRef<HTMLDivElement>(null);
-  const summaryScrollRef = useRef<HTMLDivElement>(null);
 
-  const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (summaryScrollRef.current) {
-      summaryScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
-    }
-  };
-
-  const handleSummaryScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (tableScrollRef.current) {
-      tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
-    }
+  const handleTableScroll = () => {
   };
 
   const handleUpdateShiftStatus = async (id: string, status: 'approved' | 'rejected') => {
@@ -372,6 +362,9 @@ export function ManagerDashboard({
                       <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wide">
                         {type.code}
                       </span>
+                      <span className="text-[10px] font-semibold text-text-quaternary">
+                        {type.startTime} - {type.endTime}
+                      </span>
                     </div>
                   ))}
               </div>
@@ -386,7 +379,7 @@ export function ManagerDashboard({
             <table className="w-full border-separate border-spacing-0">
               <thead>
                 <tr>
-                  <th className="sticky top-0 left-0 z-30 bg-bg-panel p-3 sm:p-4 text-left border-b border-success/20 min-w-[140px] sm:min-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
+                  <th className="sticky top-0 left-0 z-30 bg-bg-panel p-3 sm:p-4 text-left border-b border-success/20 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <span className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">พนักงาน</span>
                   </th>
                   {daysInMonth.map((day) => (
@@ -434,7 +427,7 @@ export function ManagerDashboard({
               <tbody>
                 {employees.map((employee) => (
                   <tr key={employee.id} className="group hover:bg-bg-panel/50 transition-colors">
-                    <td className="sticky left-0 z-10 bg-bg-surface group-hover:bg-bg-panel p-3 sm:p-4 border-b border-white/[0.03] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
+                    <td className="sticky left-0 z-10 bg-bg-surface group-hover:bg-bg-panel p-3 sm:p-4 border-b border-white/[0.03] w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden bg-bg-surface border border-surface-200 shrink-0">
                           <img
@@ -497,85 +490,89 @@ export function ManagerDashboard({
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
 
-          {/* Summary Section */}
-          <div className="p-4 sm:p-6 border-t border-success/20 shrink-0">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-1.5 h-5 bg-brand rounded-full"></div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-                สรุปจำนวนคนรายกะ
-              </h3>
-            </div>
+              <tfoot>
+                <tr>
+                  <td className="sticky left-0 z-20 bg-bg-panel p-3 sm:p-4 text-left border-t border-success/20 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)] align-top">
+                    <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider leading-none">
+                      สรุปจำนวนคนรายกะ
+                    </span>
+                    <div className="text-[9px] font-semibold text-text-quaternary mt-1">จริง / เป้า</div>
+                  </td>
 
-            <div
-              ref={summaryScrollRef}
-              onScroll={handleSummaryScroll}
-              className="overflow-x-auto custom-scrollbar bg-bg-panel rounded-xl border border-success/20"
-            >
-              <table className="w-full border-separate border-spacing-0">
-                <tbody>
-                  <tr>
-                    <td className="sticky left-0 z-10 bg-bg-surface p-3 sm:p-4 text-left border-r border-surface-200 min-w-[140px] sm:min-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
-                      <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider leading-none">
-                        สถานะความครบ
-                      </span>
-                      <div className="text-[9px] font-semibold text-text-quaternary mt-1">จริง / เป้า</div>
-                    </td>
+                  {daysInMonth.map((day) => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    const dailySchedules = schedules.filter((s) => s.date === dateStr && s.status === 'approved');
+                    const totalCount = new Set(dailySchedules.map((s) => s.employeeId)).size;
+                    const morningCount = new Set(
+                      dailySchedules
+                        .filter((s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.category === 'morning')
+                        .map((s) => s.employeeId)
+                    ).size;
+                    const afternoonCount = new Set(
+                      dailySchedules
+                        .filter((s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.category === 'afternoon')
+                        .map((s) => s.employeeId)
+                    ).size;
+                    const isImbalanced = Math.abs(morningCount - afternoonCount) > 1;
 
-                    {daysInMonth.map((day) => {
-                      const dateStr = format(day, 'yyyy-MM-dd');
-                      const dailySchedules = schedules.filter((s) => s.date === dateStr && s.status === 'approved');
-
-                      return (
-                        <td
-                          key={day.toString()}
-                          className="p-2 sm:p-3 text-center border-r border-success/20 last:border-r-0 min-w-[48px] sm:min-w-[56px] align-top"
-                        >
-                          <div className="flex flex-col gap-1.5">
-                            {shiftTypes
-                              .filter((t) => t.targetStaff && t.targetStaff > 0)
-                              .map((type) => {
-                                const count = new Set(
-                                  dailySchedules
-                                    .filter((s) => s.shiftTypeId === type.id)
-                                    .map((s) => s.employeeId)
-                                ).size;
-                                const target = type.targetStaff || 0;
-                                const isShort = count < target;
-                                const isOver = count > target;
-
-                                return (
-                                  <div
-                                    key={type.id}
-                                    className="flex items-center justify-between px-2.5 py-1 bg-bg-surface rounded-lg border border-success/20 shadow-xs"
-                                  >
-                                    <span className="text-[9px] font-bold" style={{ color: type.color }}>
-                                      {type.code}
-                                    </span>
-                                    <div className="flex items-center gap-1">
-                                      <span
-                                        className={cn(
-                                          'text-[10px] font-bold',
-                                          isShort ? 'text-danger' : isOver ? 'text-warn' : 'text-success'
-                                        )}
-                                      >
-                                        {count}/{target}
-                                      </span>
-                                      {isShort && <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></div>}
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                    return (
+                      <td
+                        key={day.toString()}
+                        className="p-2 sm:p-3 text-center border-t border-success/20 min-w-[48px] sm:min-w-[56px] align-top"
+                      >
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="text-[10px] font-bold text-text-tertiary">
+                              รวม {totalCount}
+                            </div>
+                            {isImbalanced && (
+                              <div className="text-[9px] font-bold text-danger bg-danger/10 px-1.5 py-0.5 rounded border border-danger/20">
+                                เช้า {morningCount} / บ่าย {afternoonCount}
+                              </div>
+                            )}
                           </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                          {shiftTypes
+                            .filter((t) => t.targetStaff && t.targetStaff > 0)
+                            .map((type) => {
+                              const count = new Set(
+                                dailySchedules
+                                  .filter((s) => s.shiftTypeId === type.id)
+                                  .map((s) => s.employeeId)
+                              ).size;
+                              const target = type.targetStaff || 0;
+                              const isShort = count < target;
+                              const isOver = count > target;
+
+                              return (
+                                <div
+                                  key={type.id}
+                                  className="flex items-center justify-between px-2.5 py-1 bg-bg-surface rounded-lg border border-success/20 shadow-xs"
+                                >
+                                  <span className="text-[9px] font-bold" style={{ color: type.color }}>
+                                    {type.code}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <span
+                                      className={cn(
+                                        'text-[10px] font-bold',
+                                        isShort ? 'text-danger' : isOver ? 'text-warn' : 'text-success'
+                                      )}
+                                    >
+                                      {count}/{target}
+                                    </span>
+                                    {isShort && <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></div>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tfoot>
+            </table>
           </div>
 
           {/* Edit Shift Modal */}

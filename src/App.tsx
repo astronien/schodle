@@ -90,33 +90,72 @@ function App() {
 
     days.forEach((day, dayIdx) => {
       const dateStr = format(day, 'yyyy-MM-dd');
-      const assignedThisDay: string[] = [];
+      const assignedThisDay = new Set<string>();
       const shuffledEmployees = [...employees].sort(() => Math.random() - 0.5);
 
-      shiftTypes.forEach((shiftType) => {
-        if (!shiftType.targetStaff) return;
+      const targetShiftTypes = shiftTypes.filter((t) => (t.targetStaff || 0) > 0);
+      const remainingByType = new Map<string, number>(
+        targetShiftTypes.map((t) => [t.id, t.targetStaff || 0])
+      );
 
-        let count = 0;
-        for (const employee of shuffledEmployees) {
-          if (count >= shiftType.targetStaff) break;
-          if (assignedThisDay.includes(employee.id)) continue;
+      let assignedMorningSlots = 0;
+      let assignedAfternoonSlots = 0;
 
-          if (dayIdx > 0) {
-            const yesterdayDateStr = format(days[dayIdx - 1], 'yyyy-MM-dd');
-            const yesterdayShift = newEntries.find(
-              (s) => s.employeeId === employee.id && s.date === yesterdayDateStr
-            );
-            if (yesterdayShift) {
-              const yesterdayShiftType = shiftTypes.find((t) => t.id === yesterdayShift.shiftTypeId);
-              if (
-                yesterdayShiftType &&
-                lateShifts.includes(yesterdayShiftType.code) &&
-                earlyShifts.includes(shiftType.code)
-              ) {
-                continue;
-              }
-            }
+      const getRemainingSlots = (category: 'morning' | 'afternoon' | 'other') =>
+        targetShiftTypes
+          .filter((t) => (t.category || 'other') === category)
+          .reduce((sum, t) => sum + (remainingByType.get(t.id) || 0), 0);
+
+      const canAssignEmployeeToShift = (employeeId: string, shiftTypeId: string) => {
+        if (assignedThisDay.has(employeeId)) return false;
+        if (dayIdx <= 0) return true;
+
+        const yesterdayDateStr = format(days[dayIdx - 1], 'yyyy-MM-dd');
+        const yesterdayShift = newEntries.find(
+          (s) => s.employeeId === employeeId && s.date === yesterdayDateStr
+        );
+        if (!yesterdayShift) return true;
+
+        const yesterdayShiftType = shiftTypes.find((t) => t.id === yesterdayShift.shiftTypeId);
+        const nextShiftType = shiftTypes.find((t) => t.id === shiftTypeId);
+        if (!yesterdayShiftType || !nextShiftType) return true;
+
+        if (lateShifts.includes(yesterdayShiftType.code) && earlyShifts.includes(nextShiftType.code)) {
+          return false;
+        }
+
+        return true;
+      };
+
+      while (true) {
+        const remainingTotal = Array.from(remainingByType.values()).reduce((s, n) => s + n, 0);
+        if (remainingTotal <= 0) break;
+
+        const remainingMorning = getRemainingSlots('morning');
+        const remainingAfternoon = getRemainingSlots('afternoon');
+
+        let desiredCategory: 'morning' | 'afternoon' | 'other' = 'other';
+        if (remainingMorning > 0 || remainingAfternoon > 0) {
+          if (remainingMorning > 0 && remainingAfternoon > 0) {
+            if (assignedMorningSlots - assignedAfternoonSlots >= 1) desiredCategory = 'afternoon';
+            else if (assignedAfternoonSlots - assignedMorningSlots >= 1) desiredCategory = 'morning';
+            else desiredCategory = remainingMorning >= remainingAfternoon ? 'morning' : 'afternoon';
+          } else {
+            desiredCategory = remainingMorning > 0 ? 'morning' : 'afternoon';
           }
+        }
+
+        let candidateTypes = targetShiftTypes.filter((t) => (remainingByType.get(t.id) || 0) > 0);
+        const filteredByCategory = candidateTypes.filter((t) => (t.category || 'other') === desiredCategory);
+        if (filteredByCategory.length > 0) candidateTypes = filteredByCategory;
+
+        candidateTypes.sort((a, b) => (remainingByType.get(b.id) || 0) - (remainingByType.get(a.id) || 0));
+        const shiftType = candidateTypes[0];
+        if (!shiftType) break;
+
+        let assigned = false;
+        for (const employee of shuffledEmployees) {
+          if (!canAssignEmployeeToShift(employee.id, shiftType.id)) continue;
 
           newEntries.push({
             id: crypto.randomUUID(),
@@ -125,10 +164,21 @@ function App() {
             date: dateStr,
             status: 'approved',
           });
-          assignedThisDay.push(employee.id);
-          count++;
+          assignedThisDay.add(employee.id);
+          remainingByType.set(shiftType.id, (remainingByType.get(shiftType.id) || 0) - 1);
+
+          if (shiftType.category === 'morning') assignedMorningSlots++;
+          if (shiftType.category === 'afternoon') assignedAfternoonSlots++;
+
+          assigned = true;
+          break;
         }
-      });
+
+        if (!assigned) {
+          remainingByType.set(shiftType.id, 0);
+        }
+      }
+
     });
 
     for (const entry of newEntries) {
