@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../types';
@@ -15,6 +15,18 @@ export function useData() {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
+
+  const recentNotificationRef = useRef<Map<string, number>>(new Map());
+
+  const sendPush = useCallback(async (employeeId: string, title: string, body: string, url?: string) => {
+    try {
+      await supabase.functions.invoke('send-push', {
+        body: { employee_id: employeeId, title, body, url }
+      });
+    } catch (err) {
+      console.error('[sendPush] Notification failed:', err);
+    }
+  }, []);
 
   const fetchAll = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
@@ -112,12 +124,57 @@ export function useData() {
   }, [fetchAll]);
 
   useEffect(() => {
+    const pruneRecent = () => {
+      const now = Date.now();
+      for (const [k, ts] of recentNotificationRef.current.entries()) {
+        if (now - ts > 7000) recentNotificationRef.current.delete(k);
+      }
+    };
+
+    const shouldSkipByRecent = (key: string) => {
+      pruneRecent();
+      return recentNotificationRef.current.has(key);
+    };
+
+    const markRecent = (key: string) => {
+      pruneRecent();
+      recentNotificationRef.current.set(key, Date.now());
+    };
+
     const channel = supabase
       .channel('realtime:schedules')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'schedules' },
-        () => {
+        (payload) => {
+          const eventType = payload.eventType;
+          const record: any = payload.new || payload.old;
+          const employeeId: string | undefined = record?.employee_id;
+          const date: string | undefined = record?.date;
+          const status: string | undefined = record?.status;
+          const shiftTypeId: string | undefined = record?.shift_type_id;
+
+          if (employeeId && date) {
+            const key = `${eventType}:${employeeId}:${date}:${status || ''}:${shiftTypeId || ''}`;
+            if (!shouldSkipByRecent(key)) {
+              let title = 'อัปเดตตารางงาน';
+              let body = `ตารางงานวันที่ ${date} มีการเปลี่ยนแปลง`;
+
+              if (eventType === 'INSERT') {
+                body = `มีรายการตารางงานใหม่วันที่ ${date}`;
+              } else if (eventType === 'DELETE') {
+                body = `รายการตารางงานวันที่ ${date} ถูกลบ`;
+              } else if (status === 'approved') {
+                body = `กะงานวันที่ ${date} ได้รับการอนุมัติแล้ว`;
+              } else if (status === 'rejected') {
+                body = `กะงานวันที่ ${date} ไม่ได้รับการอนุมัติ`;
+              }
+
+              markRecent(key);
+              sendPush(employeeId, title, body, '/dashboard');
+            }
+          }
+
           fetchAll(true);
         }
       )
@@ -126,7 +183,7 @@ export function useData() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchAll]);
+  }, [fetchAll, sendPush]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -152,17 +209,6 @@ export function useData() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [fetchAll]);
-
-  const sendPush = useCallback(async (employeeId: string, title: string, body: string, url?: string) => {
-    try {
-      await supabase.functions.invoke('send-push', {
-        body: { employee_id: employeeId, title, body, url }
-      });
-    } catch (err) {
-      console.error('[sendPush] Notification failed:', err);
-    }
-  }, []);
-
 
   const updateSchedule = useCallback(async (entry: ScheduleEntry, forceNotify?: boolean) => {
     const { error } = await supabase.from('schedules').upsert({
@@ -197,6 +243,8 @@ export function useData() {
       }
 
       if (body) {
+        const key = `UPDATE:${entry.employeeId}:${entry.date}:${entry.status}:${entry.shiftTypeId}`;
+        recentNotificationRef.current.set(key, Date.now());
         sendPush(entry.employeeId, title, body, '/dashboard');
       }
     }
