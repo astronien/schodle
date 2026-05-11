@@ -514,61 +514,67 @@ export function ManagerDashboard({
               onScroll={handleSummaryScroll}
               className="overflow-x-auto custom-scrollbar bg-bg-panel rounded-xl border border-success/20"
             >
-              <div className="flex min-w-max">
-                <div className="sticky left-0 z-10 bg-bg-surface p-3 sm:p-4 min-w-[140px] sm:min-w-[200px] border-r border-surface-200 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider leading-none">
-                    สถานะความครบ
-                  </span>
-                  <span className="text-[9px] font-semibold text-text-quaternary mt-1">จริง / เป้า</span>
-                </div>
+              <table className="w-full border-separate border-spacing-0">
+                <tbody>
+                  <tr>
+                    <td className="sticky left-0 z-10 bg-bg-surface p-3 sm:p-4 text-left border-r border-surface-200 min-w-[140px] sm:min-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
+                      <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider leading-none">
+                        สถานะความครบ
+                      </span>
+                      <div className="text-[9px] font-semibold text-text-quaternary mt-1">จริง / เป้า</div>
+                    </td>
 
-                {daysInMonth.map((day) => {
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const dailySchedules = schedules.filter((s) => s.date === dateStr && s.status === 'approved');
+                    {daysInMonth.map((day) => {
+                      const dateStr = format(day, 'yyyy-MM-dd');
+                      const dailySchedules = schedules.filter((s) => s.date === dateStr && s.status === 'approved');
 
-                  return (
-                    <div
-                      key={day.toString()}
-                      className="p-2 sm:p-3 min-w-[48px] sm:min-w-[56px] border-r border-success/20 last:border-r-0 flex flex-col gap-1.5"
-                    >
-                      {shiftTypes
-                        .filter((t) => t.targetStaff && t.targetStaff > 0)
-                        .map((type) => {
-                          const count = new Set(
-                            dailySchedules
-                              .filter((s) => s.shiftTypeId === type.id)
-                              .map((s) => s.employeeId)
-                          ).size;
-                          const target = type.targetStaff || 0;
-                          const isShort = count < target;
-                          const isOver = count > target;
+                      return (
+                        <td
+                          key={day.toString()}
+                          className="p-2 sm:p-3 text-center border-r border-success/20 last:border-r-0 min-w-[48px] sm:min-w-[56px] align-top"
+                        >
+                          <div className="flex flex-col gap-1.5">
+                            {shiftTypes
+                              .filter((t) => t.targetStaff && t.targetStaff > 0)
+                              .map((type) => {
+                                const count = new Set(
+                                  dailySchedules
+                                    .filter((s) => s.shiftTypeId === type.id)
+                                    .map((s) => s.employeeId)
+                                ).size;
+                                const target = type.targetStaff || 0;
+                                const isShort = count < target;
+                                const isOver = count > target;
 
-                          return (
-                            <div
-                              key={type.id}
-                              className="flex items-center justify-between px-2.5 py-1 bg-bg-surface rounded-lg border border-success/20 shadow-xs"
-                            >
-                              <span className="text-[9px] font-bold" style={{ color: type.color }}>
-                                {type.code}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                <span
-                                  className={cn(
-                                    'text-[10px] font-bold',
-                                    isShort ? 'text-danger' : isOver ? 'text-warn' : 'text-success'
-                                  )}
-                                >
-                                  {count}/{target}
-                                </span>
-                                {isShort && <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></div>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  );
-                })}
-              </div>
+                                return (
+                                  <div
+                                    key={type.id}
+                                    className="flex items-center justify-between px-2.5 py-1 bg-bg-surface rounded-lg border border-success/20 shadow-xs"
+                                  >
+                                    <span className="text-[9px] font-bold" style={{ color: type.color }}>
+                                      {type.code}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <span
+                                        className={cn(
+                                          'text-[10px] font-bold',
+                                          isShort ? 'text-danger' : isOver ? 'text-warn' : 'text-success'
+                                        )}
+                                      >
+                                        {count}/{target}
+                                      </span>
+                                      {isShort && <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></div>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
