@@ -86,8 +86,25 @@ export function useData() {
         }))
       );
 
+      const schedRows: any[] = (schedRes.data || []) as any[];
+      const latestByEmployeeDate = new Map<string, any>();
+      for (const r of schedRows) {
+        const key = `${r.employee_id}::${r.date}`;
+        const prev = latestByEmployeeDate.get(key);
+        if (!prev) {
+          latestByEmployeeDate.set(key, r);
+          continue;
+        }
+
+        const prevTs = new Date(prev.updated_at || prev.created_at || 0).getTime();
+        const curTs = new Date(r.updated_at || r.created_at || 0).getTime();
+        if (curTs >= prevTs) {
+          latestByEmployeeDate.set(key, r);
+        }
+      }
+
       setSchedules(
-        (schedRes.data || []).map((s) => ({
+        Array.from(latestByEmployeeDate.values()).map((s) => ({
           id: s.id,
           employeeId: s.employee_id,
           date: s.date,
@@ -98,7 +115,6 @@ export function useData() {
           swapWithId: s.swap_with_id || undefined,
           evidenceUrl: s.evidence_url || undefined,
         }))
-
       );
 
       if (settingsRes.data) {
@@ -222,7 +238,7 @@ export function useData() {
       swap_with_id: entry.swapWithId || null,
       evidence_url: entry.evidenceUrl || null,
       updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: 'employee_id,date' });
 
     if (error) throw error;
 

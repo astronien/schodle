@@ -66,6 +66,8 @@ CREATE TABLE schedules (
   updated_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE schedules ADD CONSTRAINT schedules_employee_date_unique UNIQUE (employee_id, date);
+
 -- Settings
 CREATE TABLE settings (
   key text PRIMARY KEY,
