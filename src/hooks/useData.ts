@@ -600,7 +600,6 @@ export function useData() {
     createShiftType,
     updateShiftType,
     deleteShiftType,
-    settings,
     updateSettings,
     uploadFile,
   };

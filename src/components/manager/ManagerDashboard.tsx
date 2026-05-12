@@ -115,7 +115,7 @@ export function ManagerDashboard({
         
         if (Notification.permission === 'granted') {
           new Notification('มีคำขอใหม่จากพนักงาน', {
-            body: `${employee?.name || 'พนักงาน'} ขอ${shiftType?.name || 'ลา/หยุด'} วันที่ ${format(new Date(req.date), 'd MMM')}`,
+            body: `${employee?.fullName || 'พนักงาน'} ขอ${shiftType?.name || 'ลา/หยุด'} วันที่ ${format(new Date(req.date), 'd MMM')}`,
             icon: '/favicon.ico'
           });
         }
