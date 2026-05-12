@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
-import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../types';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../types/index';
 
 export function useData() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -9,6 +9,7 @@ export function useData() {
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [positionGroups, setPositionGroups] = useState<PositionGroup[]>([]);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+
 
   const [settings, setSettings] = useState<AppSettings>({
     storeName: 'Central Plaza Rama 9',

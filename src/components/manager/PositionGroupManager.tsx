@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { PositionGroup, Employee } from '../../types';
+import { useState } from 'react';
+import type { PositionGroup, Employee } from '../../types/index';
+
+
 import { Plus, Trash2, Edit2, Users, Save, X } from 'lucide-react';
 
 interface PositionGroupManagerProps {

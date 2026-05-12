@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 
 import { Clock, Settings } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInCalendarWeeks } from 'date-fns';
-import type { ScheduleEntry, UserRole, Employee } from './types/index';
+import type { ScheduleEntry, UserRole, Employee, PositionGroup } from './types/index';
+
 import { useData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
 import { Header } from './components/layout/Header';
@@ -48,10 +49,15 @@ function App() {
 
     updateShiftType,
     deleteShiftType,
+    positionGroups,
+    createPositionGroup,
+    updatePositionGroup,
+    deletePositionGroup,
     settings,
     updateSettings,
     uploadFile,
   } = useData();
+
 
   // Periodic check for SW updates (every 60s)
   useEffect(() => {

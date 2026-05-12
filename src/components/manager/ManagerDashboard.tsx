@@ -65,8 +65,8 @@ export function ManagerDashboard({
   updateShiftType,
   deleteShiftType,
   createPosition,
-  updatePosition,
   deletePosition,
+
   positionGroups,
   createPositionGroup,
   updatePositionGroup,
