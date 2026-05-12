@@ -53,6 +53,7 @@ export type ScheduleEntry = {
   managerRemark?: string;
   swapWithId?: string;
   evidenceUrl?: string;
+  revertShiftTypeId?: string;
 }
 ;
 

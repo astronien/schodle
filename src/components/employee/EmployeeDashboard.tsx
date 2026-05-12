@@ -52,6 +52,21 @@ export function EmployeeDashboard({
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  
+  const monthlySchedules = userSchedules.filter(s => {
+    const d = new Date(s.date);
+    return d >= monthStart && d <= monthEnd;
+  });
+
+  const approvedDays = monthlySchedules.filter(s => s.status === 'approved').length;
+  const pendingDays = monthlySchedules.filter(s => s.status === 'pending' || s.status === 'submitted').length;
+  
+  const offShiftType = shiftTypes.find(t => t.code === 'X' || t.name.toLowerCase().includes('off'));
+  const approvedOffDays = monthlySchedules.filter(s => s.status === 'approved' && s.shiftTypeId === offShiftType?.id).length;
+  
+  const targetOffDays = 4; 
+  const remainingOffDays = Math.max(0, targetOffDays - approvedOffDays);
+  const progressPercent = Math.round((approvedDays / days.length) * 100);
 
   const getDaySchedule = (date: Date) => {
     return userSchedules.find((s) => isSameDay(new Date(s.date), date));
@@ -106,6 +121,9 @@ export function EmployeeDashboard({
           status: needsManager ? 'pending' : 'approved',
           employeeNote: reason || '',
           evidenceUrl: evidenceUrl,
+          revertShiftTypeId: (needsManager && existing && existing.status === 'approved') 
+            ? existing.shiftTypeId 
+            : (existing?.revertShiftTypeId),
         });
       }
 
@@ -438,22 +456,25 @@ export function EmployeeDashboard({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-tertiary font-medium">กะที่อนุมัติแล้ว</span>
-                <span className="text-sm font-medium text-success">12 วัน</span>
+                <span className="text-sm font-medium text-success">{approvedDays} วัน</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-tertiary font-medium">รอการอนุมัติ</span>
-                <span className="text-sm font-medium text-warn">4 วัน</span>
+                <span className="text-sm font-medium text-warn">{pendingDays} วัน</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-tertiary font-medium">วันหยุดคงเหลือ</span>
-                <span className="text-sm font-medium text-text-primary">2 วัน</span>
+                <span className="text-sm font-medium text-text-primary">{remainingOffDays} วัน</span>
               </div>
               <div className="pt-3 border-t border-white/[0.05]">
                 <div className="w-full bg-white/[0.05] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-brand h-full rounded-full transition-all duration-500 w-[65%]"></div>
+                  <div 
+                    className="bg-brand h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${progressPercent}%` }}
+                  ></div>
                 </div>
                 <p className="text-[10px] font-medium text-text-quaternary mt-2 uppercase tracking-wider">
-                  ความคืบหน้าของเดือน: 65%
+                  ความคืบหน้าของเดือน: {progressPercent}%
                 </p>
               </div>
             </div>
@@ -555,9 +576,8 @@ export function EmployeeDashboard({
                         const isVisible = t.isVisible || t.id === 'xc';
                         const isWeeklyOffMatch = !isOffDay || t.code === 'X';
                         
-                        // If setting is off, only allow specific "Request" types (Day Off, Sick Leave, Vacation)
-                        const isAllowedBySetting = settings.allowEmployeeSetShifts || 
-                          ['XC', 'ป่วย', 'V'].includes(t.code);
+                        // If setting is off, only allow types that require approval (requests/leave)
+                        const isAllowedBySetting = settings.allowEmployeeSetShifts || t.requiresApproval;
                         
                         return isVisible && isWeeklyOffMatch && isAllowedBySetting;
                       })

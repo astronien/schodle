@@ -230,7 +230,8 @@ export function ManagerDashboard({
     }
   };
 
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+   const [managerRemarks, setManagerRemarks] = useState<Record<string, string>>({});
+   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
 
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -241,6 +242,8 @@ export function ManagerDashboard({
   const handleUpdateShiftStatus = async (id: string, status: 'approved' | 'rejected') => {
     const request = schedules.find((s) => s.id === id);
     if (!request) return;
+
+    const remark = managerRemarks[id] || '';
 
     try {
       if (status === 'approved' && request.swapWithId) {
@@ -255,16 +258,32 @@ export function ManagerDashboard({
           const requesterShiftTypeId = requesterShift.shiftTypeId;
           const targetShiftTypeId = targetShift.shiftTypeId;
 
-          // Update both shifts persistently and force notifications
           await Promise.all([
-            updateSchedule({ ...requesterShift, shiftTypeId: targetShiftTypeId, status: 'approved', swapWithId: undefined }, true),
-            updateSchedule({ ...targetShift, shiftTypeId: requesterShiftTypeId, status: 'approved' }, true)
+            updateSchedule({ ...requesterShift, shiftTypeId: targetShiftTypeId, status: 'approved', swapWithId: undefined, managerRemark: remark }, true),
+            updateSchedule({ ...targetShift, shiftTypeId: requesterShiftTypeId, status: 'approved', managerRemark: remark }, true)
           ]);
-
         }
       } else {
-        await updateSchedule({ ...request, status });
+        if (status === 'rejected' && request.revertShiftTypeId) {
+          // Revert to original shift if rejected
+          await updateSchedule({ 
+            ...request, 
+            shiftTypeId: request.revertShiftTypeId, 
+            status: 'approved', 
+            managerRemark: remark,
+            revertShiftTypeId: undefined 
+          });
+        } else {
+          await updateSchedule({ ...request, status, managerRemark: remark });
+        }
       }
+      
+      // Clear remark for this request
+      setManagerRemarks(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (err: any) {
       alert('ทำรายการไม่สำเร็จ: ' + (err.message || 'Unknown error'));
     }
@@ -989,12 +1008,25 @@ export function ManagerDashboard({
                               className="w-full h-32 object-cover"
                             />
                             <div className="flex items-center justify-center gap-1.5 py-1.5 bg-white/[0.03] text-brand-accent text-[10px] font-semibold uppercase tracking-wide">
-                              <Image className="w-3.5 h-3.5" />
+                              <LayoutGrid className="w-3.5 h-3.5" />
                               ดูรูปเต็มขนาด
                             </div>
                           </a>
                         </div>
                       )}
+
+                      <div className="pt-2">
+                        <label className="text-[10px] font-bold text-text-quaternary uppercase tracking-wide block mb-1.5">
+                          หมายเหตุของหัวหน้า (ถ้ามี)
+                        </label>
+                        <input
+                          type="text"
+                          value={managerRemarks[request.id] || ''}
+                          onChange={(e) => setManagerRemarks(prev => ({ ...prev, [request.id]: e.target.value }))}
+                          placeholder="เช่น เหตุผลที่ปฏิเสธ..."
+                          className="w-full bg-bg-panel border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-quaternary focus:border-brand/40 outline-none transition-all"
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

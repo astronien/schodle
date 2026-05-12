@@ -138,6 +138,7 @@ export function useData() {
           managerRemark: s.manager_remark || undefined,
           swapWithId: s.swap_with_id || undefined,
           evidenceUrl: s.evidence_url || undefined,
+          revertShiftTypeId: s.revert_shift_type_id || undefined,
         }))
       );
 
@@ -274,6 +275,7 @@ export function useData() {
       manager_remark: entry.managerRemark || null,
       swap_with_id: entry.swapWithId || null,
       evidence_url: entry.evidenceUrl || null,
+      revert_shift_type_id: entry.revertShiftTypeId || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'employee_id,date' });
 
