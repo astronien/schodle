@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 
 import { Clock, Settings } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInCalendarWeeks } from 'date-fns';
-import type { ScheduleEntry, UserRole, Employee, PositionGroup } from './types/index';
+import type { ScheduleEntry, UserRole, Employee } from './types/index';
+
 
 import { useData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
