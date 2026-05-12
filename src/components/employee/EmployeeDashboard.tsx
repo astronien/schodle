@@ -264,11 +264,11 @@ export function EmployeeDashboard({
                     return (
                       <button
                         key={day.toString()}
-                        onClick={() => settings.allowEmployeeSetShifts && !isOffDay && setSelectedDate(day)}
-                        disabled={isOffDay || !settings.allowEmployeeSetShifts}
+                        onClick={() => !isOffDay && setSelectedDate(day)}
+                        disabled={isOffDay}
                         className={cn(
                           'aspect-square rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200',
-                          isOffDay || !settings.allowEmployeeSetShifts
+                          isOffDay
                             ? 'bg-bg-elevated border-white/[0.03] opacity-60 cursor-not-allowed'
                             : isToday(day)
                             ? 'bg-brand/10 border-brand/30'
@@ -517,7 +517,9 @@ export function EmployeeDashboard({
             <div className="p-5 sm:p-5 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-lg font-medium text-text-primary">เลือกกะงาน</h3>
+                  <h3 className="text-lg font-medium text-text-primary">
+                    {settings.allowEmployeeSetShifts ? 'เลือกกะงาน' : 'ส่งคำขอลา/หยุด'}
+                  </h3>
                   <p className="text-sm font-medium text-brand-accent">
                     {format(selectedDate, 'EEEE ที่ d MMMM yyyy', { locale: th })}
                   </p>
@@ -549,7 +551,12 @@ export function EmployeeDashboard({
                   {(() => {
                     const isOffDay = typeof currentUser.weeklyOffDay === 'number' && selectedDate && selectedDate.getDay() === currentUser.weeklyOffDay;
                     return shiftTypes
-                      .filter((t) => (t.isVisible || t.id === 'xc') && (!isOffDay || t.code === 'X'))
+                      .filter((t) => {
+                        const isVisible = t.isVisible || t.id === 'xc';
+                        const isWeeklyOffMatch = !isOffDay || t.code === 'X';
+                        const isAllowedBySetting = settings.allowEmployeeSetShifts || t.requiresApproval;
+                        return isVisible && isWeeklyOffMatch && isAllowedBySetting;
+                      })
                       .map((type) => {
                         const isSelected =
                           selectedShiftId === type.id ||
