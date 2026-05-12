@@ -781,7 +781,7 @@ export function ManagerDashboard({
 
           {/* Edit Shift Modal */}
           {editingCell && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
               <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
                 onClick={() => setEditingCell(null)}
@@ -1440,7 +1440,7 @@ export function ManagerDashboard({
                 </div>
 
                 {isCreatingEmployee && (
-                  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+                  <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
                     <div
                       className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
                       onClick={() => setIsCreatingEmployee(false)}
@@ -1520,7 +1520,7 @@ export function ManagerDashboard({
 
             {/* Weekly Off-day Modal */}
             {editingWeeklyOffEmployeeId && (
-              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+              <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
                 <div
                   className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
                   onClick={() => !isSavingWeeklyOffDay && setEditingWeeklyOffEmployeeId(null)}
@@ -1607,7 +1607,7 @@ export function ManagerDashboard({
                 </div>
 
                 {isCreatingShiftType && (
-                  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+                  <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
                     <div
                       className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
                       onClick={() => setIsCreatingShiftType(false)}
@@ -2064,7 +2064,7 @@ export function ManagerDashboard({
             )}
 
             {isCreatingPosition && (
-              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+              <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
                 <div
                   className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
                   onClick={() => setIsCreatingPosition(false)}
