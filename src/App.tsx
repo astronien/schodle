@@ -13,6 +13,8 @@ import { LoginPage } from './components/auth/LoginPage';
 import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
 import { ManagerDashboard } from './components/manager/ManagerDashboard';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
+import { th } from 'date-fns/locale';
+import { cn } from './lib/utils';
 
 
 function App() {
@@ -362,12 +364,83 @@ function App() {
 
             )}
             {activeMobileTab === 'requests' && (
-              <div className="card p-10 text-center">
-                <div className="w-16 h-16 bg-bg-surface rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
-                  <Clock className="w-8 h-8" />
+              <div className="space-y-4 pb-24">
+                <div className="px-4 pt-2">
+                  <h2 className="text-xl font-bold text-text-primary">ระบบขอลา</h2>
+                  <p className="text-xs text-text-tertiary">ติดตามสถานะคำขอลาและวันหยุดของคุณ</p>
                 </div>
-                <h3 className="text-lg font-medium text-text-primary mb-1">ระบบขอลา</h3>
-                <p className="text-sm text-text-tertiary">คุณยังไม่มีรายการคำขอลาในขณะนี้</p>
+
+                {schedules.filter(s => s.employeeId === currentUser?.id).length > 0 ? (
+                  <div className="space-y-3 px-4">
+                    {schedules
+                      .filter(s => s.employeeId === currentUser?.id)
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map(s => {
+                        const sType = shiftTypes.find(t => t.id === s.shiftTypeId);
+                        const isApproved = s.status === 'approved';
+                        const isRejected = s.status === 'rejected';
+                        
+                        return (
+                          <div key={s.id} className={cn(
+                            "p-4 rounded-2xl border transition-all duration-200 animate-fade-in",
+                            isApproved ? "bg-success/5 border-success/20 shadow-[0_0_15px_rgba(34,197,94,0.05)]" : 
+                            isRejected ? "bg-error/5 border-error/20" : 
+                            "bg-warn/5 border-warn/20"
+                          )}>
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm",
+                                  isApproved ? "bg-success" : isRejected ? "bg-error" : "bg-warn"
+                                )}>
+                                  {sType?.code || '??'}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-bold text-text-primary">{sType?.name || 'ไม่ทราบประเภท'}</div>
+                                  <div className="text-[10px] text-text-tertiary font-medium">
+                                    {format(new Date(s.date), 'eeee d MMMM yyyy', { locale: th })}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className={cn(
+                                "text-[10px] font-bold px-2 py-1 rounded-lg",
+                                isApproved ? "bg-success/20 text-success" : 
+                                isRejected ? "bg-error/20 text-error" : 
+                                "bg-warn/20 text-warn"
+                              )}>
+                                {isApproved ? 'อนุมัติแล้ว' : isRejected ? 'ปฏิเสธ' : 'รออนุมัติ'}
+                              </div>
+                            </div>
+                            
+                            {(s.employeeNote || s.managerRemark) && (
+                              <div className="space-y-2 mt-3 pt-3 border-t border-white/[0.05]">
+                                {s.employeeNote && (
+                                  <div className="flex gap-2">
+                                    <div className="text-[10px] font-bold text-text-quaternary uppercase shrink-0">คำขอ:</div>
+                                    <div className="text-xs text-text-secondary italic">"{s.employeeNote}"</div>
+                                  </div>
+                                )}
+                                {s.managerRemark && (
+                                  <div className="flex gap-2">
+                                    <div className="text-[10px] font-bold text-text-quaternary uppercase shrink-0">เหตุผล:</div>
+                                    <div className="text-xs text-text-primary font-medium">{s.managerRemark}</div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="card p-10 text-center mx-4">
+                    <div className="w-16 h-16 bg-bg-surface rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
+                      <Clock className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-medium text-text-primary mb-1">ยังไม่มีรายการ</h3>
+                    <p className="text-sm text-text-tertiary">คุณยังไม่ได้ส่งคำขอลาหรือวันหยุดในขณะนี้</p>
+                  </div>
+                )}
               </div>
             )}
             {activeMobileTab === 'settings' && (
