@@ -231,20 +231,46 @@ function App() {
           const preferred = shuffledEmployees.filter(
             (e) => getWeeklyPreferred(e.id) === shiftCategory
           );
-          const nonPreferred = shuffledEmployees.filter(
-            (e) => getWeeklyPreferred(e.id) !== shiftCategory
-          );
-
+          
           tryAssignFrom(preferred);
-          if (!assigned) tryAssignFrom(nonPreferred);
+          
+          // DO NOT assign nonPreferred here yet. 
+          // We will do a second pass if needed, or let the loop continue to other shifts.
         } else {
           tryAssignFrom(shuffledEmployees);
         }
 
         if (!assigned) {
+          // Instead of giving up on this shift type immediately, 
+          // let's mark it so we don't keep trying the same preferred-only logic in an infinite loop.
+          // We'll allow non-preferred only if we've tried everything else.
+          remainingByType.set(shiftType.id + "_retry", (remainingByType.get(shiftType.id) || 0));
           remainingByType.set(shiftType.id, 0);
         }
       }
+
+      // Second Pass: Fill remaining slots with anyone available
+      targetShiftTypes.forEach(shiftType => {
+        const retryKey = shiftType.id + "_retry";
+        let remaining = remainingByType.get(retryKey) || 0;
+        if (remaining <= 0) return;
+
+        for (const employee of shuffledEmployees) {
+          if (remaining <= 0) break;
+          if (!canAssignEmployeeToShift(employee.id, shiftType.id)) continue;
+
+          newEntries.push({
+            id: crypto.randomUUID(),
+            employeeId: employee.id,
+            shiftTypeId: shiftType.id,
+            date: dateStr,
+            status: 'approved',
+          });
+          assignedThisDay.add(employee.id);
+          remaining--;
+        }
+      });
+
 
     });
 

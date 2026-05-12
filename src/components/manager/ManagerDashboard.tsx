@@ -96,6 +96,8 @@ export function ManagerDashboard({
   const [newShiftStartTime, setNewShiftStartTime] = useState('09:00');
   const [newShiftEndTime, setNewShiftEndTime] = useState('18:00');
   const [newShiftColor, setNewShiftColor] = useState('#22c55e');
+  const [newShiftCategory, setNewShiftCategory] = useState<'morning' | 'afternoon' | 'other'>('morning');
+
   const [isCreatingEmployee, setIsCreatingEmployee] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeeCode, setNewEmployeeCode] = useState('');
@@ -141,7 +143,9 @@ export function ManagerDashboard({
         requiresReason: false,
         requiresEvidence: false,
         isVisible: true,
+        category: newShiftCategory,
       });
+
       setIsCreatingShiftType(false);
       setNewShiftCode('');
       setNewShiftName('');
@@ -1639,6 +1643,31 @@ export function ManagerDashboard({
                               />
                             </label>
                           </div>
+                          
+                          <label className="space-y-1">
+                            <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">ประเภท (สำหรับ AI จัดตาราง)</div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                { id: 'morning', label: 'กะเช้า' },
+                                { id: 'afternoon', label: 'กะบ่าย' },
+                                { id: 'other', label: 'อื่นๆ' }
+                              ].map(cat => (
+                                <button
+                                  key={cat.id}
+                                  onClick={() => setNewShiftCategory(cat.id as any)}
+                                  className={cn(
+                                    "py-2 px-1 rounded-lg text-[10px] font-bold transition-all border",
+                                    newShiftCategory === cat.id 
+                                      ? "bg-brand/20 border-brand text-brand-accent shadow-sm" 
+                                      : "bg-white/5 border-white/10 text-text-quaternary hover:bg-white/10"
+                                  )}
+                                >
+                                  {cat.label}
+                                </button>
+                              ))}
+                            </div>
+                          </label>
+
 
                           <div className="flex items-center justify-between p-3 bg-bg-panel rounded-xl border border-white/[0.06]">
                             <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">สี</div>
@@ -1734,6 +1763,36 @@ export function ManagerDashboard({
                           />
                         </div>
                       </div>
+
+                      <div className="space-y-2 py-3 border-t border-white/[0.03]">
+                        <div className="text-[9px] font-bold text-text-quaternary uppercase tracking-wider mb-1 px-1">ประเภทกะสำหรับ AI</div>
+                        <div className="grid grid-cols-3 gap-2 px-1">
+                          {[
+                            { id: 'morning', label: 'เช้า' },
+                            { id: 'afternoon', label: 'บ่าย' },
+                            { id: 'other', label: 'อื่นๆ' }
+                          ].map(cat => (
+                            <button
+                              key={cat.id}
+                              onClick={() => {
+                                const shift = shiftTypes.find((t) => t.id === type.id);
+                                if (shift) {
+                                  updateShiftType({ ...shift, category: cat.id as any }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
+                                }
+                              }}
+                              className={cn(
+                                "py-1.5 rounded-lg text-[9px] font-bold transition-all border",
+                                type.category === cat.id 
+                                  ? "bg-brand/20 border-brand/50 text-brand-accent shadow-sm" 
+                                  : "bg-white/5 border-white/5 text-text-quaternary hover:bg-white/10"
+                              )}
+                            >
+                              {cat.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
 
                       <div className="space-y-1 pt-2 border-t border-white/[0.03]">
                         {[
