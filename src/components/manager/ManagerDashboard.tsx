@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell,
-  ChevronLeft, ChevronRight, Plus, PlusCircle, Check, Image, Download, Clock
+  ChevronLeft, ChevronRight, Plus, PlusCircle, Check, Image, Download, Clock, LayoutGrid
 } from 'lucide-react';
 
 
