@@ -1,5 +1,8 @@
 import { Clock, Bell, Users, LogOut } from 'lucide-react';
 import type { Employee, UserRole } from '../../types';
+import { subscribeToNotifications } from '../../lib/push';
+import { useState } from 'react';
+import { cn } from '../../lib/utils';
 
 interface HeaderProps {
   currentUser: Employee;
@@ -11,6 +14,19 @@ interface HeaderProps {
 }
 
 export function Header({ currentUser, role, isManager, onToggleRole, onLogout, appName }: HeaderProps) {
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  const handleEnableNotifications = async () => {
+    setIsSubscribing(true);
+    try {
+      await subscribeToNotifications(currentUser.id);
+      alert('เปิดการแจ้งเตือนสำเร็จ!');
+    } catch (err: any) {
+      alert(err.message || 'ไม่สามารถเปิดการแจ้งเตือนได้');
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl safe-top">
@@ -27,8 +43,13 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <button className="relative p-2 text-text-tertiary hover:text-text-primary hover:bg-white/[0.05] rounded-md transition-all duration-200">
-            <Bell className="w-5 h-5" />
+          <button
+            onClick={handleEnableNotifications}
+            disabled={isSubscribing}
+            className="relative p-2 text-text-tertiary hover:text-brand hover:bg-white/[0.05] rounded-md transition-all duration-200"
+            title="เปิดการแจ้งเตือน"
+          >
+            <Bell className={cn("w-5 h-5", isSubscribing && "animate-pulse text-brand")} />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full"></span>
           </button>
 
