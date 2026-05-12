@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Clock, ChevronRight, ChevronLeft, Save, AlertCircle,
+  Clock, ChevronRight, ChevronLeft, AlertCircle,
   XCircle, CheckCircle2, Plus, Users, Check, LayoutGrid
 } from 'lucide-react';
 import {
@@ -8,7 +8,7 @@ import {
 } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
-import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../../types';
 
 
 interface EmployeeDashboardProps {
