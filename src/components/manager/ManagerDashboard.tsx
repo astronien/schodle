@@ -55,9 +55,7 @@ interface ManagerDashboardProps {
 export function ManagerDashboard({
   currentUser,
   schedules,
-
   employees,
-
   shiftTypes,
   positions,
   createEmployee,
@@ -66,22 +64,22 @@ export function ManagerDashboard({
   createShiftType,
   updateShiftType,
   deleteShiftType,
-  deletePosition: (id: string) => Promise<void>;
+  createPosition,
+  updatePosition,
+  deletePosition,
   positionGroups,
   createPositionGroup,
   updatePositionGroup,
   deletePositionGroup,
-
-
   updateSchedule,
   deleteSchedule,
   currentMonth,
-
   setCurrentMonth,
   generateSmartSchedule,
   settings,
   updateSettings,
 }: ManagerDashboardProps) {
+
 
 
   const [activeTab, setActiveTab] = useState<'coverage' | 'requests' | 'report' | 'admin'>('coverage');
