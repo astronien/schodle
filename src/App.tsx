@@ -354,10 +354,10 @@ function App() {
                 schedules={schedules}
                 updateSchedule={updateSchedule}
                 shiftTypes={shiftTypes}
-
                 employees={employees}
                 positions={positions}
                 uploadFile={uploadFile}
+                settings={settings}
               />
 
             )}
@@ -422,6 +422,7 @@ function App() {
             employees={employees}
             positions={positions}
             uploadFile={uploadFile}
+            settings={settings}
           />
         )}
 

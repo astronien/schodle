@@ -111,7 +111,8 @@ CREATE POLICY "Allow all" ON position_groups FOR ALL USING (true) WITH CHECK (tr
 
 INSERT INTO settings (key, value) VALUES
   ('store_name', 'Central Plaza Rama 9'),
-  ('app_name', 'ShiftFlow');
+  ('app_name', 'ShiftFlow'),
+  ('allow_employee_set_shifts', 'true');
 
 INSERT INTO positions (code, name, min_required) VALUES
 

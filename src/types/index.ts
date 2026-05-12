@@ -64,4 +64,5 @@ export type MonthlyCoverage = {
 export type AppSettings = {
   storeName: string;
   appName: string;
+  allowEmployeeSetShifts: boolean;
 };

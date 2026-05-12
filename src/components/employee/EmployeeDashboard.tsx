@@ -20,6 +20,7 @@ interface EmployeeDashboardProps {
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
 
   uploadFile: (file: File) => Promise<string>;
+  settings: AppSettings;
 }
 
 
@@ -32,6 +33,7 @@ export function EmployeeDashboard({
   employees, 
   positions,
   uploadFile,
+  settings,
 }: EmployeeDashboardProps) {
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -168,10 +170,6 @@ export function EmployeeDashboard({
             จัดการกะงานและคำขอหยุดพักร้อนของคุณได้ที่นี่
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <button className="btn btn-primary">
-              <Save className="w-4 h-4" />
-              ส่งคำขอทั้งหมด
-            </button>
             <div className="pill text-text-tertiary">
               <span className="relative flex h-2 w-2 mr-1">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warn opacity-75"></span>
@@ -266,11 +264,11 @@ export function EmployeeDashboard({
                     return (
                       <button
                         key={day.toString()}
-                        onClick={() => !isOffDay && setSelectedDate(day)}
-                        disabled={isOffDay}
+                        onClick={() => settings.allowEmployeeSetShifts && !isOffDay && setSelectedDate(day)}
+                        disabled={isOffDay || !settings.allowEmployeeSetShifts}
                         className={cn(
                           'aspect-square rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200',
-                          isOffDay
+                          isOffDay || !settings.allowEmployeeSetShifts
                             ? 'bg-bg-elevated border-white/[0.03] opacity-60 cursor-not-allowed'
                             : isToday(day)
                             ? 'bg-brand/10 border-brand/30'

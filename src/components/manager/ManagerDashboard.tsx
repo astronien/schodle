@@ -2145,6 +2145,29 @@ export function ManagerDashboard({
                     />
                   </div>
 
+                <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider">การตั้งค่ากะงานพนักงาน</h4>
+                      <p className="text-xs text-text-tertiary">อนุญาตให้พนักงานสามารถเลือกและตั้งค่ากะงานของตัวเองได้จากหน้า Dashboard</p>
+                    </div>
+                    <button
+                      onClick={() => setLocalSettings({ ...localSettings, allowEmployeeSetShifts: !localSettings.allowEmployeeSetShifts })}
+                      className={cn(
+                        "w-12 h-6 rounded-full transition-all relative",
+                        localSettings.allowEmployeeSetShifts ? "bg-success" : "bg-white/10"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all",
+                          localSettings.allowEmployeeSetShifts ? "right-1" : "left-1"
+                        )}
+                      ></div>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-6 border-t border-white/10">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1">

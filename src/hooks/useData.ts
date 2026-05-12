@@ -14,6 +14,7 @@ export function useData() {
   const [settings, setSettings] = useState<AppSettings>({
     storeName: 'Central Plaza Rama 9',
     appName: 'ShiftFlow',
+    allowEmployeeSetShifts: true,
   });
   const [loading, setLoading] = useState(true);
 
@@ -138,6 +139,7 @@ export function useData() {
         setSettings({
           storeName: settingsMap['store_name'] || 'Central Plaza Rama 9',
           appName: settingsMap['app_name'] || 'ShiftFlow',
+          allowEmployeeSetShifts: settingsMap['allow_employee_set_shifts'] !== 'false',
         });
       }
 
@@ -545,10 +547,11 @@ export function useData() {
   const updateSettings = useCallback(async (newSettings: AppSettings) => {
     const { error: err1 } = await supabase.from('settings').upsert({ key: 'store_name', value: newSettings.storeName });
     const { error: err2 } = await supabase.from('settings').upsert({ key: 'app_name', value: newSettings.appName });
+    const { error: err3 } = await supabase.from('settings').upsert({ key: 'allow_employee_set_shifts', value: String(newSettings.allowEmployeeSetShifts) });
     
-    if (err1 || err2) {
-      console.error('[updateSettings] Error:', err1 || err2);
-      throw err1 || err2;
+    if (err1 || err2 || err3) {
+      console.error('[updateSettings] Error:', err1 || err2 || err3);
+      throw err1 || err2 || err3;
     }
     await fetchAll(true);
   }, [fetchAll]);
