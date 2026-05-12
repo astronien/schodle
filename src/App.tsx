@@ -90,6 +90,12 @@ function App() {
 
     const newEntries: ScheduleEntry[] = [];
 
+    const xShift = shiftTypes.find((t) => t.code === 'X');
+    if (!xShift) {
+      alert('ไม่พบประเภทกะ X กรุณาสร้างกะ X ก่อน');
+      return;
+    }
+
     const lateShifts = ['XC', 'EV', 'A2'];
     const earlyShifts = ['M1', 'M2'];
 
@@ -97,6 +103,22 @@ function App() {
       const dateStr = format(day, 'yyyy-MM-dd');
       const assignedThisDay = new Set<string>();
       const shuffledEmployees = [...employees].sort(() => Math.random() - 0.5);
+
+      // Fill weekly off-day as shift X
+      employees.forEach((emp) => {
+        if (typeof emp.weeklyOffDay !== 'number') return;
+        const dayOfWeek = new Date(`${dateStr}T00:00:00`).getDay();
+        if (dayOfWeek !== emp.weeklyOffDay) return;
+
+        newEntries.push({
+          id: crypto.randomUUID(),
+          employeeId: emp.id,
+          shiftTypeId: xShift.id,
+          date: dateStr,
+          status: 'approved',
+        });
+        assignedThisDay.add(emp.id);
+      });
 
       const weekIndex = differenceInCalendarWeeks(day, monthStart, { weekStartsOn: 1 });
       const getWeeklyPreferred = (employeeId: string): 'morning' | 'afternoon' => {
@@ -120,6 +142,7 @@ function App() {
 
       const canAssignEmployeeToShift = (employeeId: string, shiftTypeId: string) => {
         if (assignedThisDay.has(employeeId)) return false;
+
         if (dayIdx <= 0) return true;
 
         const yesterdayDateStr = format(days[dayIdx - 1], 'yyyy-MM-dd');

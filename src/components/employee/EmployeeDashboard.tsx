@@ -286,14 +286,18 @@ export function EmployeeDashboard({
                   {days.map((day) => {
                     const schedule = getDaySchedule(day);
                     const shift = schedule ? shiftTypes.find((t) => t.id === schedule.shiftTypeId) : null;
+                    const isOffDay = typeof currentUser.weeklyOffDay === 'number' && day.getDay() === currentUser.weeklyOffDay;
 
                     return (
                       <button
                         key={day.toString()}
-                        onClick={() => setSelectedDate(day)}
+                        onClick={() => !isOffDay && setSelectedDate(day)}
+                        disabled={isOffDay}
                         className={cn(
                           'aspect-square rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200',
-                          isToday(day)
+                          isOffDay
+                            ? 'bg-bg-elevated border-white/[0.03] opacity-60 cursor-not-allowed'
+                            : isToday(day)
                             ? 'bg-brand/10 border-brand/30'
                             : isSameDay(selectedDate || new Date(0), day)
                             ? 'border-brand ring-1 ring-brand/20 scale-[0.97]'
@@ -307,16 +311,15 @@ export function EmployeeDashboard({
                         <span
                           className={cn(
                             'text-sm sm:text-base font-medium',
-                            isToday(day)
-                              ? 'text-brand-accent'
-                              : schedule?.status === 'rejected'
-                              ? 'text-danger line-through'
-                              : 'text-text-primary'
+                            isOffDay ? 'text-text-quaternary' : isToday(day) ? 'text-brand-accent' : schedule?.status === 'rejected' ? 'text-danger line-through' : 'text-text-primary'
                           )}
                         >
                           {format(day, 'd')}
                         </span>
-                        {shift && (
+                        {isOffDay && (
+                          <span className="text-[9px] font-bold text-text-quaternary mt-0.5">หยุด</span>
+                        )}
+                        {shift && !isOffDay && (
                           <>
                             <div
                               className={cn(
@@ -570,74 +573,77 @@ export function EmployeeDashboard({
 
               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1 pb-4">
                 <div className="grid grid-cols-1 gap-2">
-                  {shiftTypes
-                    .filter((t) => t.isVisible || t.id === 'xc')
-                    .map((type) => {
-                      const isSelected =
-                        selectedShiftId === type.id ||
-                        (!selectedShiftId && getDaySchedule(selectedDate)?.shiftTypeId === type.id);
-                      const count = schedules.filter(
-                        (s) =>
-                          isSameDay(new Date(s.date), selectedDate) &&
-                          s.shiftTypeId === type.id &&
-                          s.status !== 'rejected'
-                      ).length;
-                      const isFull = count >= 3 && type.id !== 'xc';
+                  {(() => {
+                    const isOffDay = typeof currentUser.weeklyOffDay === 'number' && selectedDate && selectedDate.getDay() === currentUser.weeklyOffDay;
+                    return shiftTypes
+                      .filter((t) => (t.isVisible || t.id === 'xc') && (!isOffDay || t.code === 'X'))
+                      .map((type) => {
+                        const isSelected =
+                          selectedShiftId === type.id ||
+                          (!selectedShiftId && getDaySchedule(selectedDate)?.shiftTypeId === type.id);
+                        const count = schedules.filter(
+                          (s) =>
+                            isSameDay(new Date(s.date), selectedDate) &&
+                            s.shiftTypeId === type.id &&
+                            s.status !== 'rejected'
+                        ).length;
+                        const isFull = count >= 3 && type.id !== 'xc';
 
-                      return (
-                        <button
-                          key={type.id}
-                          disabled={isFull}
-                          onClick={() => {
-                            setSelectedShiftId(type.id);
-                            setValidationError(null);
-                          }}
-                          className={cn(
-                            'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
-                            isSelected
-                              ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
-                              : isFull
-                              ? 'border-white/[0.05] bg-white/[0.02] opacity-50 cursor-not-allowed'
-                              : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                'w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium text-white',
-                                isFull && 'grayscale'
-                              )}
-                              style={{ backgroundColor: type.color }}
-                            >
-                              {type.code}
-                            </div>
-                            <div className="text-left">
-                              <p className={cn('font-medium text-sm', isFull ? 'text-text-quaternary' : 'text-text-primary')}>
-                                {type.name}
-                              </p>
-                              <p className="text-xs text-text-tertiary font-medium">
-                                {type.startTime} - {type.endTime}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {type.id !== 'xc' && (
-                              <span
-                                className={cn(
-                                  'text-[10px] font-medium px-2 py-1 rounded-md',
-                                  isFull
-                                    ? 'bg-danger/10 text-danger'
-                                    : 'bg-white/[0.05] text-text-quaternary'
-                                )}
-                              >
-                                {isFull ? 'เต็ม' : `${count}/3`}
-                              </span>
+                        return (
+                          <button
+                            key={type.id}
+                            disabled={isFull}
+                            onClick={() => {
+                              setSelectedShiftId(type.id);
+                              setValidationError(null);
+                            }}
+                            className={cn(
+                              'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
+                              isSelected
+                                ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
+                                : isFull
+                                ? 'border-white/[0.05] bg-white/[0.02] opacity-50 cursor-not-allowed'
+                                : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
                             )}
-                            {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}
-                          </div>
-                        </button>
-                      );
-                    })}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={cn(
+                                  'w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium text-white',
+                                  isFull && 'grayscale'
+                                )}
+                                style={{ backgroundColor: type.color }}
+                              >
+                                {type.code}
+                              </div>
+                              <div className="text-left">
+                                <p className={cn('font-medium text-sm', isFull ? 'text-text-quaternary' : 'text-text-primary')}>
+                                  {type.name}
+                                </p>
+                                <p className="text-xs text-text-tertiary font-medium">
+                                  {type.startTime} - {type.endTime}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {type.id !== 'xc' && (
+                                <span
+                                  className={cn(
+                                    'text-[10px] font-medium px-2 py-1 rounded-md',
+                                    isFull
+                                      ? 'bg-danger/10 text-danger'
+                                      : 'bg-white/[0.05] text-text-quaternary'
+                                  )}
+                                >
+                                  {isFull ? 'เต็ม' : `${count}/3`}
+                                </span>
+                              )}
+                              {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}
+                            </div>
+                          </button>
+                        );
+                      });
+                  })()}
                 </div>
 
                 {/* Swap Shift Feature */}

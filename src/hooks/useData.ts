@@ -66,6 +66,7 @@ export function useData() {
           phone: e.phone || undefined,
           email: e.email || undefined,
           avatar: e.avatar || undefined,
+          weeklyOffDay: typeof e.weekly_off_day === 'number' ? e.weekly_off_day : undefined,
         }))
       );
 
@@ -227,6 +228,17 @@ export function useData() {
   }, [fetchAll]);
 
   const updateSchedule = useCallback(async (entry: ScheduleEntry, forceNotify?: boolean) => {
+    const emp = employees.find((e) => e.id === entry.employeeId);
+    if (typeof emp?.weeklyOffDay === 'number') {
+      const day = new Date(`${entry.date}T00:00:00`).getDay();
+      if (day === emp.weeklyOffDay) {
+        const shiftType = shiftTypes.find((t) => t.id === entry.shiftTypeId);
+        if (shiftType?.code !== 'X') {
+          throw new Error(`ไม่สามารถจัดกะวันที่ ${entry.date} ได้ (วันหยุดประจำสัปดาห์)`);
+        }
+      }
+    }
+
     const { error } = await supabase.from('schedules').upsert({
       id: entry.id,
       employee_id: entry.employeeId,
@@ -267,7 +279,7 @@ export function useData() {
 
     await fetchAll();
 
-  }, [fetchAll, schedules, sendPush]);
+  }, [employees, fetchAll, schedules, sendPush, shiftTypes]);
 
 
   const deleteSchedule = useCallback(async (id: string) => {
@@ -350,6 +362,7 @@ export function useData() {
       phone: employee.phone || null,
       email: employee.email || null,
       avatar: employee.avatar || null,
+      weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
       password_hash: bcrypt.hashSync(employee.employeeCode, 10),
     };
     console.log('[createEmployee] payload:', payload);
@@ -380,6 +393,7 @@ export function useData() {
       phone: employee.phone || null,
       email: employee.email || null,
       avatar: employee.avatar || null,
+      weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
     }).eq('id', employee.id);
     if (error) {
       console.error('[updateEmployee] Supabase error:', error);

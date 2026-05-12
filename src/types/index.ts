@@ -31,6 +31,7 @@ export type Employee = {
   phone?: string;
   email?: string;
   avatar?: string;
+  weeklyOffDay?: number;
 };
 
 export type ScheduleStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';

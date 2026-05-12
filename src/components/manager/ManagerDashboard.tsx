@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell,
-  ChevronLeft, ChevronRight, Plus, PlusCircle, Check, Image
+  ChevronLeft, ChevronRight, Plus, PlusCircle, Check, Image, Download, Clock
 } from 'lucide-react';
 
 
@@ -74,10 +74,26 @@ export function ManagerDashboard({
 }: ManagerDashboardProps) {
 
 
-  const [activeTab, setActiveTab] = useState<'coverage' | 'requests' | 'admin'>('coverage');
+  const [activeTab, setActiveTab] = useState<'coverage' | 'requests' | 'report' | 'admin'>('coverage');
   const [activeAdminTab, setActiveAdminTab] = useState<'employees' | 'shifts' | 'positions' | 'settings'>('employees');
 
   const [editingCell, setEditingCell] = useState<{ employeeId: string; date: string; currentShiftId?: string } | null>(null);
+  const [editingWeeklyOffEmployeeId, setEditingWeeklyOffEmployeeId] = useState<string | null>(null);
+  const [selectedWeeklyOffDay, setSelectedWeeklyOffDay] = useState<number | null>(null);
+  const [isSavingWeeklyOffDay, setIsSavingWeeklyOffDay] = useState(false);
+  const [isCreatingShiftType, setIsCreatingShiftType] = useState(false);
+  const [newShiftCode, setNewShiftCode] = useState('');
+  const [newShiftName, setNewShiftName] = useState('');
+  const [newShiftStartTime, setNewShiftStartTime] = useState('09:00');
+  const [newShiftEndTime, setNewShiftEndTime] = useState('18:00');
+  const [newShiftColor, setNewShiftColor] = useState('#22c55e');
+  const [isCreatingEmployee, setIsCreatingEmployee] = useState(false);
+  const [newEmployeeName, setNewEmployeeName] = useState('');
+  const [newEmployeeCode, setNewEmployeeCode] = useState('');
+  const [isCreatingPosition, setIsCreatingPosition] = useState(false);
+  const [newPositionName, setNewPositionName] = useState('');
+  const [newPositionCode, setNewPositionCode] = useState('');
+  const [reportEmployeeId, setReportEmployeeId] = useState<string | null>(null);
   
   // Local state for settings to avoid jumping on every keystroke
   const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
@@ -92,6 +108,80 @@ export function ManagerDashboard({
       alert(err.message || 'ไม่สามารถเปิดการแจ้งเตือนได้');
     } finally {
       setIsSubscribing(false);
+    }
+  };
+
+  const handleCreateShiftType = async () => {
+    const code = newShiftCode.trim();
+    const name = newShiftName.trim();
+    if (!code || !name) {
+      alert('กรอก รหัสกะ และ ชื่อกะ');
+      return;
+    }
+
+    try {
+      await createShiftType({
+        code,
+        name,
+        startTime: newShiftStartTime,
+        endTime: newShiftEndTime,
+        color: newShiftColor,
+        requiresApproval: false,
+        requiresReason: false,
+        requiresEvidence: false,
+        isVisible: true,
+      });
+      setIsCreatingShiftType(false);
+      setNewShiftCode('');
+      setNewShiftName('');
+    } catch (err: any) {
+      alert(err.message || 'เพิ่มกะงานไม่สำเร็จ');
+    }
+  };
+
+  const handleCreateEmployee = async () => {
+    const name = newEmployeeName.trim();
+    const code = newEmployeeCode.trim();
+    if (!name || !code) {
+      alert('กรอก ชื่อพนักงาน และ รหัสพนักงาน');
+      return;
+    }
+    const defaultPos = positions.find((p) => p.code === 'Cashier') || positions[0];
+    if (!defaultPos) {
+      alert('ไม่พบตำแหน่งงาน กรุณาเพิ่มตำแหน่งก่อน');
+      return;
+    }
+    try {
+      await createEmployee({
+        fullName: name,
+        employeeCode: code,
+        positionId: defaultPos.id,
+        role: 'employee',
+        email: `${code}@example.com`,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+      });
+      setIsCreatingEmployee(false);
+      setNewEmployeeName('');
+      setNewEmployeeCode('');
+    } catch (err: any) {
+      alert(err.message || 'เพิ่มพนักงานไม่สำเร็จ');
+    }
+  };
+
+  const handleCreatePosition = async () => {
+    const name = newPositionName.trim();
+    const code = newPositionCode.trim();
+    if (!name || !code) {
+      alert('กรอก ชื่อตำแหน่ง และ รหัสตำแหน่ง');
+      return;
+    }
+    try {
+      await createPosition({ code, name, minRequired: 1 });
+      setIsCreatingPosition(false);
+      setNewPositionName('');
+      setNewPositionCode('');
+    } catch (err: any) {
+      alert(err.message || 'เพิ่มตำแหน่งไม่สำเร็จ');
     }
   };
 
@@ -177,6 +267,74 @@ export function ManagerDashboard({
       setEditingCell(null);
     } catch (err: any) {
       alert('ลบไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  const weeklyOffDays: Array<{ value: number; label: string }> = [
+    { value: 1, label: 'จ' },
+    { value: 2, label: 'อ' },
+    { value: 3, label: 'พ' },
+    { value: 4, label: 'พฤ' },
+    { value: 5, label: 'ศ' },
+    { value: 6, label: 'ส' },
+    { value: 0, label: 'อา' },
+  ];
+
+  const handleOpenWeeklyOffDay = (employeeId: string) => {
+    const emp = employees.find((e) => e.id === employeeId);
+    setEditingWeeklyOffEmployeeId(employeeId);
+    setSelectedWeeklyOffDay(typeof emp?.weeklyOffDay === 'number' ? emp.weeklyOffDay : null);
+  };
+
+  const handleSaveWeeklyOffDay = async () => {
+    if (!editingWeeklyOffEmployeeId) return;
+    const emp = employees.find((e) => e.id === editingWeeklyOffEmployeeId);
+    if (!emp) return;
+
+    setIsSavingWeeklyOffDay(true);
+    try {
+      await updateEmployee({
+        ...emp,
+        weeklyOffDay: typeof selectedWeeklyOffDay === 'number' ? selectedWeeklyOffDay : undefined,
+      });
+
+      if (typeof selectedWeeklyOffDay === 'number') {
+        const xShift = shiftTypes.find((t) => t.code === 'X');
+        if (!xShift) {
+          alert('ไม่พบประเภทกะ X กรุณาสร้างกะ X ก่อน');
+          return;
+        }
+
+        const monthStart = startOfMonth(currentMonth);
+        const monthEnd = endOfMonth(currentMonth);
+        const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+        const offDates = daysInMonth
+          .filter((d) => d.getDay() === selectedWeeklyOffDay)
+          .map((d) => format(d, 'yyyy-MM-dd'));
+
+        for (const date of offDates) {
+          const existing = schedules.find((s) => s.employeeId === emp.id && s.date === date);
+          if (existing) {
+            if (existing.shiftTypeId !== xShift.id) {
+              await updateSchedule({ ...existing, shiftTypeId: xShift.id, status: 'approved' });
+            }
+          } else {
+            await updateSchedule({
+              id: crypto.randomUUID(),
+              employeeId: emp.id,
+              date,
+              shiftTypeId: xShift.id,
+              status: 'approved',
+            });
+          }
+        }
+      }
+
+      setEditingWeeklyOffEmployeeId(null);
+    } catch (err: any) {
+      alert(err.message || 'บันทึกไม่สำเร็จ');
+    } finally {
+      setIsSavingWeeklyOffDay(false);
     }
   };
 
@@ -269,10 +427,10 @@ export function ManagerDashboard({
 
         <div className="flex items-center gap-3">
           <div className="flex bg-bg-surface p-1 rounded-lg border border-surface-200 shadow-sm">
-            {(['coverage', 'requests', 'admin'] as const).map((tab) => (
+            {(['coverage', 'requests', 'report', 'admin'] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); setReportEmployeeId(null); }}
                 className={cn(
                   'px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all whitespace-nowrap',
                   activeTab === tab
@@ -282,6 +440,7 @@ export function ManagerDashboard({
               >
                 {tab === 'coverage' && 'ตารางรวม'}
                 {tab === 'requests' && 'คำขอ'}
+                {tab === 'report' && 'รายงาน'}
                 {tab === 'admin' && 'จัดการ'}
               </button>
             ))}
@@ -603,39 +762,47 @@ export function ManagerDashboard({
                     </button>
                   </div>
                   <div className="grid grid-cols-1 gap-2 max-h-[45vh] overflow-y-auto custom-scrollbar pr-1">
-                    {shiftTypes
-                      .filter((t) => t.isVisible)
-                      .map((type) => {
-                        const isSelected = editingCell.currentShiftId === type.id;
-                        return (
-                          <button
-                            key={type.id}
-                            onClick={() => handleAssignShift(type.id)}
-                            className={cn(
-                              'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
-                              isSelected
-                                ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
-                                : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium text-white"
-                                style={{ backgroundColor: type.color }}
-                              >
-                                {type.code}
+                    {(() => {
+                      const emp = employees.find((e) => e.id === editingCell.employeeId);
+                      const isOffDay = typeof emp?.weeklyOffDay === 'number' && new Date(`${editingCell.date}T00:00:00`).getDay() === emp.weeklyOffDay;
+                      return shiftTypes
+                        .filter((t) => t.isVisible)
+                        .map((type) => {
+                          const isSelected = editingCell.currentShiftId === type.id;
+                          const isDisabled = isOffDay && type.code !== 'X';
+                          return (
+                            <button
+                              key={type.id}
+                              disabled={isDisabled}
+                              onClick={() => handleAssignShift(type.id)}
+                              className={cn(
+                                'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
+                                isSelected
+                                  ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
+                                  : isDisabled
+                                  ? 'border-white/[0.03] bg-white/[0.02] opacity-40 cursor-not-allowed'
+                                  : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium text-white"
+                                  style={{ backgroundColor: type.color }}
+                                >
+                                  {type.code}
+                                </div>
+                                <div className="text-left">
+                                  <p className={cn('font-medium text-sm', isDisabled ? 'text-text-quaternary' : 'text-text-primary')}>{type.name}</p>
+                                  <p className="text-xs text-text-tertiary font-medium">
+                                    {type.startTime} - {type.endTime}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="text-left">
-                                <p className="font-medium text-sm text-text-primary">{type.name}</p>
-                                <p className="text-xs text-text-tertiary font-medium">
-                                  {type.startTime} - {type.endTime}
-                                </p>
-                              </div>
-                            </div>
-                            {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}
-                          </button>
-                        );
-                      })}
+                              {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}
+                            </button>
+                          );
+                        });
+                    })()}
                   </div>
                   {editingCell.currentShiftId && (
                     <button
@@ -818,6 +985,330 @@ export function ManagerDashboard({
         </div>
       )}
 
+      {/* Report Tab */}
+      {activeTab === 'report' && (() => {
+        const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
+        const monthSchedules = schedules.filter((s) => {
+          const d = new Date(s.date);
+          return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth);
+        });
+
+        // Helper: count shift categories for an employee
+        const getEmployeeStats = (empId: string) => {
+          const empSchedules = monthSchedules.filter((s) => s.employeeId === empId);
+          const counts: Record<string, number> = {};
+          let workDays = 0;
+          let pendingCount = 0;
+          let swapCount = 0;
+          let lateCount = 0;
+          empSchedules.forEach((s) => {
+            const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+            const code = st?.code || s.shiftTypeId;
+            if (s.status === 'pending') pendingCount++;
+            if (s.swapWithId) swapCount++;
+            if (s.employeeNote?.includes('มาสาย') || s.employeeNote?.includes('ลืมแสกน')) lateCount++;
+            if (['XC', 'V'].includes(code) || st?.requiresReason || st?.requiresEvidence) {
+              counts[code] = (counts[code] || 0) + 1;
+            } else if (s.status === 'approved') {
+              workDays++;
+            }
+          });
+          return { counts, workDays, pendingCount, swapCount, lateCount };
+        };
+
+        // Overview totals
+        const totalEmployees = employees.length;
+        const allXc = monthSchedules.filter((s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.code === 'XC').length;
+        const allV = monthSchedules.filter((s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.code === 'V').length;
+        const allSick = monthSchedules.filter((s) => {
+          const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+          return st?.name?.includes('ป่วย') || st?.code === 'SICK';
+        }).length;
+        const allLate = monthSchedules.filter((s) => s.employeeNote?.includes('มาสาย') || s.employeeNote?.includes('ลืมแสกน')).length;
+        const allPending = monthSchedules.filter((s) => s.status === 'pending').length;
+
+        // CSV export
+        const handleExportCSV = () => {
+          const headers = ['รหัส', 'ชื่อ', 'ตำแหน่ง', ...daysInMonth.map((d) => format(d, 'd/MM')), 'วันทำงาน', 'ขาด', 'ลา', 'ป่วย', 'สาย'];
+          const rows = employees.map((emp) => {
+            const stats = getEmployeeStats(emp.id);
+            const pos = positions.find((p) => p.id === emp.positionId);
+            const dayCols = daysInMonth.map((d) => {
+              const dateStr = format(d, 'yyyy-MM-dd');
+              const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
+              if (!s) return '';
+              const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+              let label = st?.code || '';
+              if (s.status === 'pending') label += '(รอ)';
+              if (s.swapWithId) label += '(สลับ)';
+              return label;
+            });
+            return [emp.employeeCode, emp.fullName, pos?.name || '', ...dayCols, stats.workDays, stats.counts['XC'] || 0, stats.counts['V'] || 0, stats.counts['SICK'] || 0, stats.lateCount];
+          });
+          const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
+          const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `report-${format(currentMonth, 'yyyy-MM')}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        // Detail view for one employee
+        if (reportEmployeeId) {
+          const emp = employees.find((e) => e.id === reportEmployeeId);
+          if (!emp) return null;
+          const stats = getEmployeeStats(emp.id);
+          const pos = positions.find((p) => p.id === emp.positionId);
+          const empSchedules = monthSchedules
+            .filter((s) => s.employeeId === emp.id)
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+          return (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setReportEmployeeId(null)}
+                  className="p-2 rounded-md hover:bg-white/[0.05] border border-transparent hover:border-white/[0.08] transition-all text-text-tertiary hover:text-text-primary"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="w-1.5 h-6 bg-brand rounded-full"></div>
+                <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight">
+                  รายละเอียดตารางงาน
+                </h2>
+              </div>
+
+              <div className="card p-5 sm:p-6 rounded-xl">
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-bg-surface border border-white/[0.08]">
+                    <img
+                      src={emp.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-text-primary">{emp.fullName}</h3>
+                    <p className="text-xs font-semibold text-text-quaternary uppercase tracking-wider">{emp.employeeCode} · {pos?.name}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+                  <div className="p-3 bg-success/10 rounded-lg text-center">
+                    <p className="text-lg font-bold text-success">{stats.workDays}</p>
+                    <p className="text-[10px] font-semibold text-success/70 uppercase">วันทำงาน</p>
+                  </div>
+                  <div className="p-3 bg-danger/10 rounded-lg text-center">
+                    <p className="text-lg font-bold text-danger">{stats.counts['XC'] || 0}</p>
+                    <p className="text-[10px] font-semibold text-danger/70 uppercase">ขาด</p>
+                  </div>
+                  <div className="p-3 bg-warn/10 rounded-lg text-center">
+                    <p className="text-lg font-bold text-warn">{stats.counts['V'] || 0}</p>
+                    <p className="text-[10px] font-semibold text-warn/70 uppercase">ลา</p>
+                  </div>
+                  <div className="p-3 bg-brand/10 rounded-lg text-center">
+                    <p className="text-lg font-bold text-brand-accent">{stats.counts['SICK'] || 0}</p>
+                    <p className="text-[10px] font-semibold text-brand/70 uppercase">ป่วย</p>
+                  </div>
+                  <div className="p-3 bg-warn/10 rounded-lg text-center">
+                    <p className="text-lg font-bold text-warn">{stats.lateCount}</p>
+                    <p className="text-[10px] font-semibold text-warn/70 uppercase">สาย</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/[0.05]">
+                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-text-quaternary uppercase tracking-wider">วันที่</th>
+                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-text-quaternary uppercase tracking-wider">กะงาน</th>
+                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-text-quaternary uppercase tracking-wider">สถานะ</th>
+                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-text-quaternary uppercase tracking-wider">รายละเอียด</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {daysInMonth.map((day) => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const s = empSchedules.find((sc) => sc.date === dateStr);
+                        const st = s ? shiftTypes.find((t) => t.id === s.shiftTypeId) : null;
+                        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                        return (
+                          <tr key={dateStr} className={cn('border-b border-white/[0.03]', isWeekend && 'bg-white/[0.01]')}>
+                            <td className="py-2.5 px-3">
+                              <span className="font-medium text-text-primary">{format(day, 'd')}</span>
+                              <span className="text-text-quaternary ml-1.5">{format(day, 'EEE', { locale: th })}</span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {st ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: st.color }}></div>
+                                  <span className="font-medium text-text-primary">{st.name}</span>
+                                  <span className="text-text-quaternary text-xs">({st.code})</span>
+                                </div>
+                              ) : (
+                                <span className="text-text-quaternary">—</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {s ? (
+                                <span className={cn(
+                                  'text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md',
+                                  s.status === 'approved' && 'bg-success/10 text-success',
+                                  s.status === 'pending' && 'bg-warn/10 text-warn',
+                                  s.status === 'rejected' && 'bg-danger/10 text-danger',
+                                )}>
+                                  {s.status === 'approved' ? 'อนุมัติ' : s.status === 'pending' ? 'รออนุมัติ' : 'ปฏิเสธ'}
+                                </span>
+                              ) : (
+                                <span className="text-text-quaternary text-xs">ไม่มีข้อมูล</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {s?.swapWithId && (
+                                  <span className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-0.5 rounded-md flex items-center gap-1">
+                                    <Users className="w-3 h-3" />
+                                    สลับกับ {employees.find((e) => e.id === s.swapWithId)?.fullName || '?'}
+                                  </span>
+                                )}
+                                {(s?.employeeNote?.includes('มาสาย') || s?.employeeNote?.includes('ลืมแสกน')) && (
+                                  <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-0.5 rounded-md flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    มาสาย
+                                  </span>
+                                )}
+                                {s?.employeeNote && !s.employeeNote.includes('มาสาย') && !s.employeeNote.includes('ลืมแสกน') && !s.employeeNote.includes('สลับกะ') && (
+                                  <span className="text-[10px] text-text-tertiary">
+                                    {s.employeeNote}
+                                  </span>
+                                )}
+                                {s?.evidenceUrl && (
+                                  <a
+                                    href={s.evidenceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-0.5 rounded-md flex items-center gap-1 hover:bg-brand/20 transition-colors"
+                                  >
+                                    <Image className="w-3 h-3" />
+                                    ดูหลักฐาน
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Employee list view
+        return (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-6 bg-brand rounded-full"></div>
+              <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight">
+                รายงานสรุปเดือน {format(currentMonth, 'MMMM yyyy', { locale: th })}
+              </h2>
+            </div>
+
+            {/* Overview Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="card p-4 rounded-xl text-center">
+                <p className="text-2xl font-bold text-text-primary">{totalEmployees}</p>
+                <p className="text-[10px] font-semibold text-text-quaternary uppercase tracking-wider">พนักงานทั้งหมด</p>
+              </div>
+              <div className="card p-4 rounded-xl text-center">
+                <p className="text-2xl font-bold text-danger">{allXc}</p>
+                <p className="text-[10px] font-semibold text-danger/70 uppercase tracking-wider">วันขาด</p>
+              </div>
+              <div className="card p-4 rounded-xl text-center">
+                <p className="text-2xl font-bold text-warn">{allV}</p>
+                <p className="text-[10px] font-semibold text-warn/70 uppercase tracking-wider">วันลา</p>
+              </div>
+              <div className="card p-4 rounded-xl text-center">
+                <p className="text-2xl font-bold text-brand-accent">{allSick}</p>
+                <p className="text-[10px] font-semibold text-brand/70 uppercase tracking-wider">วันป่วย</p>
+              </div>
+              <div className="card p-4 rounded-xl text-center">
+                <p className="text-2xl font-bold text-warn">{allLate}</p>
+                <p className="text-[10px] font-semibold text-warn/70 uppercase tracking-wider">วันสาย</p>
+              </div>
+            </div>
+
+            {/* Export + Pending alert */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {allPending > 0 && (
+                  <span className="text-xs font-semibold bg-warn/10 text-warn px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <Bell className="w-3.5 h-3.5" />
+                    {allPending} คำขอรออนุมัติ
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleExportCSV}
+                className="btn btn-ghost text-xs flex items-center gap-1.5"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
+
+            {/* Employee List */}
+            <div className="space-y-3">
+              {employees.map((emp) => {
+                const stats = getEmployeeStats(emp.id);
+                const pos = positions.find((p) => p.id === emp.positionId);
+                const hasAlert = stats.pendingCount > 0 || stats.swapCount > 0;
+                return (
+                  <button
+                    key={emp.id}
+                    onClick={() => setReportEmployeeId(emp.id)}
+                    className="w-full card p-4 sm:p-5 rounded-xl flex items-center gap-4 hover:border-brand/30 transition-all text-left group"
+                  >
+                    <div className="w-11 h-11 rounded-xl overflow-hidden bg-bg-surface border border-white/[0.08] shrink-0">
+                      <img
+                        src={emp.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-text-primary truncate">{emp.fullName}</p>
+                        {hasAlert && (
+                          <span className="w-2 h-2 bg-warn rounded-full animate-pulse shrink-0"></span>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-semibold text-text-quaternary uppercase tracking-wider">{emp.employeeCode} · {pos?.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="hidden sm:flex items-center gap-2">
+                        <span className="text-[10px] font-bold bg-success/10 text-success px-2 py-1 rounded-md">{stats.workDays} ทำงาน</span>
+                        {stats.counts['XC'] > 0 && <span className="text-[10px] font-bold bg-danger/10 text-danger px-2 py-1 rounded-md">{stats.counts['XC']} ขาด</span>}
+                        {stats.counts['V'] > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.counts['V']} ลา</span>}
+                        {(stats.counts['SICK'] || 0) > 0 && <span className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-1 rounded-md">{stats.counts['SICK']} ป่วย</span>}
+                        {stats.lateCount > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.lateCount} สาย</span>}
+                        {stats.pendingCount > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.pendingCount} รอ</span>}
+                        {stats.swapCount > 0 && <span className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-1 rounded-md">{stats.swapCount} สลับ</span>}
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-text-quaternary group-hover:text-brand transition-colors" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Admin Tab */}
       {activeTab === 'admin' && (
         <div className="space-y-5">
@@ -858,25 +1349,7 @@ export function ManagerDashboard({
                     รายชื่อพนักงานทั้งหมด ({employees.length} ท่าน)
                   </span>
                   <button
-                    onClick={() => {
-                      const name = prompt('ชื่อพนักงาน:');
-                      const code = prompt('รหัสพนักงาน:');
-                      if (name && code) {
-                        const defaultPos = positions.find((p) => p.code === 'Cashier') || positions[0];
-                        if (!defaultPos) {
-                          alert('ไม่พบตำแหน่งงาน กรุณาเพิ่มตำแหน่งก่อน');
-                          return;
-                        }
-                        createEmployee({
-                          fullName: name,
-                          employeeCode: code,
-                          positionId: defaultPos.id,
-                          role: 'employee',
-                          email: `${code}@example.com`,
-                          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-                        }).catch((err) => alert(err.message || 'เพิ่มพนักงานไม่สำเร็จ'));
-                      }
-                    }}
+                    onClick={() => setIsCreatingEmployee(true)}
                     className="btn btn-primary text-xs py-2 shadow-raised"
                   >
                     <Plus className="w-4 h-4" />
@@ -887,7 +1360,8 @@ export function ManagerDashboard({
                   {employees.map((emp) => (
                     <div
                       key={emp.id}
-                      className="group p-3 bg-bg-panel rounded-xl border border-success/20 flex items-center justify-between hover:border-brand/30 transition-all"
+                      onClick={() => handleOpenWeeklyOffDay(emp.id)}
+                      className="group p-3 bg-bg-panel rounded-xl border border-success/20 flex items-center justify-between hover:border-brand/30 transition-all cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg overflow-hidden bg-bg-surface border border-surface-200">
@@ -898,16 +1372,156 @@ export function ManagerDashboard({
                           <div className="text-[9px] font-semibold text-text-quaternary uppercase tracking-wider">
                             {emp.employeeCode}
                           </div>
+                          {typeof emp.weeklyOffDay === 'number' && (
+                            <div className="mt-1 text-[9px] font-semibold text-text-tertiary uppercase tracking-wider">
+                              หยุด: {weeklyOffDays.find((d) => d.value === emp.weeklyOffDay)?.label}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <button
-                        onClick={() => deleteEmployee(emp.id).catch((err) => alert(err.message || 'ลบพนักงานไม่สำเร็จ'))}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteEmployee(emp.id).catch((err) => alert(err.message || 'ลบพนักงานไม่สำเร็จ'));
+                        }}
                         className="opacity-0 group-hover:opacity-100 p-2 text-danger hover:bg-danger/10 rounded-lg transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
+                </div>
+
+                {isCreatingEmployee && (
+                  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+                    <div
+                      className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+                      onClick={() => setIsCreatingEmployee(false)}
+                    ></div>
+                    <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+                      <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
+                      <div className="p-5 sm:p-5">
+                        <div className="flex items-center justify-between mb-5">
+                          <div>
+                            <h3 className="text-lg font-medium text-text-primary">เพิ่มพนักงาน</h3>
+                            <p className="text-xs font-medium text-text-tertiary">กำหนดชื่อ/รหัสพนักงาน</p>
+                          </div>
+                          <button
+                            onClick={() => setIsCreatingEmployee(false)}
+                            className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+                          >
+                            <XCircle className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="space-y-1">
+                            <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">ชื่อพนักงาน</div>
+                            <input
+                              value={newEmployeeName}
+                              onChange={(e) => setNewEmployeeName(e.target.value)}
+                              className="w-full input"
+                              placeholder="ชื่อ-นามสกุล"
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">รหัสพนักงาน</div>
+                            <input
+                              value={newEmployeeCode}
+                              onChange={(e) => setNewEmployeeCode(e.target.value)}
+                              className="w-full input"
+                              placeholder="รหัส"
+                            />
+                          </label>
+                        </div>
+
+                        <div className="mt-5 flex items-center gap-2">
+                          <button
+                            onClick={() => setIsCreatingEmployee(false)}
+                            className="flex-1 py-3 bg-white/[0.04] text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-white/[0.07] transition-colors"
+                          >
+                            ยกเลิก
+                          </button>
+                          <button
+                            onClick={handleCreateEmployee}
+                            className="flex-1 py-3 bg-brand/20 text-brand-accent border border-brand/20 rounded-lg text-sm font-medium hover:bg-brand/25 transition-colors"
+                          >
+                            บันทึก
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Weekly Off-day Modal */}
+            {editingWeeklyOffEmployeeId && (
+              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+                <div
+                  className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+                  onClick={() => !isSavingWeeklyOffDay && setEditingWeeklyOffEmployeeId(null)}
+                ></div>
+                <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+                  <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
+                  <div className="p-5 sm:p-5">
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <h3 className="text-lg font-medium text-text-primary">วันหยุดประจำสัปดาห์</h3>
+                        <p className="text-sm font-medium text-brand-accent">
+                          {(() => {
+                            const emp = employees.find((e) => e.id === editingWeeklyOffEmployeeId);
+                            return `${emp?.fullName || ''} · ${emp?.employeeCode || ''}`;
+                          })()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setEditingWeeklyOffEmployeeId(null)}
+                        disabled={isSavingWeeklyOffDay}
+                        className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors disabled:opacity-50"
+                      >
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {weeklyOffDays.map((d) => {
+                        const isSelected = selectedWeeklyOffDay === d.value;
+                        return (
+                          <button
+                            key={d.value}
+                            onClick={() => setSelectedWeeklyOffDay(d.value)}
+                            className={cn(
+                              'py-3 rounded-lg border text-sm font-medium transition-all active:scale-[0.98]',
+                              isSelected
+                                ? 'border-brand bg-brand/10 ring-1 ring-brand/20 text-text-primary'
+                                : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface text-text-tertiary'
+                            )}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-5 flex items-center gap-2">
+                      <button
+                        onClick={() => setSelectedWeeklyOffDay(null)}
+                        disabled={isSavingWeeklyOffDay}
+                        className="flex-1 py-3 bg-white/[0.04] text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-white/[0.07] transition-colors disabled:opacity-50"
+                      >
+                        ไม่ตั้ง
+                      </button>
+                      <button
+                        onClick={handleSaveWeeklyOffDay}
+                        disabled={isSavingWeeklyOffDay}
+                        className="flex-1 py-3 bg-brand/20 text-brand-accent border border-brand/20 rounded-lg text-sm font-medium hover:bg-brand/25 transition-colors disabled:opacity-50"
+                      >
+                        บันทึก
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -920,21 +1534,8 @@ export function ManagerDashboard({
                   </span>
                   <button
                     onClick={() => {
-                      const code = prompt('รหัสกะ (เช่น M3):');
-                      const name = prompt('ชื่อกะ (เช่น Morning 3):');
-                      if (code && name) {
-                        createShiftType({
-                          code,
-                          name,
-                          startTime: '09:00',
-                          endTime: '18:00',
-                          color: '#' + Math.floor(Math.random() * 16777215).toString(16),
-                          requiresApproval: false,
-                          requiresReason: false,
-                          requiresEvidence: false,
-                          isVisible: true,
-                        }).catch((err) => alert(err.message || 'เพิ่มกะงานไม่สำเร็จ'));
-                      }
+                      setNewShiftColor('#' + Math.floor(Math.random() * 16777215).toString(16));
+                      setIsCreatingShiftType(true);
                     }}
                     className="btn btn-primary text-xs py-2 shadow-raised"
                   >
@@ -942,6 +1543,102 @@ export function ManagerDashboard({
                     เพิ่มประเภทกะ
                   </button>
                 </div>
+
+                {isCreatingShiftType && (
+                  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+                    <div
+                      className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+                      onClick={() => setIsCreatingShiftType(false)}
+                    ></div>
+                    <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+                      <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
+                      <div className="p-5 sm:p-5">
+                        <div className="flex items-center justify-between mb-5">
+                          <div>
+                            <h3 className="text-lg font-medium text-text-primary">เพิ่มประเภทกะ</h3>
+                            <p className="text-xs font-medium text-text-tertiary">กำหนดรหัส/ชื่อ/เวลา/สี</p>
+                          </div>
+                          <button
+                            onClick={() => setIsCreatingShiftType(false)}
+                            className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+                          >
+                            <XCircle className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className="space-y-1">
+                              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">รหัสกะ</div>
+                              <input
+                                value={newShiftCode}
+                                onChange={(e) => setNewShiftCode(e.target.value)}
+                                className="w-full input"
+                                placeholder="เช่น X"
+                              />
+                            </label>
+                            <label className="space-y-1">
+                              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">ชื่อกะ</div>
+                              <input
+                                value={newShiftName}
+                                onChange={(e) => setNewShiftName(e.target.value)}
+                                className="w-full input"
+                                placeholder="เช่น OFF"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className="space-y-1">
+                              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">เริ่ม</div>
+                              <input
+                                type="time"
+                                value={newShiftStartTime}
+                                onChange={(e) => setNewShiftStartTime(e.target.value)}
+                                className="w-full input"
+                              />
+                            </label>
+                            <label className="space-y-1">
+                              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">เลิก</div>
+                              <input
+                                type="time"
+                                value={newShiftEndTime}
+                                onChange={(e) => setNewShiftEndTime(e.target.value)}
+                                className="w-full input"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 bg-bg-panel rounded-xl border border-white/[0.06]">
+                            <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">สี</div>
+                            <input
+                              type="color"
+                              value={newShiftColor}
+                              onChange={(e) => setNewShiftColor(e.target.value)}
+                              className="h-7 w-12 bg-transparent border-0 p-0 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-5 flex items-center gap-2">
+                          <button
+                            onClick={() => setIsCreatingShiftType(false)}
+                            className="flex-1 py-3 bg-white/[0.04] text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-white/[0.07] transition-colors"
+                          >
+                            ยกเลิก
+                          </button>
+                          <button
+                            onClick={handleCreateShiftType}
+                            className="flex-1 py-3 bg-brand/20 text-brand-accent border border-brand/20 rounded-lg text-sm font-medium hover:bg-brand/25 transition-colors"
+                          >
+                            บันทึก
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {shiftTypes.map((type) => (
                     <div
@@ -964,6 +1661,21 @@ export function ManagerDashboard({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-2.5 bg-bg-panel rounded-xl border border-success/20">
+                        <span className="text-[10px] font-bold text-text-quaternary uppercase">สี</span>
+                        <input
+                          type="color"
+                          value={type.color}
+                          onChange={(e) => {
+                            const shift = shiftTypes.find((t) => t.id === type.id);
+                            if (shift) {
+                              updateShiftType({ ...shift, color: e.target.value }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
+                            }
+                          }}
+                          className="h-7 w-12 bg-transparent border-0 p-0 cursor-pointer"
+                        />
                       </div>
 
                       <div className="grid grid-cols-3 gap-2">
@@ -1127,13 +1839,7 @@ export function ManagerDashboard({
                         </span>
                       </div>
                       <button
-                        onClick={() => {
-                          const name = prompt('ชื่อตำแหน่ง:');
-                          const code = prompt('รหัสตำแหน่ง:');
-                          if (name && code) {
-                            createPosition({ code, name, minRequired: 1 }).catch((err) => alert(err.message || 'เพิ่มตำแหน่งไม่สำเร็จ'));
-                          }
-                        }}
+                        onClick={() => setIsCreatingPosition(true)}
                         className="btn btn-primary text-xs py-2 shadow-raised"
                       >
                         <Plus className="w-4 h-4" />
@@ -1234,6 +1940,68 @@ export function ManagerDashboard({
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isCreatingPosition && (
+              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+                <div
+                  className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+                  onClick={() => setIsCreatingPosition(false)}
+                ></div>
+                <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+                  <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
+                  <div className="p-5 sm:p-5">
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <h3 className="text-lg font-medium text-text-primary">เพิ่มตำแหน่ง</h3>
+                        <p className="text-xs font-medium text-text-tertiary">กำหนดชื่อ/รหัสตำแหน่ง</p>
+                      </div>
+                      <button
+                        onClick={() => setIsCreatingPosition(false)}
+                        className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+                      >
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="space-y-1">
+                        <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">ชื่อตำแหน่ง</div>
+                        <input
+                          value={newPositionName}
+                          onChange={(e) => setNewPositionName(e.target.value)}
+                          className="w-full input"
+                          placeholder="เช่น Cashier"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">รหัสตำแหน่ง</div>
+                        <input
+                          value={newPositionCode}
+                          onChange={(e) => setNewPositionCode(e.target.value)}
+                          className="w-full input"
+                          placeholder="เช่น CSR"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="mt-5 flex items-center gap-2">
+                      <button
+                        onClick={() => setIsCreatingPosition(false)}
+                        className="flex-1 py-3 bg-white/[0.04] text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-white/[0.07] transition-colors"
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        onClick={handleCreatePosition}
+                        className="flex-1 py-3 bg-brand/20 text-brand-accent border border-brand/20 rounded-lg text-sm font-medium hover:bg-brand/25 transition-colors"
+                      >
+                        บันทึก
+                      </button>
                     </div>
                   </div>
                 </div>

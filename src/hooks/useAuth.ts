@@ -42,6 +42,7 @@ export function useAuth() {
       phone: data.phone || undefined,
       email: data.email || undefined,
       avatar: data.avatar || undefined,
+      weeklyOffDay: typeof data.weekly_off_day === 'number' ? data.weekly_off_day : undefined,
       position: data.positions,
     });
     setIsLoading(false);
@@ -90,6 +91,7 @@ export function useAuth() {
       phone: data.phone || undefined,
       email: data.email || undefined,
       avatar: data.avatar || undefined,
+      weeklyOffDay: typeof data.weekly_off_day === 'number' ? data.weekly_off_day : undefined,
       position: data.positions,
     });
     setIsLoading(false);
