@@ -554,7 +554,11 @@ export function EmployeeDashboard({
                       .filter((t) => {
                         const isVisible = t.isVisible || t.id === 'xc';
                         const isWeeklyOffMatch = !isOffDay || t.code === 'X';
-                        const isAllowedBySetting = settings.allowEmployeeSetShifts || t.requiresApproval;
+                        
+                        // If setting is off, only allow specific "Request" types (Day Off, Sick Leave, Vacation)
+                        const isAllowedBySetting = settings.allowEmployeeSetShifts || 
+                          ['XC', 'ป่วย', 'V'].includes(t.code);
+                        
                         return isVisible && isWeeklyOffMatch && isAllowedBySetting;
                       })
                       .map((type) => {
