@@ -22,17 +22,24 @@ export type ShiftType = {
   category?: 'morning' | 'afternoon' | 'other';
 };
 
+export type PositionGroup = {
+  id: string;
+  name: string;
+};
+
 export type Employee = {
   id: string;
   employeeCode: string;
   fullName: string;
   positionId: string;
+  groupId?: string;
   role: UserRole;
   phone?: string;
   email?: string;
   avatar?: string;
   weeklyOffDay?: number;
 };
+
 
 export type ScheduleStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';
 

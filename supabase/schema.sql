@@ -7,29 +7,38 @@ alter table if exists schedules enable row level security;
 -- Drop existing tables
 DROP TABLE IF EXISTS schedules CASCADE;
 DROP TABLE IF EXISTS employees CASCADE;
+DROP TABLE IF EXISTS position_groups CASCADE;
 DROP TABLE IF EXISTS positions CASCADE;
 DROP TABLE IF EXISTS shift_types CASCADE;
 
 -- Positions
 CREATE TABLE positions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code text NOT NULL UNIQUE,
+  code text UNIQUE NOT NULL,
   name text NOT NULL,
-  min_required int NOT NULL DEFAULT 1,
+  min_required integer DEFAULT 1,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE position_groups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
   created_at timestamptz DEFAULT now()
 );
 
 -- Employees (link to Supabase Auth via id)
 CREATE TABLE employees (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_code text NOT NULL UNIQUE,
+  employee_code text UNIQUE NOT NULL,
   full_name text NOT NULL,
-  position_id uuid NOT NULL REFERENCES positions(id),
-  role text NOT NULL DEFAULT 'employee' CHECK (role IN ('employee', 'manager', 'admin')),
+  position_id uuid REFERENCES positions(id),
+  group_id uuid REFERENCES position_groups(id),
+  role text DEFAULT 'employee',
   phone text,
   email text,
   avatar text,
   password_hash text,
+  weekly_off_day integer,
   created_at timestamptz DEFAULT now()
 );
 
@@ -96,6 +105,8 @@ CREATE POLICY "Allow all" ON shift_types FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON schedules FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON push_subscriptions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON position_groups FOR ALL USING (true) WITH CHECK (true);
+
 
 
 INSERT INTO settings (key, value) VALUES

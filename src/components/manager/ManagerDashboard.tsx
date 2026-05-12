@@ -12,7 +12,9 @@ import {
 } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
-import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../../types';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../../types';
+import { PositionGroupManager } from './PositionGroupManager';
+
 
 
 interface ManagerDashboardProps {
@@ -32,6 +34,11 @@ interface ManagerDashboardProps {
   createPosition: (position: Omit<Position, 'id'>) => Promise<void>;
   updatePosition: (position: Position) => Promise<void>;
   deletePosition: (id: string) => Promise<void>;
+  positionGroups: PositionGroup[];
+  createPositionGroup: (group: Omit<PositionGroup, 'id'>) => Promise<void>;
+  updatePositionGroup: (group: PositionGroup) => Promise<void>;
+  deletePositionGroup: (id: string) => Promise<void>;
+
 
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
 
@@ -59,9 +66,12 @@ export function ManagerDashboard({
   createShiftType,
   updateShiftType,
   deleteShiftType,
-  createPosition,
+  deletePosition: (id: string) => Promise<void>;
+  positionGroups,
+  createPositionGroup,
+  updatePositionGroup,
+  deletePositionGroup,
 
-  deletePosition,
 
   updateSchedule,
   deleteSchedule,
@@ -75,7 +85,8 @@ export function ManagerDashboard({
 
 
   const [activeTab, setActiveTab] = useState<'coverage' | 'requests' | 'report' | 'admin'>('coverage');
-  const [activeAdminTab, setActiveAdminTab] = useState<'employees' | 'shifts' | 'positions' | 'settings'>('employees');
+  const [activeAdminTab, setActiveAdminTab] = useState<'employees' | 'shifts' | 'positions' | 'groups' | 'settings'>('employees');
+
 
   const [editingCell, setEditingCell] = useState<{ employeeId: string; date: string; currentShiftId?: string } | null>(null);
   const [editingWeeklyOffEmployeeId, setEditingWeeklyOffEmployeeId] = useState<string | null>(null);
@@ -90,6 +101,8 @@ export function ManagerDashboard({
   const [isCreatingEmployee, setIsCreatingEmployee] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeeCode, setNewEmployeeCode] = useState('');
+  const [newEmployeeGroupId, setNewEmployeeGroupId] = useState('');
+
   const [isCreatingPosition, setIsCreatingPosition] = useState(false);
   const [newPositionName, setNewPositionName] = useState('');
   const [newPositionCode, setNewPositionCode] = useState('');
@@ -156,6 +169,7 @@ export function ManagerDashboard({
         fullName: name,
         employeeCode: code,
         positionId: defaultPos.id,
+        groupId: newEmployeeGroupId || undefined,
         role: 'employee',
         email: `${code}@example.com`,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
@@ -163,9 +177,11 @@ export function ManagerDashboard({
       setIsCreatingEmployee(false);
       setNewEmployeeName('');
       setNewEmployeeCode('');
+      setNewEmployeeGroupId('');
     } catch (err: any) {
       alert(err.message || 'เพิ่มพนักงานไม่สำเร็จ');
     }
+
   };
 
   const handleCreatePosition = async () => {
@@ -1321,7 +1337,7 @@ export function ManagerDashboard({
                 </h2>
               </div>
               <div className="flex bg-bg-surface p-1 rounded-lg">
-                {(['employees', 'shifts', 'positions', 'settings'] as const).map((tab) => (
+                {(['employees', 'shifts', 'positions', 'groups', 'settings'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveAdminTab(tab)}
@@ -1335,8 +1351,10 @@ export function ManagerDashboard({
                     {tab === 'employees' && 'พนักงาน'}
                     {tab === 'shifts' && 'กะงาน'}
                     {tab === 'positions' && 'ตำแหน่ง'}
+                    {tab === 'groups' && 'กลุ่ม'}
                     {tab === 'settings' && 'ตั้งค่าแอป'}
                   </button>
+
                 ))}
               </div>
 
@@ -1433,7 +1451,22 @@ export function ManagerDashboard({
                               placeholder="รหัส"
                             />
                           </label>
+                          <label className="space-y-1">
+                            <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">กลุ่มตำแหน่ง (Optional)</div>
+                            <select
+                              value={newEmployeeGroupId}
+                              onChange={(e) => setNewEmployeeGroupId(e.target.value)}
+                              className="w-full input"
+                            >
+                              <option value="">-- เลือกกลุ่ม (ถ้ามี) --</option>
+                              {positionGroups.map(g => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                              ))}
+                            </select>
+                          </label>
                         </div>
+
+
 
                         <div className="mt-5 flex items-center gap-2">
                           <button
@@ -2007,6 +2040,18 @@ export function ManagerDashboard({
                 </div>
               </div>
             )}
+
+            {activeAdminTab === 'groups' && (
+              <PositionGroupManager
+                groups={positionGroups}
+                employees={employees}
+                createGroup={createPositionGroup}
+                updateGroup={updatePositionGroup}
+                deleteGroup={deletePositionGroup}
+                updateEmployee={updateEmployee}
+              />
+            )}
+
 
             {activeAdminTab === 'settings' && (
               <div className="animate-fade-in space-y-6">

@@ -122,10 +122,17 @@ function App() {
 
       const weekIndex = differenceInCalendarWeeks(day, monthStart, { weekStartsOn: 1 });
       const getWeeklyPreferred = (employeeId: string): 'morning' | 'afternoon' => {
-        const idx = employeeOrder.findIndex((e) => e.id === employeeId);
-        const base: 'morning' | 'afternoon' = idx % 2 === 0 ? 'morning' : 'afternoon';
+        const emp = employees.find((e) => e.id === employeeId);
+        if (!emp) return 'morning';
+
+        const groupKey = emp.groupId || emp.positionId;
+        const groupMembers = employeeOrder.filter((e) => (e.groupId || e.positionId) === groupKey);
+        const idxInGroup = groupMembers.findIndex((e) => e.id === employeeId);
+
+        const base: 'morning' | 'afternoon' = idxInGroup % 2 === 0 ? 'morning' : 'afternoon';
         return weekIndex % 2 === 0 ? base : base === 'morning' ? 'afternoon' : 'morning';
       };
+
 
       const targetShiftTypes = shiftTypes.filter((t) => (t.targetStaff || 0) > 0);
       const remainingByType = new Map<string, number>(
@@ -356,8 +363,13 @@ function App() {
             createPosition={createPosition}
             updatePosition={updatePosition}
             deletePosition={deletePosition}
+            positionGroups={positionGroups}
+            createPositionGroup={createPositionGroup}
+            updatePositionGroup={updatePositionGroup}
+            deletePositionGroup={deletePositionGroup}
             updateSchedule={updateSchedule}
             deleteSchedule={deleteSchedule}
+
             currentMonth={currentMonth}
             setCurrentMonth={setCurrentMonth}
             generateSmartSchedule={generateSmartSchedule}

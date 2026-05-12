@@ -7,7 +7,9 @@ export function useData() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
+  const [positionGroups, setPositionGroups] = useState<PositionGroup[]>([]);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+
   const [settings, setSettings] = useState<AppSettings>({
     storeName: 'Central Plaza Rama 9',
     appName: 'ShiftFlow',
@@ -33,18 +35,19 @@ export function useData() {
 
     setError(null);
     try {
-      const [posRes, empRes, shiftRes, schedRes, settingsRes] = await Promise.all([
+      const [posRes, empRes, shiftRes, groupRes, schedRes, settingsRes] = await Promise.all([
         supabase.from('positions').select('*').order('code'),
         supabase.from('employees').select('*').order('full_name'),
         supabase.from('shift_types').select('*').order('code'),
+        supabase.from('position_groups').select('*').order('name'),
         supabase.from('schedules').select('*').order('date'),
         supabase.from('settings').select('*'),
       ]);
 
-
       if (posRes.error) throw posRes.error;
       if (empRes.error) throw empRes.error;
       if (shiftRes.error) throw shiftRes.error;
+      if (groupRes.error) throw groupRes.error;
       if (schedRes.error) throw schedRes.error;
 
       setPositions(
@@ -56,12 +59,20 @@ export function useData() {
         }))
       );
 
+      setPositionGroups(
+        (groupRes.data || []).map((g) => ({
+          id: g.id,
+          name: g.name,
+        }))
+      );
+
       setEmployees(
         (empRes.data || []).map((e) => ({
           id: e.id,
           employeeCode: e.employee_code,
           fullName: e.full_name,
           positionId: e.position_id,
+          groupId: e.group_id || undefined,
           role: e.role as Employee['role'],
           phone: e.phone || undefined,
           email: e.email || undefined,
@@ -128,6 +139,7 @@ export function useData() {
           appName: settingsMap['app_name'] || 'ShiftFlow',
         });
       }
+
 
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
@@ -358,6 +370,7 @@ export function useData() {
       employee_code: employee.employeeCode,
       full_name: employee.fullName,
       position_id: employee.positionId,
+      group_id: employee.groupId || null,
       role: employee.role,
       phone: employee.phone || null,
       email: employee.email || null,
@@ -365,6 +378,7 @@ export function useData() {
       weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
       password_hash: bcrypt.hashSync(employee.employeeCode, 10),
     };
+
     console.log('[createEmployee] payload:', payload);
 
     const { error } = await supabase.from('employees').insert(payload);
@@ -389,12 +403,14 @@ export function useData() {
       employee_code: employee.employeeCode,
       full_name: employee.fullName,
       position_id: employee.positionId,
+      group_id: employee.groupId || null,
       role: employee.role,
       phone: employee.phone || null,
       email: employee.email || null,
       avatar: employee.avatar || null,
       weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
     }).eq('id', employee.id);
+
     if (error) {
       console.error('[updateEmployee] Supabase error:', error);
       const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
@@ -443,13 +459,32 @@ export function useData() {
       name: position.name,
       min_required: position.minRequired,
     }).eq('id', position.id);
-    if (error) {
-      console.error('[updatePosition] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase update failed');
-    }
+    if (error) throw error;
     await fetchAll();
   }, [fetchAll]);
+
+  const createPositionGroup = useCallback(async (group: Omit<PositionGroup, 'id'>) => {
+    const { error } = await supabase.from('position_groups').insert({
+      name: group.name,
+    });
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const updatePositionGroup = useCallback(async (group: PositionGroup) => {
+    const { error } = await supabase.from('position_groups').update({
+      name: group.name,
+    }).eq('id', group.id);
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
+  const deletePositionGroup = useCallback(async (id: string) => {
+    const { error } = await supabase.from('position_groups').delete().eq('id', id);
+    if (error) throw error;
+    await fetchAll();
+  }, [fetchAll]);
+
 
 
   const createShiftType = useCallback(async (shiftType: Omit<ShiftType, 'id'>) => {
@@ -523,8 +558,8 @@ export function useData() {
     employees,
     positions,
     shiftTypes,
+    positionGroups,
     schedules,
-    setSchedules,
     loading,
     error,
     refresh: fetchAll,
@@ -536,7 +571,9 @@ export function useData() {
     createPosition,
     updatePosition,
     deletePosition,
-
+    createPositionGroup,
+    updatePositionGroup,
+    deletePositionGroup,
     createShiftType,
     updateShiftType,
     deleteShiftType,
@@ -544,6 +581,4 @@ export function useData() {
     updateSettings,
     uploadFile,
   };
-
-
 }
