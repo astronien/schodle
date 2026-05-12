@@ -32,6 +32,16 @@ export function useData() {
     }
   }, []);
 
+  const sendPushRole = useCallback(async (role: string, title: string, body: string, url?: string) => {
+    try {
+      await supabase.functions.invoke('send-push', {
+        body: { role, title, body, url }
+      });
+    } catch (err) {
+      console.error('[sendPushRole] Notification failed:', err);
+    }
+  }, []);
+
   const fetchAll = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
 
@@ -269,9 +279,15 @@ export function useData() {
 
     if (error) throw error;
 
-    // Check for status changes or swap approvals to notify employee
+    // Check for status changes or swap approvals to notify employee/manager
     const oldEntry = schedules.find(s => s.id === entry.id);
     const statusChanged = oldEntry && oldEntry.status !== entry.status;
+    const isNewPending = (!oldEntry || oldEntry.status !== 'pending') && entry.status === 'pending';
+
+    // Notify Managers on new/changed pending requests
+    if (isNewPending) {
+      sendPushRole('manager', 'มีคำขอใหม่จากพนักงาน', `${emp?.fullName || 'พนักงาน'} ส่งคำขอใหม่ วันที่ ${entry.date}`, '/manager/requests');
+    }
     
     if (statusChanged || forceNotify) {
       let title = 'อัปเดตตารางงาน';
@@ -569,6 +585,9 @@ export function useData() {
     refresh: fetchAll,
     updateSchedule,
     deleteSchedule,
+    sendPush,
+    sendPushRole,
+    settings,
     createEmployee,
     updateEmployee,
     deleteEmployee,

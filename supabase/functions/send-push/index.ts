@@ -19,17 +19,38 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { employee_id, title, body, url } = await req.json()
+    const { employee_id, role, title, body, url } = await req.json()
 
-    if (!employee_id) {
-      throw new Error('employee_id is required')
+    if (!employee_id && !role) {
+      throw new Error('employee_id or role is required')
     }
 
-    // 1. Get all subscriptions for this employee
+    let targetEmployeeIds: string[] = []
+
+    if (employee_id) {
+      targetEmployeeIds = [employee_id]
+    } else if (role) {
+      const { data: employees, error: empError } = await supabaseClient
+        .from('employees')
+        .select('id')
+        .eq('role', role)
+      
+      if (empError) throw empError
+      targetEmployeeIds = employees.map((e: any) => e.id)
+    }
+
+    if (targetEmployeeIds.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: 'No target employees found' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
+    // 1. Get all subscriptions for these employees
     const { data: subscriptions, error: subError } = await supabaseClient
       .from('push_subscriptions')
-      .select('subscription')
-      .eq('employee_id', employee_id)
+      .select('subscription, employee_id')
+      .in('employee_id', targetEmployeeIds)
 
     if (subError) throw subError
     if (!subscriptions || subscriptions.length === 0) {

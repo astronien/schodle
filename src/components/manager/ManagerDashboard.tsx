@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell,
   ChevronLeft, ChevronRight, Plus, PlusCircle, Check, Image, Download, Clock
@@ -97,6 +97,33 @@ export function ManagerDashboard({
   const [newShiftEndTime, setNewShiftEndTime] = useState('18:00');
   const [newShiftColor, setNewShiftColor] = useState('#22c55e');
   const [newShiftCategory, setNewShiftCategory] = useState<'morning' | 'afternoon' | 'other'>('morning');
+
+  // Notification logic for new requests
+  const prevPendingIds = useRef<Set<string>>(new Set(schedules.filter(s => s.status === 'pending').map(s => s.id)));
+
+  useEffect(() => {
+    const currentPending = schedules.filter(s => s.status === 'pending');
+    const currentPendingIds = new Set(currentPending.map(s => s.id));
+    
+    // Find new IDs that weren't in the previous set
+    const newRequests = currentPending.filter(s => !prevPendingIds.current.has(s.id));
+
+    if (newRequests.length > 0) {
+      newRequests.forEach(req => {
+        const employee = employees.find(e => e.id === req.employeeId);
+        const shiftType = shiftTypes.find(t => t.id === req.shiftTypeId);
+        
+        if (Notification.permission === 'granted') {
+          new Notification('มีคำขอใหม่จากพนักงาน', {
+            body: `${employee?.name || 'พนักงาน'} ขอ${shiftType?.name || 'ลา/หยุด'} วันที่ ${format(new Date(req.date), 'd MMM')}`,
+            icon: '/favicon.ico'
+          });
+        }
+      });
+    }
+
+    prevPendingIds.current = currentPendingIds;
+  }, [schedules, employees, shiftTypes]);
 
   const [isCreatingEmployee, setIsCreatingEmployee] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState('');
