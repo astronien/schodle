@@ -468,6 +468,11 @@ export function ManagerDashboard({
     const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
     return st?.code === 'V' && s.status === 'approved';
   }).length;
+  const pendingCoverageAlerts = daysInMonth.filter((day) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const dayEntries = schedules.filter((s) => s.date === dateStr && s.status === 'approved');
+    return dayEntries.length === 0;
+  }).length;
   const filteredRequests = pendingRequests.filter((request) => {
     const employee = employees.find((e) => e.id === request.employeeId);
     const shiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
@@ -500,7 +505,7 @@ export function ManagerDashboard({
             { label: 'รออนุมัติ', value: pendingRequestsCount, tone: 'warn' },
             { label: 'อนุมัติวันนี้', value: approvedTodayCount, tone: 'success' },
             { label: 'ตารางที่ใช้งาน', value: totalCoverageEntries, tone: 'brand' },
-            { label: 'วันลา', value: onLeaveCount, tone: 'danger' },
+            { label: 'จุดว่าง', value: pendingCoverageAlerts, tone: 'danger' },
           ].map((item) => (
             <div key={item.label} className={cn(
               'rounded-xl border px-3 py-2.5 text-center bg-bg-surface',
@@ -521,6 +526,60 @@ export function ManagerDashboard({
           ))}
         </div>
 
+      </div>
+
+      <div className="sticky top-[calc(3.5rem+1px)] z-20 mt-4 rounded-2xl border border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
+            <button
+              onClick={generateSmartSchedule}
+              className="btn btn-primary text-xs shadow-raised whitespace-nowrap"
+            >
+              <PlusCircle className="w-4 h-4" />
+              จัดตาราง AI
+            </button>
+            <button
+              onClick={() => setActiveTab('coverage')}
+              className="btn btn-ghost text-xs whitespace-nowrap"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              ตารางรวม
+            </button>
+            <button
+              onClick={() => setActiveTab('requests')}
+              className="btn btn-ghost text-xs whitespace-nowrap"
+            >
+              <Bell className="w-4 h-4" />
+              คำขอ
+            </button>
+            <button
+              onClick={() => setActiveTab('report')}
+              className="btn btn-ghost text-xs whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" />
+              รายงาน
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+              className="px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-text-tertiary hover:text-text-primary transition-colors"
+              title="เดือนก่อนหน้า"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="px-3 py-2 rounded-lg bg-bg-surface border border-white/[0.06] text-sm font-semibold text-text-primary min-w-[130px] text-center">
+              {format(currentMonth, 'MMMM yyyy', { locale: th })}
+            </div>
+            <button
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              className="px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-text-tertiary hover:text-text-primary transition-colors"
+              title="เดือนถัดไป"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
           {activeTab === 'coverage' && (

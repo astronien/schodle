@@ -76,6 +76,11 @@ export function EmployeeDashboard({
   const shiftType = shiftTypes.find((t) => t.id === currentShiftId);
 
   const [isUpdating, setIsUpdating] = useState(false);
+  const quickActions = [
+    { id: 'today', label: 'วันนี้', icon: Clock, action: () => setCurrentMonth(new Date()) },
+    { id: 'requests', label: 'คำขอ', icon: Users, action: () => setSelectedDate(new Date()) },
+    { id: 'coverage', label: 'ตารางรวม', icon: LayoutGrid, action: () => setActiveView('coverage') },
+  ];
 
   const handleSetShift = async (shiftId: string | null, reason?: string) => {
 
@@ -544,6 +549,31 @@ export function EmployeeDashboard({
             </div>
           )}
         </section>
+      </div>
+
+      {/* Floating Quick Actions */}
+      <div className="sm:hidden fixed right-4 bottom-20 z-[60] flex flex-col items-end gap-2">
+        <div className="flex flex-col gap-2">
+          {quickActions.map((item, index) => {
+            const Icon = item.icon;
+            const isPrimary = index === 0;
+            return (
+              <button
+                key={item.id}
+                onClick={item.action}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-full shadow-lg backdrop-blur-md border transition-all active:scale-95',
+                  isPrimary
+                    ? 'bg-brand text-white border-brand/30'
+                    : 'bg-bg-panel/90 text-text-secondary border-white/[0.08]'
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-[11px] font-semibold whitespace-nowrap">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Shift Selection Modal */}
