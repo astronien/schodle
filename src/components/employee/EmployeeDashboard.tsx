@@ -226,7 +226,7 @@ export function EmployeeDashboard({
         </div>
       </div>
 
-      <div className="fixed right-4 bottom-24 hidden sm:flex flex-col gap-2 z-40">
+      <div className="fixed right-4 bottom-24 hidden lg:flex flex-col gap-2 z-40">
         {quickActions.map((action) => {
           const Icon = action.icon;
           return (
@@ -240,24 +240,6 @@ export function EmployeeDashboard({
             </button>
           );
         })}
-      </div>
-
-      <div className="fixed left-0 right-0 bottom-20 sm:hidden z-40 px-4">
-        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-bg-panel/90 backdrop-blur-xl border border-white/[0.08] p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <button
-                key={action.id}
-                onClick={action.action}
-                className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-text-tertiary hover:text-brand-accent hover:bg-brand/10 transition-all"
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-[10px] font-semibold">{action.label}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -583,31 +565,6 @@ export function EmployeeDashboard({
             </div>
           )}
         </section>
-      </div>
-
-      {/* Floating Quick Actions */}
-      <div className="sm:hidden fixed right-4 bottom-20 z-[60] flex flex-col items-end gap-2">
-        <div className="flex flex-col gap-2">
-          {quickActions.map((item, index) => {
-            const Icon = item.icon;
-            const isPrimary = index === 0;
-            return (
-              <button
-                key={item.id}
-                onClick={item.action}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-full shadow-lg backdrop-blur-md border transition-all active:scale-95',
-                  isPrimary
-                    ? 'bg-brand text-white border-brand/30'
-                    : 'bg-bg-panel/90 text-text-secondary border-white/[0.08]'
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="text-[11px] font-semibold whitespace-nowrap">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Shift Selection Modal */}

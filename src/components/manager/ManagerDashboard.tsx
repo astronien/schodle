@@ -576,7 +576,6 @@ export function ManagerDashboard({
           </div>
         </div>
       </div>
-
       {/* Coverage Tab */}
       {activeTab === 'coverage' && (
         <div className="card rounded-none sm:rounded-xl flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
@@ -967,7 +966,7 @@ export function ManagerDashboard({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredRequests
-              .map((request) => {
+              .map((request: ScheduleEntry) => {
                 const employee = employees.find((e) => e.id === request.employeeId);
                 const requestShiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
                 return (
