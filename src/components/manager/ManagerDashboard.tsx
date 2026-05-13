@@ -491,7 +491,6 @@ export function ManagerDashboard({
 
   return (
     <div className="w-full space-y-5 sm:space-y-6">
-      {/* Header Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
@@ -525,49 +524,48 @@ export function ManagerDashboard({
             </div>
           ))}
         </div>
-
       </div>
 
-      <div className="sticky top-[calc(3.5rem+1px)] z-20 mt-4 rounded-2xl border border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
-            <button
-              onClick={generateSmartSchedule}
-              className="btn btn-primary text-xs shadow-raised whitespace-nowrap"
-            >
+      <div className="sticky top-[calc(3.5rem+1px)] z-20 rounded-2xl border border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
+            <button onClick={generateSmartSchedule} className="btn btn-primary text-xs shadow-raised whitespace-nowrap">
               <PlusCircle className="w-4 h-4" />
               จัดตาราง AI
             </button>
-            <button
-              onClick={() => setActiveTab('coverage')}
-              className="btn btn-ghost text-xs whitespace-nowrap"
-            >
+            <button onClick={() => setActiveTab('coverage')} className="btn btn-ghost text-xs whitespace-nowrap">
               <LayoutGrid className="w-4 h-4" />
               ตารางรวม
             </button>
-            <button
-              onClick={() => setActiveTab('requests')}
-              className="btn btn-ghost text-xs whitespace-nowrap"
-            >
+            <button onClick={() => setActiveTab('requests')} className="btn btn-ghost text-xs whitespace-nowrap">
               <Bell className="w-4 h-4" />
               คำขอ
             </button>
-            <button
-              onClick={() => setActiveTab('report')}
-              className="btn btn-ghost text-xs whitespace-nowrap"
-            >
+            <button onClick={() => setActiveTab('report')} className="btn btn-ghost text-xs whitespace-nowrap">
               <Download className="w-4 h-4" />
               รายงาน
             </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-              className="px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-text-tertiary hover:text-text-primary transition-colors"
-              title="เดือนก่อนหน้า"
-            >
-              <ChevronLeft className="w-4 h-4" />
+            <button onClick={() => setActiveTab('admin')} className="btn btn-ghost text-xs whitespace-nowrap">
+              <Check className="w-4 h-4" />
+              จัดการ
             </button>
+          </div>
+          <div className="flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar pb-1">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                className="px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-text-tertiary hover:text-text-primary transition-colors"
+                title="เดือนก่อนหน้า"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setCurrentMonth(new Date())}
+                className="px-3 py-2 rounded-lg bg-brand/10 text-brand-accent hover:bg-brand/15 transition-colors text-xs font-semibold whitespace-nowrap"
+              >
+                วันนี้
+              </button>
+            </div>
             <div className="px-3 py-2 rounded-lg bg-bg-surface border border-white/[0.06] text-sm font-semibold text-text-primary min-w-[130px] text-center">
               {format(currentMonth, 'MMMM yyyy', { locale: th })}
             </div>
@@ -579,59 +577,6 @@ export function ManagerDashboard({
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      </div>
-
-          {activeTab === 'coverage' && (
-            <div className="flex items-center gap-2 bg-bg-surface px-3 py-1.5 rounded-lg border border-surface-200 shadow-sm">
-              <button
-                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                className="p-1 hover:bg-bg-panel rounded-md transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4 text-text-tertiary" />
-              </button>
-              <span className="text-sm font-bold w-28 text-center text-text-primary">
-                {format(currentMonth, 'MMMM yyyy', { locale: th })}
-              </span>
-              <button
-                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                className="p-1 hover:bg-bg-panel rounded-md transition-colors"
-              >
-                <ChevronRight className="w-4 h-4 text-text-tertiary" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
-          <div className="flex bg-bg-surface p-1 rounded-lg border border-surface-200 shadow-sm min-w-max">
-            {(['coverage', 'requests', 'report', 'admin'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setReportEmployeeId(null); }}
-                className={cn(
-                  'px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all whitespace-nowrap',
-                  activeTab === tab
-                    ? 'bg-brand text-white shadow-sm'
-                    : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-panel'
-                )}
-              >
-                {tab === 'coverage' && 'ตารางรวม'}
-                {tab === 'requests' && `คำขอ${pendingRequestsCount > 0 ? ` (${pendingRequestsCount})` : ''}`}
-                {tab === 'report' && 'รายงาน'}
-                {tab === 'admin' && 'จัดการ'}
-              </button>
-            ))}
-          </div>
-          {activeTab === 'coverage' && (
-            <button
-              onClick={generateSmartSchedule}
-              className="btn btn-primary text-xs shadow-raised hover:shadow-lg"
-            >
-              <PlusCircle className="w-4 h-4" />
-              จัดตาราง AI
-            </button>
-          )}
         </div>
       </div>
 

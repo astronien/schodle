@@ -226,6 +226,40 @@ export function EmployeeDashboard({
         </div>
       </div>
 
+      <div className="fixed right-4 bottom-24 hidden sm:flex flex-col gap-2 z-40">
+        {quickActions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.id}
+              onClick={action.action}
+              className="group flex items-center gap-2 rounded-full bg-bg-panel/90 backdrop-blur-xl border border-white/[0.08] px-3 py-2 shadow-lg hover:border-brand/30 hover:bg-brand/10 transition-all"
+            >
+              <Icon className="w-4 h-4 text-brand-accent" />
+              <span className="text-xs font-semibold text-text-primary whitespace-nowrap">{action.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="fixed left-0 right-0 bottom-20 sm:hidden z-40 px-4">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-bg-panel/90 backdrop-blur-xl border border-white/[0.08] p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <button
+                key={action.id}
+                onClick={action.action}
+                className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-text-tertiary hover:text-brand-accent hover:bg-brand/10 transition-all"
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-[10px] font-semibold">{action.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Calendar / Coverage Section */}
         <section className="lg:col-span-2 card overflow-hidden rounded-none sm:rounded-lg order-1">
