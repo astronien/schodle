@@ -176,35 +176,54 @@ export function EmployeeDashboard({
   return (
     <div className="w-full space-y-5 sm:space-y-6">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-xl bg-bg-surface p-5 sm:p-8 border border-white/[0.08]">
-        <div className="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-brand/5"></div>
-        <div className="absolute -left-6 -bottom-6 w-24 h-24 rounded-full bg-brand/5"></div>
+      <div className="relative overflow-hidden rounded-2xl bg-bg-surface p-4 sm:p-8 border border-white/[0.08]">
+        <div className="absolute -right-6 -top-6 w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-brand/5"></div>
+        <div className="absolute -left-6 -bottom-6 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-brand/5"></div>
 
-        <div className="relative z-10">
-          <h2 className="text-xl sm:text-2xl font-medium mb-1 text-text-primary leading-tight">
-            ตารางงานเดือน {format(currentMonth, 'MMMM yyyy', { locale: th })}
-          </h2>
-          <p className="text-text-tertiary text-sm max-w-xl">
-            จัดการกะงาน ดูสถานะคำขอ และตรวจสอบตารางได้สะดวกทั้งบนคอมพิวเตอร์และมือถือ
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <div className="pill text-text-tertiary">
+        <div className="relative z-10 space-y-4">
+          <div>
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-text-quaternary font-semibold">Employee Dashboard</p>
+            <h2 className="text-lg sm:text-2xl font-medium mt-1 text-text-primary leading-tight">
+              ตารางงานเดือน {format(currentMonth, 'MMMM yyyy', { locale: th })}
+            </h2>
+            <p className="text-text-tertiary text-sm max-w-xl mt-2">
+              ดูตารางของคุณ ส่งคำขอ และเช็คสถานะได้แบบแตะครั้งเดียวบนมือถือ
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+            <div className="rounded-xl bg-bg-panel/70 border border-white/[0.05] px-3 py-2">
+              <div className="text-lg font-bold text-text-primary leading-none">{approvedDays}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mt-1">อนุมัติ</div>
+            </div>
+            <div className="rounded-xl bg-bg-panel/70 border border-white/[0.05] px-3 py-2">
+              <div className="text-lg font-bold text-warn leading-none">{pendingDays}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mt-1">รออนุมัติ</div>
+            </div>
+            <div className="rounded-xl bg-bg-panel/70 border border-white/[0.05] px-3 py-2">
+              <div className="text-lg font-bold text-brand-accent leading-none">{remainingOffDays}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mt-1">วันหยุด</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="pill text-text-tertiary text-[11px] sm:text-xs">
               <span className="relative flex h-2 w-2 mr-1">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warn opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-warn"></span>
               </span>
               กำหนดส่ง: 25 พฤษภาคม
             </div>
-            <div className="pill text-brand-accent bg-brand/10 border border-brand/20">
+            <div className="pill text-brand-accent bg-brand/10 border border-brand/20 text-[11px] sm:text-xs">
               แตะวันที่เพื่อบันทึกกะ/คำขอ
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Calendar / Coverage Section */}
-        <section className="lg:col-span-2 card overflow-hidden rounded-none sm:rounded-lg">
+        <section className="lg:col-span-2 card overflow-hidden rounded-none sm:rounded-lg order-1">
           <div className="p-4 sm:p-5 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <button
@@ -261,8 +280,8 @@ export function EmployeeDashboard({
 
           {activeView === 'calendar' ? (
             <>
-              <div className="p-3 sm:p-5">
-                <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-3">
+              <div className="p-2 sm:p-5">
+                <div className="grid grid-cols-7 gap-1 mb-2 sm:gap-2 sm:mb-3">
                   {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((day) => (
                     <div
                       key={day}
@@ -272,7 +291,7 @@ export function EmployeeDashboard({
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {Array.from({ length: startOfMonth(currentMonth).getDay() }).map((_, i) => (
                     <div key={`pad-${i}`} className="aspect-square"></div>
                   ))}
@@ -288,7 +307,7 @@ export function EmployeeDashboard({
                         onClick={() => !isOffDay && setSelectedDate(day)}
                         disabled={isOffDay}
                         className={cn(
-                          'aspect-square rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200',
+                          'aspect-square rounded-md sm:rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200',
                           isOffDay
                             ? 'bg-bg-elevated border-white/[0.03] opacity-60 cursor-not-allowed'
                             : isToday(day)
@@ -356,7 +375,7 @@ export function EmployeeDashboard({
               </div>
 
               {/* Shift Legend */}
-              <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-white/[0.05] flex flex-wrap gap-x-4 gap-y-2 text-[10px]">
+              <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-white/[0.05] flex gap-2 overflow-x-auto custom-scrollbar text-[10px]">
                 {shiftTypes
                   .filter((t) => t.isVisible)
                   .slice(0, 6)
@@ -450,7 +469,7 @@ export function EmployeeDashboard({
         </section>
 
         {/* Stats Summary Panel */}
-        <section className="space-y-5">
+        <section className="space-y-4 sm:space-y-5 order-2 lg:order-none">
           <div className="card p-5 sm:p-5">
             <h3 className="font-medium text-text-primary mb-4 flex items-center gap-2 text-sm sm:text-base">
               <Clock className="w-5 h-5 text-brand" />

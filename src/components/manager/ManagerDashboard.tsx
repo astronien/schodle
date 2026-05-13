@@ -232,6 +232,8 @@ export function ManagerDashboard({
 
    const [managerRemarks, setManagerRemarks] = useState<Record<string, string>>({});
    const [isSavingSettings, setIsSavingSettings] = useState(false);
+   const [requestSearch, setRequestSearch] = useState('');
+   const [employeeSearch, setEmployeeSearch] = useState('');
 
 
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -456,6 +458,30 @@ export function ManagerDashboard({
   };
 
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
+  const pendingRequestsCount = schedules.filter((s) => s.status === 'pending').length;
+  const approvedTodayCount = schedules.filter((s) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return s.status === 'approved' && s.date === today;
+  }).length;
+  const totalCoverageEntries = schedules.filter((s) => s.status === 'approved').length;
+  const onLeaveCount = schedules.filter((s) => {
+    const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+    return st?.code === 'V' && s.status === 'approved';
+  }).length;
+  const filteredRequests = pendingRequests.filter((request) => {
+    const employee = employees.find((e) => e.id === request.employeeId);
+    const shiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
+    const haystack = [employee?.fullName, employee?.employeeCode, shiftType?.name, shiftType?.code, request.employeeNote]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(requestSearch.toLowerCase());
+  });
+  const filteredEmployees = employees.filter((emp) => {
+    const pos = positions.find((p) => p.id === emp.positionId);
+    const haystack = [emp.fullName, emp.employeeCode, pos?.name, pos?.code].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(employeeSearch.toLowerCase());
+  });
 
 
   return (
@@ -466,8 +492,37 @@ export function ManagerDashboard({
           <div className="flex flex-col">
             <h2 className="text-lg sm:text-xl font-bold text-text-primary">Manager Control</h2>
             <p className="text-text-tertiary font-medium text-xs sm:text-sm">Store: {settings.storeName}</p>
-
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:w-auto">
+          {[
+            { label: 'รออนุมัติ', value: pendingRequestsCount, tone: 'warn' },
+            { label: 'อนุมัติวันนี้', value: approvedTodayCount, tone: 'success' },
+            { label: 'ตารางที่ใช้งาน', value: totalCoverageEntries, tone: 'brand' },
+            { label: 'วันลา', value: onLeaveCount, tone: 'danger' },
+          ].map((item) => (
+            <div key={item.label} className={cn(
+              'rounded-xl border px-3 py-2.5 text-center bg-bg-surface',
+              item.tone === 'warn' && 'border-warn/20',
+              item.tone === 'success' && 'border-success/20',
+              item.tone === 'brand' && 'border-brand/20',
+              item.tone === 'danger' && 'border-danger/20',
+            )}>
+              <div className={cn(
+                'text-lg font-bold leading-none',
+                item.tone === 'warn' && 'text-warn',
+                item.tone === 'success' && 'text-success',
+                item.tone === 'brand' && 'text-brand-accent',
+                item.tone === 'danger' && 'text-danger',
+              )}>{item.value}</div>
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-text-quaternary mt-1">{item.label}</div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+
           {activeTab === 'coverage' && (
             <div className="flex items-center gap-2 bg-bg-surface px-3 py-1.5 rounded-lg border border-surface-200 shadow-sm">
               <button
@@ -489,8 +544,8 @@ export function ManagerDashboard({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex bg-bg-surface p-1 rounded-lg border border-surface-200 shadow-sm">
+        <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
+          <div className="flex bg-bg-surface p-1 rounded-lg border border-surface-200 shadow-sm min-w-max">
             {(['coverage', 'requests', 'report', 'admin'] as const).map((tab) => (
               <button
                 key={tab}
@@ -503,7 +558,7 @@ export function ManagerDashboard({
                 )}
               >
                 {tab === 'coverage' && 'ตารางรวม'}
-                {tab === 'requests' && 'คำขอ'}
+                {tab === 'requests' && `คำขอ${pendingRequestsCount > 0 ? ` (${pendingRequestsCount})` : ''}`}
                 {tab === 'report' && 'รายงาน'}
                 {tab === 'admin' && 'จัดการ'}
               </button>
@@ -886,16 +941,31 @@ export function ManagerDashboard({
       {/* Requests Tab */}
       {activeTab === 'requests' && (
         <div className="space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-6 bg-warn rounded-full"></div>
-            <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight">
-              คำขอที่รอการพิจารณา
-            </h2>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-6 bg-warn rounded-full"></div>
+              <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight">
+                คำขอที่รอการพิจารณา
+              </h2>
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <input
+                value={requestSearch}
+                onChange={(e) => setRequestSearch(e.target.value)}
+                placeholder="ค้นหาชื่อ / รหัส / กะ"
+                className="input-field w-full md:w-72"
+              />
+              <button
+                onClick={() => setRequestSearch('')}
+                className="btn btn-ghost text-xs whitespace-nowrap"
+              >
+                ล้าง
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {schedules
-              .filter((s) => s.status === 'pending')
+            {filteredRequests
               .map((request) => {
                 const employee = employees.find((e) => e.id === request.employeeId);
                 const requestShiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
@@ -1048,7 +1118,7 @@ export function ManagerDashboard({
               })}
           </div>
 
-          {schedules.filter((s) => s.status === 'pending').length === 0 && (
+          {filteredRequests.length === 0 && (
             <div className="card p-12 sm:p-16 text-center border-dashed">
               <div className="w-14 h-14 bg-bg-panel rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
                 <Check className="w-7 h-7" />
@@ -1423,20 +1493,27 @@ export function ManagerDashboard({
 
             {activeAdminTab === 'employees' && (
               <div className="animate-fade-in">
-                <div className="flex justify-between items-center mb-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                   <span className="text-sm font-medium text-text-tertiary">
-                    รายชื่อพนักงานทั้งหมด ({employees.length} ท่าน)
+                    รายชื่อพนักงานทั้งหมด ({filteredEmployees.length} / {employees.length} ท่าน)
                   </span>
-                  <button
-                    onClick={() => setIsCreatingEmployee(true)}
-                    className="btn btn-primary text-xs py-2 shadow-raised"
-                  >
-                    <Plus className="w-4 h-4" />
-                    เพิ่มพนักงาน
-                  </button>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <input
+                      value={employeeSearch}
+                      onChange={(e) => setEmployeeSearch(e.target.value)}
+                      placeholder="ค้นหาพนักงาน"
+                      className="input-field w-full sm:w-64"
+                    />
+                    <button
+                      onClick={() => setEmployeeSearch('')}
+                      className="btn btn-ghost text-xs whitespace-nowrap"
+                    >
+                      ล้าง
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {employees.map((emp) => (
+                  {filteredEmployees.map((emp) => (
                     <div
                       key={emp.id}
                       onClick={() => handleOpenWeeklyOffDay(emp.id)}
