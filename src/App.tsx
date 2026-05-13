@@ -82,6 +82,10 @@ function App() {
     if (!isManager && role === 'manager') {
       setRole('employee');
     }
+
+    if (role === 'manager') {
+      setActiveMobileTab('schedule');
+    }
   }, [isManager, role]);
 
 
@@ -350,6 +354,23 @@ function App() {
       <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl mx-auto">
         {role === 'employee' ? (
           <>
+            <div className="sm:hidden mb-4 rounded-2xl border border-white/[0.08] bg-bg-surface/80 backdrop-blur px-3 py-2">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <div>
+                  <p className="text-text-quaternary uppercase tracking-[0.16em] font-semibold">มุมมองปัจจุบัน</p>
+                  <p className="text-text-primary font-medium mt-0.5">
+                    {activeMobileTab === 'schedule' ? 'ตารางงาน' : activeMobileTab === 'requests' ? 'คำขอลา' : 'ตั้งค่า'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveMobileTab('schedule')}
+                  className="px-3 py-1.5 rounded-full bg-brand/10 text-brand-accent font-medium"
+                >
+                  กลับสู่ตาราง
+                </button>
+              </div>
+            </div>
+
             {activeMobileTab === 'schedule' && (
               <EmployeeDashboard
                 currentUser={currentUser}

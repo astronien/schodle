@@ -29,9 +29,9 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl safe-top">
+    <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-bg-panel/90 backdrop-blur-xl safe-top">
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
+      <div className="w-full px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-brand rounded-md flex items-center justify-center">
             <Clock className="text-white w-4 h-4" />

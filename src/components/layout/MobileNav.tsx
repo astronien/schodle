@@ -14,7 +14,7 @@ export function MobileNav({ activeTab, onChangeTab }: MobileNavProps) {
   ];
 
   return (
-    <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-bg-panel/80 backdrop-blur-xl border-t border-white/[0.08] px-6 py-2 flex justify-between items-center z-50 safe-bottom">
+    <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-bg-panel/90 backdrop-blur-xl border-t border-white/[0.08] px-3 py-2 flex justify-between items-center z-50 safe-bottom shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
 
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
@@ -23,10 +23,10 @@ export function MobileNav({ activeTab, onChangeTab }: MobileNavProps) {
             key={tab.id}
             onClick={() => onChangeTab(tab.id)}
             className={cn(
-              'flex flex-col items-center gap-1 py-1.5 px-4 rounded-lg transition-all duration-200',
+              'flex-1 flex flex-col items-center gap-1 py-2 px-2 rounded-xl transition-all duration-200',
               isActive
-                ? 'text-brand-accent'
-                : 'text-text-quaternary hover:text-text-tertiary'
+                ? 'text-brand-accent bg-brand/10'
+                : 'text-text-quaternary hover:text-text-tertiary hover:bg-white/[0.03]'
             )}
           >
             <tab.icon

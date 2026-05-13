@@ -176,16 +176,16 @@ export function EmployeeDashboard({
   return (
     <div className="w-full space-y-5 sm:space-y-6">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-bg-surface p-6 sm:p-8 border border-white/[0.08]">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-xl bg-bg-surface p-5 sm:p-8 border border-white/[0.08]">
         <div className="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-brand/5"></div>
         <div className="absolute -left-6 -bottom-6 w-24 h-24 rounded-full bg-brand/5"></div>
 
         <div className="relative z-10">
-          <h2 className="text-xl sm:text-2xl font-medium mb-1 text-text-primary">
+          <h2 className="text-xl sm:text-2xl font-medium mb-1 text-text-primary leading-tight">
             ตารางงานเดือน {format(currentMonth, 'MMMM yyyy', { locale: th })}
           </h2>
-          <p className="text-text-tertiary text-sm">
-            จัดการกะงานและคำขอหยุดพักร้อนของคุณได้ที่นี่
+          <p className="text-text-tertiary text-sm max-w-xl">
+            จัดการกะงาน ดูสถานะคำขอ และตรวจสอบตารางได้สะดวกทั้งบนคอมพิวเตอร์และมือถือ
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <div className="pill text-text-tertiary">
@@ -194,6 +194,9 @@ export function EmployeeDashboard({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-warn"></span>
               </span>
               กำหนดส่ง: 25 พฤษภาคม
+            </div>
+            <div className="pill text-brand-accent bg-brand/10 border border-brand/20">
+              แตะวันที่เพื่อบันทึกกะ/คำขอ
             </div>
           </div>
         </div>
@@ -258,7 +261,7 @@ export function EmployeeDashboard({
 
           {activeView === 'calendar' ? (
             <>
-              <div className="p-4 sm:p-5">
+              <div className="p-3 sm:p-5">
                 <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-3">
                   {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((day) => (
                     <div
@@ -353,7 +356,7 @@ export function EmployeeDashboard({
               </div>
 
               {/* Shift Legend */}
-              <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-white/[0.05] flex flex-wrap gap-x-4 gap-y-2">
+              <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-white/[0.05] flex flex-wrap gap-x-4 gap-y-2 text-[10px]">
                 {shiftTypes
                   .filter((t) => t.isVisible)
                   .slice(0, 6)
@@ -532,7 +535,7 @@ export function EmployeeDashboard({
             onClick={() => setSelectedDate(null)}
           ></div>
 
-          <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08] flex flex-col max-h-[85vh]">
+          <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-2xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08] flex flex-col max-h-[88vh]">
             <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
 
             <div className="p-5 sm:p-5 flex flex-col min-h-0">
