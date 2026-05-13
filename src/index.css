@@ -3,22 +3,22 @@
 /* ── Linear Open Design System (nexu-io/open-design) ── */
 @theme {
   /* Background Surfaces */
-  --color-bg-primary: #08090a;
-  --color-bg-panel: #0f1011;
-  --color-bg-surface: #191a1b;
-  --color-bg-elevated: #28282c;
+  --color-bg-primary: #050608;
+  --color-bg-panel: #0b1020;
+  --color-bg-surface: #101828;
+  --color-bg-elevated: #17233a;
 
   /* Text */
-  --color-text-primary: #f7f8f8;
-  --color-text-secondary: #d0d6e0;
-  --color-text-tertiary: #8a8f98;
-  --color-text-quaternary: #62666d;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #d9e6ff;
+  --color-text-tertiary: #95a6c6;
+  --color-text-quaternary: #6f809f;
 
   /* Brand */
-  --color-brand: #5e6ad2;
-  --color-brand-accent: #7170ff;
-  --color-brand-hover: #828fff;
-  --color-brand-muted: #7a7fad;
+  --color-brand: #2f80ff;
+  --color-brand-accent: #4fd1c5;
+  --color-brand-hover: #63a4ff;
+  --color-brand-muted: #6fb7ff;
 
   /* Status */
   --color-success: #27a644;
@@ -77,11 +77,15 @@
   body {
     font-family: var(--font-sans);
     color: var(--color-text-secondary);
+    background:
+      radial-gradient(circle at top left, rgba(47, 128, 255, 0.14), transparent 26%),
+      radial-gradient(circle at top right, rgba(79, 209, 197, 0.12), transparent 24%),
+      linear-gradient(180deg, #050608 0%, #070b12 100%);
     background-color: var(--color-bg-primary);
   }
 
   ::selection {
-    background-color: rgba(94, 106, 210, 0.35);
+    background-color: rgba(47, 128, 255, 0.35);
     color: var(--color-text-primary);
   }
 }
@@ -89,10 +93,16 @@
 @layer components {
   /* Translucent card — never solid */
   .card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-lg);
-    transition: background 0.15s ease, border-color 0.15s ease;
+    background: linear-gradient(180deg, rgba(18, 28, 49, 0.92), rgba(10, 16, 29, 0.92));
+    border: 1px solid rgba(147, 197, 253, 0.10);
+    border-radius: var(--radius-2xl);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.03);
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  .card:hover {
+    border-color: rgba(147, 197, 253, 0.18);
+    transform: translateY(-1px);
   }
 
   .card-hover:hover {
@@ -116,13 +126,14 @@
   }
 
   .btn-primary {
-    background-color: var(--color-brand);
+    background: linear-gradient(135deg, var(--color-brand), var(--color-brand-accent));
     color: #ffffff;
     padding: 8px 16px;
+    box-shadow: 0 10px 24px rgba(47, 128, 255, 0.22);
   }
 
   .btn-primary:hover {
-    background-color: var(--color-brand-hover);
+    filter: brightness(1.05);
   }
 
   .btn-primary:active {
@@ -130,15 +141,16 @@
   }
 
   .btn-ghost {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
     color: var(--color-text-secondary);
-    border: 1px solid rgb(36, 40, 44);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     padding: 8px 16px;
   }
 
   .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(79, 209, 197, 0.08);
     color: var(--color-text-primary);
+    border-color: rgba(79, 209, 197, 0.18);
   }
 
   .btn-subtle {
@@ -157,17 +169,18 @@
   .input-field {
     width: 100%;
     padding: 10px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(147, 197, 253, 0.12);
+    border-radius: var(--radius-xl);
+    background: rgba(255, 255, 255, 0.03);
     font-size: 0.875rem;
     color: var(--color-text-secondary);
-    transition: border-color 0.12s ease;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
   }
 
   .input-field:focus {
     outline: none;
-    border-color: var(--color-brand);
+    border-color: var(--color-brand-accent);
+    box-shadow: 0 0 0 3px rgba(79, 209, 197, 0.12);
   }
 
   .input-field::placeholder {

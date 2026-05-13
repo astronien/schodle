@@ -464,16 +464,13 @@ export function ManagerDashboard({
     return s.status === 'approved' && s.date === today;
   }).length;
   const totalCoverageEntries = schedules.filter((s) => s.status === 'approved').length;
-  const onLeaveCount = schedules.filter((s) => {
-    const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
-    return st?.code === 'V' && s.status === 'approved';
-  }).length;
   const pendingCoverageAlerts = daysInMonth.filter((day) => {
     const dateStr = format(day, 'yyyy-MM-dd');
     const dayEntries = schedules.filter((s) => s.date === dateStr && s.status === 'approved');
     return dayEntries.length === 0;
   }).length;
-  const filteredRequests = pendingRequests.filter((request) => {
+  const pendingRequests = schedules.filter((s) => s.status === 'pending');
+  const filteredRequests = pendingRequests.filter((request: ScheduleEntry) => {
     const employee = employees.find((e) => e.id === request.employeeId);
     const shiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
     const haystack = [employee?.fullName, employee?.employeeCode, shiftType?.name, shiftType?.code, request.employeeNote]
