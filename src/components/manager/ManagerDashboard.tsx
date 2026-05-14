@@ -12,13 +12,13 @@ import {
 } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
-import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../../types';
+import type { Employee, Position, ScheduleEntry, ScheduleRequest, ShiftType, AppSettings, PositionGroup } from '../../types';
 import { PositionGroupManager } from './PositionGroupManager';
 import {
   filterPendingRequests,
   getCoverageLookup,
   getEmployeeMonthlyStats,
-  getScheduleStatusCounts,
+  getRequestTypeLabel,
 } from '../../lib/schedule-utils';
 
 
@@ -479,10 +479,18 @@ export function ManagerDashboard({
     const { totalCount } = getCoverageLookup(schedules, shiftTypes, dateStr);
     return totalCount === 0;
   }).length;
-  const filteredRequests = pendingRequests.filter((request: ScheduleEntry) => {
+  const filteredRequests = pendingRequests.filter((request: ScheduleRequest) => {
     const employee = employeeById.get(request.employeeId);
     const shiftType = shiftTypeById.get(request.shiftTypeId);
-    const haystack = [employee?.fullName, employee?.employeeCode, shiftType?.name, shiftType?.code, request.employeeNote]
+    const requestTypeLabel = getRequestTypeLabel(request);
+    const haystack = [
+      employee?.fullName,
+      employee?.employeeCode,
+      shiftType?.name,
+      shiftType?.code,
+      requestTypeLabel,
+      request.employeeNote,
+    ]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -964,7 +972,7 @@ export function ManagerDashboard({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredRequests
-              .map((request: ScheduleEntry) => {
+              .map((request: ScheduleRequest) => {
                 const employee = employees.find((e) => e.id === request.employeeId);
                 const requestShiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
                 return (
@@ -1011,11 +1019,11 @@ export function ManagerDashboard({
                         </div>
                       </div>
 
-                      {request.swapWithId && (
+                      {request.requestType && (
                         <div className="p-3 bg-brand/15 rounded-lg border border-brand/20 animate-fade-in">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[10px] font-bold text-brand uppercase tracking-wide">
-                              คำขอสลับกะกับ
+                              {getRequestTypeLabel(request)}
                             </span>
                             <Users className="w-4 h-4 text-text-primary" />
                           </div>
