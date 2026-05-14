@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Clock, ChevronRight, ChevronLeft, AlertCircle,
   XCircle, CheckCircle2, Plus, Users, Check, LayoutGrid
@@ -9,6 +9,7 @@ import {
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings } from '../../types';
+import { getEmployeeMonthlyStats } from '../../lib/schedule-utils';
 
 
 interface EmployeeDashboardProps {
@@ -58,14 +59,14 @@ export function EmployeeDashboard({
     return d >= monthStart && d <= monthEnd;
   });
 
+  const monthlyStats = useMemo(
+    () => getEmployeeMonthlyStats(currentUser.id, monthlySchedules, shiftTypes),
+    [currentUser.id, monthlySchedules, shiftTypes]
+  );
   const approvedDays = monthlySchedules.filter(s => s.status === 'approved').length;
   const pendingDays = monthlySchedules.filter(s => s.status === 'pending' || s.status === 'submitted').length;
-  
-  const offShiftType = shiftTypes.find(t => t.code === 'X' || t.name.toLowerCase().includes('off'));
-  const approvedOffDays = monthlySchedules.filter(s => s.status === 'approved' && s.shiftTypeId === offShiftType?.id).length;
-  
   const targetOffDays = 4; 
-  const remainingOffDays = Math.max(0, targetOffDays - approvedOffDays);
+  const remainingOffDays = Math.max(0, targetOffDays - (monthlyStats.counts['X'] || 0));
   const progressPercent = Math.round((approvedDays / days.length) * 100);
 
   const getDaySchedule = (date: Date) => {

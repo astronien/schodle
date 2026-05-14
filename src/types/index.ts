@@ -42,6 +42,7 @@ export type Employee = {
 
 
 export type ScheduleStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';
+export type RequestType = 'leave' | 'swap' | 'shift_change' | 'late_scan' | 'off_request';
 
 export type ScheduleEntry = {
   id: string;
@@ -56,6 +57,20 @@ export type ScheduleEntry = {
   revertShiftTypeId?: string;
 }
 ;
+
+export type ScheduleRequest = {
+  id: string;
+  employeeId: string;
+  date: string;
+  shiftTypeId: string;
+  requestType: RequestType;
+  status: ScheduleStatus;
+  employeeNote?: string;
+  managerRemark?: string;
+  swapWithId?: string;
+  evidenceUrl?: string;
+  revertShiftTypeId?: string;
+};
 
 export type MonthlyCoverage = {
   date: string;

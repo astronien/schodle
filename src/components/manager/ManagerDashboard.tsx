@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import {
   AlertTriangle, Trash2, Users, XCircle, CheckCircle2, Bell,
   ChevronLeft, ChevronRight, Plus, PlusCircle, Check, Image, Download, Clock, LayoutGrid
@@ -14,6 +14,12 @@ import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../../types';
 import { PositionGroupManager } from './PositionGroupManager';
+import {
+  filterPendingRequests,
+  getCoverageLookup,
+  getEmployeeMonthlyStats,
+  getScheduleStatusCounts,
+} from '../../lib/schedule-utils';
 
 
 
@@ -458,7 +464,11 @@ export function ManagerDashboard({
   };
 
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
-  const pendingRequestsCount = schedules.filter((s) => s.status === 'pending').length;
+  const employeeById = useMemo(() => new Map(employees.map((employee) => [employee.id, employee])), [employees]);
+  const shiftTypeById = useMemo(() => new Map(shiftTypes.map((shiftType) => [shiftType.id, shiftType])), [shiftTypes]);
+  const positionById = useMemo(() => new Map(positions.map((position) => [position.id, position])), [positions]);
+  const pendingRequests = filterPendingRequests(schedules);
+  const pendingRequestsCount = pendingRequests.length;
   const approvedTodayCount = schedules.filter((s) => {
     const today = format(new Date(), 'yyyy-MM-dd');
     return s.status === 'approved' && s.date === today;
@@ -466,13 +476,12 @@ export function ManagerDashboard({
   const totalCoverageEntries = schedules.filter((s) => s.status === 'approved').length;
   const pendingCoverageAlerts = daysInMonth.filter((day) => {
     const dateStr = format(day, 'yyyy-MM-dd');
-    const dayEntries = schedules.filter((s) => s.date === dateStr && s.status === 'approved');
-    return dayEntries.length === 0;
+    const { totalCount } = getCoverageLookup(schedules, shiftTypes, dateStr);
+    return totalCount === 0;
   }).length;
-  const pendingRequests = schedules.filter((s) => s.status === 'pending');
   const filteredRequests = pendingRequests.filter((request: ScheduleEntry) => {
-    const employee = employees.find((e) => e.id === request.employeeId);
-    const shiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
+    const employee = employeeById.get(request.employeeId);
+    const shiftType = shiftTypeById.get(request.shiftTypeId);
     const haystack = [employee?.fullName, employee?.employeeCode, shiftType?.name, shiftType?.code, request.employeeNote]
       .filter(Boolean)
       .join(' ')
@@ -480,7 +489,7 @@ export function ManagerDashboard({
     return haystack.includes(requestSearch.toLowerCase());
   });
   const filteredEmployees = employees.filter((emp) => {
-    const pos = positions.find((p) => p.id === emp.positionId);
+    const pos = positionById.get(emp.positionId);
     const haystack = [emp.fullName, emp.employeeCode, pos?.name, pos?.code].filter(Boolean).join(' ').toLowerCase();
     return haystack.includes(employeeSearch.toLowerCase());
   });
@@ -596,18 +605,7 @@ export function ManagerDashboard({
               {(() => {
                 const imbalancedDays = daysInMonth.filter((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
-                  const salesStaffIds = employees
-                    .filter((e) => e.positionId === '3' || e.positionId === '5')
-                    .map((e) => e.id);
-                  const dailySalesSchedules = schedules.filter(
-                    (s) => s.date === dateStr && s.status === 'approved' && salesStaffIds.includes(s.employeeId)
-                  );
-                  const morningCount = dailySalesSchedules.filter(
-                    (s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.category === 'morning'
-                  ).length;
-                  const afternoonCount = dailySalesSchedules.filter(
-                    (s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.category === 'afternoon'
-                  ).length;
+                  const { morningCount, afternoonCount } = getCoverageLookup(schedules, shiftTypes, dateStr);
                   return Math.abs(morningCount - afternoonCount) > 1;
                 });
 
@@ -1141,27 +1139,7 @@ export function ManagerDashboard({
         });
 
         // Helper: count shift categories for an employee
-        const getEmployeeStats = (empId: string) => {
-          const empSchedules = monthSchedules.filter((s) => s.employeeId === empId);
-          const counts: Record<string, number> = {};
-          let workDays = 0;
-          let pendingCount = 0;
-          let swapCount = 0;
-          let lateCount = 0;
-          empSchedules.forEach((s) => {
-            const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
-            const code = st?.code || s.shiftTypeId;
-            if (s.status === 'pending') pendingCount++;
-            if (s.swapWithId) swapCount++;
-            if (s.employeeNote?.includes('มาสาย') || s.employeeNote?.includes('ลืมแสกน')) lateCount++;
-            if (['XC', 'V'].includes(code) || st?.requiresReason || st?.requiresEvidence) {
-              counts[code] = (counts[code] || 0) + 1;
-            } else if (s.status === 'approved') {
-              workDays++;
-            }
-          });
-          return { counts, workDays, pendingCount, swapCount, lateCount };
-        };
+        const getEmployeeStats = (empId: string) => getEmployeeMonthlyStats(empId, monthSchedules, shiftTypes);
 
         // Overview totals
         const totalEmployees = employees.length;

@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
-import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../types/index';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, ScheduleRequest } from '../types/index';
+import { createEmployeeLookupMaps } from '../lib/schedule-utils';
 
 export function useData() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -9,6 +10,8 @@ export function useData() {
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [positionGroups, setPositionGroups] = useState<PositionGroup[]>([]);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+  const [scheduleRequests, setScheduleRequests] = useState<ScheduleRequest[]>([]);
+  const employeeLookupMaps = createEmployeeLookupMaps(employees, shiftTypes);
 
 
   const [settings, setSettings] = useState<AppSettings>({
@@ -47,12 +50,13 @@ export function useData() {
 
     setError(null);
     try {
-      const [posRes, empRes, shiftRes, groupRes, schedRes, settingsRes] = await Promise.all([
+      const [posRes, empRes, shiftRes, groupRes, schedRes, reqRes, settingsRes] = await Promise.all([
         supabase.from('positions').select('*').order('code'),
         supabase.from('employees').select('*').order('full_name'),
         supabase.from('shift_types').select('*').order('code'),
         supabase.from('position_groups').select('*').order('name'),
         supabase.from('schedules').select('*').order('date'),
+        supabase.from('schedule_requests').select('*').order('date'),
         supabase.from('settings').select('*'),
       ]);
 
@@ -61,6 +65,7 @@ export function useData() {
       if (shiftRes.error) throw shiftRes.error;
       if (groupRes.error) throw groupRes.error;
       if (schedRes.error) throw schedRes.error;
+      if (reqRes.error) throw reqRes.error;
 
       setPositions(
         (posRes.data || []).map((p) => ({
@@ -110,25 +115,8 @@ export function useData() {
         }))
       );
 
-      const schedRows: any[] = (schedRes.data || []) as any[];
-      const latestByEmployeeDate = new Map<string, any>();
-      for (const r of schedRows) {
-        const key = `${r.employee_id}::${r.date}`;
-        const prev = latestByEmployeeDate.get(key);
-        if (!prev) {
-          latestByEmployeeDate.set(key, r);
-          continue;
-        }
-
-        const prevTs = new Date(prev.updated_at || prev.created_at || 0).getTime();
-        const curTs = new Date(r.updated_at || r.created_at || 0).getTime();
-        if (curTs >= prevTs) {
-          latestByEmployeeDate.set(key, r);
-        }
-      }
-
       setSchedules(
-        Array.from(latestByEmployeeDate.values()).map((s) => ({
+        (schedRes.data || []).map((s: any) => ({
           id: s.id,
           employeeId: s.employee_id,
           date: s.date,
@@ -139,6 +127,22 @@ export function useData() {
           swapWithId: s.swap_with_id || undefined,
           evidenceUrl: s.evidence_url || undefined,
           revertShiftTypeId: s.revert_shift_type_id || undefined,
+        }))
+      );
+
+      setScheduleRequests(
+        (reqRes.data || []).map((r: any) => ({
+          id: r.id,
+          employeeId: r.employee_id,
+          date: r.date,
+          shiftTypeId: r.shift_type_id,
+          requestType: r.request_type,
+          status: r.status as ScheduleRequest['status'],
+          employeeNote: r.employee_note || undefined,
+          managerRemark: r.manager_remark || undefined,
+          swapWithId: r.swap_with_id || undefined,
+          evidenceUrl: r.evidence_url || undefined,
+          revertShiftTypeId: r.revert_shift_type_id || undefined,
         }))
       );
 
@@ -254,22 +258,23 @@ export function useData() {
   }, [fetchAll]);
 
   const updateSchedule = useCallback(async (entry: ScheduleEntry, forceNotify?: boolean) => {
-    const emp = employees.find((e) => e.id === entry.employeeId);
+    const emp = employeeLookupMaps.employeeById.get(entry.employeeId);
     if (typeof emp?.weeklyOffDay === 'number') {
       const day = new Date(`${entry.date}T00:00:00`).getDay();
       if (day === emp.weeklyOffDay) {
-        const shiftType = shiftTypes.find((t) => t.id === entry.shiftTypeId);
+        const shiftType = employeeLookupMaps.shiftTypeById.get(entry.shiftTypeId);
         if (shiftType?.code !== 'X') {
           throw new Error(`ไม่สามารถจัดกะวันที่ ${entry.date} ได้ (วันหยุดประจำสัปดาห์)`);
         }
       }
     }
 
-    const { error } = await supabase.from('schedules').upsert({
+    const { error } = await supabase.from('schedule_requests').upsert({
       id: entry.id,
       employee_id: entry.employeeId,
       date: entry.date,
       shift_type_id: entry.shiftTypeId,
+      request_type: 'shift_change',
       status: entry.status,
       employee_note: entry.employeeNote || null,
       manager_remark: entry.managerRemark || null,
@@ -277,30 +282,28 @@ export function useData() {
       evidence_url: entry.evidenceUrl || null,
       revert_shift_type_id: entry.revertShiftTypeId || null,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'employee_id,date' });
+    }, { onConflict: 'id' });
 
     if (error) throw error;
 
-    // Check for status changes or swap approvals to notify employee/manager
-    const oldEntry = schedules.find(s => s.id === entry.id);
-    const statusChanged = oldEntry && oldEntry.status !== entry.status;
-    const isNewPending = (!oldEntry || oldEntry.status !== 'pending') && entry.status === 'pending';
+    const oldRequest = scheduleRequests.find((request) => request.id === entry.id);
+    const statusChanged = oldRequest && oldRequest.status !== entry.status;
+    const isNewPending = (!oldRequest || oldRequest.status !== 'pending') && entry.status === 'pending';
 
-    // Notify Managers on new/changed pending requests
     if (isNewPending) {
       sendPushRole('manager', 'มีคำขอใหม่จากพนักงาน', `${emp?.fullName || 'พนักงาน'} ส่งคำขอใหม่ วันที่ ${entry.date}`, '/manager/requests');
     }
     
     if (statusChanged || forceNotify) {
-      let title = 'อัปเดตตารางงาน';
+      let title = 'อัปเดตคำขอ';
       let body = '';
       
       if (entry.status === 'approved') {
         body = forceNotify 
-          ? `กะงานวันที่ ${entry.date} มีการเปลี่ยนแปลง (สลับกะ)`
-          : `กะงานวันที่ ${entry.date} ได้รับการอนุมัติแล้ว`;
+          ? `คำขอวันที่ ${entry.date} ได้รับการเปลี่ยนแปลง (สลับกะ)`
+          : `คำขอวันที่ ${entry.date} ได้รับการอนุมัติแล้ว`;
       } else if (entry.status === 'rejected') {
-        body = `กะงานวันที่ ${entry.date} ไม่ได้รับการอนุมัติ`;
+        body = `คำขอวันที่ ${entry.date} ไม่ได้รับการอนุมัติ`;
       }
 
       if (body) {
@@ -312,11 +315,11 @@ export function useData() {
 
     await fetchAll();
 
-  }, [employees, fetchAll, schedules, sendPush, shiftTypes]);
+  }, [employeeLookupMaps.employeeById, employeeLookupMaps.shiftTypeById, fetchAll, scheduleRequests, sendPush, sendPushRole]);
 
 
   const deleteSchedule = useCallback(async (id: string) => {
-    const { error } = await supabase.from('schedules').delete().eq('id', id);
+    const { error } = await supabase.from('schedule_requests').delete().eq('id', id);
     if (error) throw error;
     await fetchAll();
   }, [fetchAll]);
@@ -376,7 +379,9 @@ export function useData() {
   const createEmployee = useCallback(async (employee: Omit<Employee, 'id'>) => {
 
     // 1. Check for duplicate employee_code
-    const dup = employees.find((e) => e.employeeCode === employee.employeeCode);
+    const dup = employeeLookupMaps.employeeById.size > 0
+      ? Array.from(employeeLookupMaps.employeeById.values()).find((e) => e.employeeCode === employee.employeeCode)
+      : employees.find((e) => e.employeeCode === employee.employeeCode);
     if (dup) {
       throw new Error(`รหัสพนักงาน "${employee.employeeCode}" ซ้ำ (มีอยู่แล้ว)`);
     }
@@ -416,7 +421,7 @@ export function useData() {
       throw new Error(msg || 'Supabase insert failed');
     }
     await fetchAll();
-  }, [fetchAll, employees]);
+  }, [employeeLookupMaps.employeeById, employees, fetchAll]);
 
   const updateEmployee = useCallback(async (employee: Employee) => {
     console.log('[updateEmployee] payload:', employee);
@@ -576,12 +581,12 @@ export function useData() {
 
 
   return {
-
     employees,
     positions,
     shiftTypes,
     positionGroups,
     schedules,
+    scheduleRequests,
     loading,
     error,
     refresh: fetchAll,
