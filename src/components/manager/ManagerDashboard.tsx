@@ -150,8 +150,8 @@ export function ManagerDashboard({
     try {
       await subscribeToNotifications(currentUser.id);
       alert('เปิดการแจ้งเตือนสำเร็จ!');
-    } catch (err: any) {
-      alert(err.message || 'ไม่สามารถเปิดการแจ้งเตือนได้');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'ไม่สามารถเปิดการแจ้งเตือนได้');
     } finally {
       setIsSubscribing(false);
     }
@@ -182,8 +182,8 @@ export function ManagerDashboard({
       setIsCreatingShiftType(false);
       setNewShiftCode('');
       setNewShiftName('');
-    } catch (err: any) {
-      alert(err.message || 'เพิ่มกะงานไม่สำเร็จ');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'เพิ่มกะงานไม่สำเร็จ');
     }
   };
 
@@ -213,8 +213,8 @@ export function ManagerDashboard({
       setNewEmployeeName('');
       setNewEmployeeCode('');
       setNewEmployeeGroupId('');
-    } catch (err: any) {
-      alert(err.message || 'เพิ่มพนักงานไม่สำเร็จ');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'เพิ่มพนักงานไม่สำเร็จ');
     }
 
   };
@@ -231,8 +231,8 @@ export function ManagerDashboard({
       setIsCreatingPosition(false);
       setNewPositionName('');
       setNewPositionCode('');
-    } catch (err: any) {
-      alert(err.message || 'เพิ่มตำแหน่งไม่สำเร็จ');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'เพิ่มตำแหน่งไม่สำเร็จ');
     }
   };
 
@@ -287,13 +287,13 @@ export function ManagerDashboard({
       }
       
       // Clear remark for this request
-      setManagerRemarks(prev => {
+      setManagerRemarks((prev) => {
         const next = { ...prev };
         delete next[id];
         return next;
       });
-    } catch (err: any) {
-      alert('ทำรายการไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      alert('ทำรายการไม่สำเร็จ: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -323,8 +323,8 @@ export function ManagerDashboard({
         });
       }
       setEditingCell(null);
-    } catch (err: any) {
-      alert('บันทึกไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      alert('บันทึกไม่สำเร็จ: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -337,8 +337,8 @@ export function ManagerDashboard({
         await deleteSchedule(existing.id);
       }
       setEditingCell(null);
-    } catch (err: any) {
-      alert('ลบไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      alert('ลบไม่สำเร็จ: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -403,8 +403,8 @@ export function ManagerDashboard({
       }
 
       setEditingWeeklyOffEmployeeId(null);
-    } catch (err: any) {
-      alert(err.message || 'บันทึกไม่สำเร็จ');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ');
     } finally {
       setIsSavingWeeklyOffDay(false);
     }
@@ -445,8 +445,8 @@ export function ManagerDashboard({
         // move shift from source to target
         await updateSchedule({ ...sourceShift, employeeId: targetEmployeeId });
       }
-    } catch (err: any) {
-      alert('ย้ายกะไม่สำเร็จ: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      alert('ย้ายกะไม่สำเร็จ: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -456,7 +456,7 @@ export function ManagerDashboard({
     try {
       await updateSettings(localSettings);
       alert('บันทึกการตั้งค่าสำเร็จ');
-    } catch (err) {
+    } catch {
       alert('บันทึกการตั้งค่าไม่สำเร็จ');
     } finally {
       setIsSavingSettings(false);
@@ -1776,7 +1776,7 @@ export function ManagerDashboard({
                               ].map(cat => (
                                 <button
                                   key={cat.id}
-                                  onClick={() => setNewShiftCategory(cat.id as any)}
+                                  onClick={() => setNewShiftCategory(cat.id as Exclude<ShiftType['category'], undefined>)}
                                   className={cn(
                                     "py-2 px-1 rounded-lg text-[10px] font-bold transition-all border",
                                     newShiftCategory === cat.id 
@@ -1838,7 +1838,7 @@ export function ManagerDashboard({
                           </div>
                         </div>
                         <button
-                          onClick={() => deleteShiftType(type.id).catch((err) => alert(err.message || 'ลบกะงานไม่สำเร็จ'))}
+                          onClick={() => deleteShiftType(type.id).catch((err: unknown) => alert(err instanceof Error ? err.message : 'ลบกะงานไม่สำเร็จ'))}
                           className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1853,7 +1853,7 @@ export function ManagerDashboard({
                           onChange={(e) => {
                             const shift = shiftTypes.find((t) => t.id === type.id);
                             if (shift) {
-                              updateShiftType({ ...shift, color: e.target.value }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
+                              updateShiftType({ ...shift, color: e.target.value }).catch((err: unknown) => alert(err instanceof Error ? err.message : 'อัปเดตไม่สำเร็จ'));
                             }
                           }}
                           className="h-7 w-12 bg-transparent border-0 p-0 cursor-pointer"
@@ -1899,7 +1899,7 @@ export function ManagerDashboard({
                               onClick={() => {
                                 const shift = shiftTypes.find((t) => t.id === type.id);
                                 if (shift) {
-                                  updateShiftType({ ...shift, category: cat.id as any }).catch((err) => alert(err.message || 'อัปเดตไม่สำเร็จ'));
+                                  updateShiftType({ ...shift, category: cat.id as ShiftType['category'] }).catch((err: unknown) => alert(err instanceof Error ? err.message : 'อัปเดตไม่สำเร็จ'));
                                 }
                               }}
                               className={cn(

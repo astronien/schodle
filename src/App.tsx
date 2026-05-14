@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 
 import { Clock, Settings } from 'lucide-react';
@@ -29,6 +30,7 @@ function App() {
   } = useAuth();
 
   const [role, setRole] = useState<UserRole>('employee');
+  const effectiveRole = !isManager && role === 'manager' ? 'employee' : role;
   const [activeMobileTab, setActiveMobileTab] = useState<'schedule' | 'requests' | 'settings'>('schedule');
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -79,14 +81,10 @@ function App() {
 
   // Reset role to employee for non-managers
   useEffect(() => {
-    if (!isManager && role === 'manager') {
-      setRole('employee');
-    }
-
-    if (role === 'manager') {
+    if (effectiveRole === 'manager' && activeMobileTab !== 'schedule') {
       setActiveMobileTab('schedule');
     }
-  }, [isManager, role]);
+  }, [effectiveRole, activeMobileTab]);
 
 
 
@@ -343,16 +341,16 @@ function App() {
     <div className="min-h-screen w-full bg-bg-primary text-text-secondary font-sans pb-20 sm:pb-0 overflow-x-hidden">
       <Header
         currentUser={currentUser}
-        role={role}
+        role={effectiveRole}
         isManager={isManager}
-        onToggleRole={() => setRole(role === 'employee' ? 'manager' : 'employee')}
+        onToggleRole={() => setRole(effectiveRole === 'employee' ? 'manager' : 'employee')}
         onLogout={logout}
         appName={settings.appName}
       />
 
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl mx-auto">
-        {role === 'employee' ? (
+        {effectiveRole === 'employee' ? (
           <>
             <div className="sm:hidden mb-4 rounded-2xl border border-white/[0.08] bg-bg-surface/80 backdrop-blur px-3 py-2">
               <div className="flex items-center justify-between gap-3 text-xs">

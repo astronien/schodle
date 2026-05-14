@@ -21,8 +21,8 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
     try {
       await subscribeToNotifications(currentUser.id);
       alert('เปิดการแจ้งเตือนสำเร็จ!');
-    } catch (err: any) {
-      alert(err.message || 'ไม่สามารถเปิดการแจ้งเตือนได้');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'ไม่สามารถเปิดการแจ้งเตือนได้');
     } finally {
       setIsSubscribing(false);
     }

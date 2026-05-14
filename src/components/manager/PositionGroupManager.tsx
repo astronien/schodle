@@ -32,7 +32,7 @@ export function PositionGroupManager({
       await createGroup({ name: newName });
       setNewName('');
       setIsAdding(false);
-    } catch (err) {
+    } catch {
       alert('Failed to create group');
     }
   };
@@ -42,7 +42,7 @@ export function PositionGroupManager({
     try {
       await updateGroup({ id, name: editName });
       setEditingId(null);
-    } catch (err) {
+    } catch {
       alert('Failed to update group');
     }
   };
@@ -50,7 +50,7 @@ export function PositionGroupManager({
   const toggleEmployeeGroup = async (emp: Employee, groupId: string | undefined) => {
     try {
       await updateEmployee({ ...emp, groupId });
-    } catch (err) {
+    } catch {
       alert('Failed to update employee group');
     }
   };

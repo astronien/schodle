@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Clock, ChevronRight, ChevronLeft, AlertCircle,
   XCircle, CheckCircle2, Plus, Users, Check, LayoutGrid
@@ -59,10 +59,7 @@ export function EmployeeDashboard({
     return d >= monthStart && d <= monthEnd;
   });
 
-  const monthlyStats = useMemo(
-    () => getEmployeeMonthlyStats(currentUser.id, monthlySchedules, shiftTypes),
-    [currentUser.id, monthlySchedules, shiftTypes]
-  );
+  const monthlyStats = getEmployeeMonthlyStats(currentUser.id, monthlySchedules, shiftTypes);
   const approvedDays = monthlySchedules.filter(s => s.status === 'approved').length;
   const pendingDays = monthlySchedules.filter(s => s.status === 'pending' || s.status === 'submitted').length;
   const targetOffDays = 4; 
@@ -140,14 +137,13 @@ export function EmployeeDashboard({
       setIsLateScan(false);
       setIsSwapping(false);
       setTargetSwapId(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[handleSetShift] Failed:', err);
       const msg =
-        err?.message ||
-        err?.error_description ||
-        (typeof err === 'string' ? err : null) ||
-        'บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
-      alert(msg);
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message?: unknown }).message || '')
+          : null;
+      alert(msg || 'บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsUpdating(false);
     }
@@ -173,7 +169,7 @@ export function EmployeeDashboard({
       setSelectedDate(null);
       setIsSwapping(false);
       setTargetSwapId(null);
-    } catch (err) {
+    } catch {
       alert('ไม่สามารถส่งคำขอสลับกะได้');
     }
   };

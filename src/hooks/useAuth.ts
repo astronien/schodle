@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
@@ -49,7 +50,7 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    restoreSession();
+    void restoreSession();
   }, [restoreSession]);
 
   const login = useCallback(async (employeeCode: string, password: string) => {

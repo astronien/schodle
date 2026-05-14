@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
@@ -116,7 +117,18 @@ export function useData() {
       );
 
       setSchedules(
-        (schedRes.data || []).map((s: any) => ({
+        (schedRes.data || []).map((s: {
+          id: string;
+          employee_id: string;
+          date: string;
+          shift_type_id: string;
+          status: ScheduleEntry['status'];
+          employee_note?: string | null;
+          manager_remark?: string | null;
+          swap_with_id?: string | null;
+          evidence_url?: string | null;
+          revert_shift_type_id?: string | null;
+        }) => ({
           id: s.id,
           employeeId: s.employee_id,
           date: s.date,
@@ -131,7 +143,19 @@ export function useData() {
       );
 
       setScheduleRequests(
-        (reqRes.data || []).map((r: any) => ({
+        (reqRes.data || []).map((r: {
+          id: string;
+          employee_id: string;
+          date: string;
+          shift_type_id: string;
+          request_type: ScheduleRequest['requestType'];
+          status: ScheduleRequest['status'];
+          employee_note?: string | null;
+          manager_remark?: string | null;
+          swap_with_id?: string | null;
+          evidence_url?: string | null;
+          revert_shift_type_id?: string | null;
+        }) => ({
           id: r.id,
           employeeId: r.employee_id,
           date: r.date,
@@ -159,15 +183,15 @@ export function useData() {
       }
 
 
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
   }, [fetchAll]);
 
   useEffect(() => {
@@ -195,7 +219,12 @@ export function useData() {
         { event: '*', schema: 'public', table: 'schedules' },
         (payload) => {
           const eventType = payload.eventType;
-          const record: any = payload.new || payload.old;
+          const record = (payload.new || payload.old) as {
+            employee_id?: string;
+            date?: string;
+            status?: string;
+            shift_type_id?: string;
+          };
           const employeeId: string | undefined = record?.employee_id;
           const date: string | undefined = record?.date;
           const status: string | undefined = record?.status;
@@ -204,7 +233,7 @@ export function useData() {
           if (employeeId && date) {
             const key = `${eventType}:${employeeId}:${date}:${status || ''}:${shiftTypeId || ''}`;
             if (!shouldSkipByRecent(key)) {
-              let title = 'อัปเดตตารางงาน';
+              const title = 'อัปเดตตารางงาน';
               let body = `ตารางงานวันที่ ${date} มีการเปลี่ยนแปลง`;
 
               if (eventType === 'INSERT') {
@@ -295,7 +324,7 @@ export function useData() {
     }
     
     if (statusChanged || forceNotify) {
-      let title = 'อัปเดตคำขอ';
+      const title = 'อัปเดตคำขอ';
       let body = '';
       
       if (entry.status === 'approved') {

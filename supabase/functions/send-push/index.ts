@@ -36,7 +36,7 @@ serve(async (req) => {
         .eq('role', role)
       
       if (empError) throw empError
-      targetEmployeeIds = employees.map((e: any) => e.id)
+      targetEmployeeIds = employees.map((e: { id: string }) => e.id)
     }
 
     if (targetEmployeeIds.length === 0) {
@@ -69,23 +69,23 @@ serve(async (req) => {
 
     // 3. Send notifications to all devices
     const results = await Promise.all(
-      subscriptions.map(async (sub: any) => {
+      subscriptions.map(async (sub: { subscription: PushSubscriptionJSON }) => {
         try {
           await webpush.sendNotification(
             sub.subscription,
             JSON.stringify({ title, body, url: url || '/' })
           )
           return { success: true }
-        } catch (err: any) {
+        } catch (err: unknown) {
+          const error = err as { statusCode?: number; message?: string }
           console.error('Send error:', err)
-          // If subscription is expired/invalid, we should delete it
-          if (err.statusCode === 410 || err.statusCode === 404) {
+          if (error.statusCode === 410 || error.statusCode === 404) {
             await supabaseClient
               .from('push_subscriptions')
               .delete()
               .eq('subscription', sub.subscription)
           }
-          return { success: false, error: err.message }
+          return { success: false, error: error.message || 'Send failed' }
         }
       })
     )
@@ -95,8 +95,9 @@ serve(async (req) => {
       status: 200,
     })
 
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Request failed'
+    return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })

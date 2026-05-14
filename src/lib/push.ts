@@ -34,7 +34,7 @@ export async function subscribeToNotifications(employeeId: string) {
     if (error) throw error;
 
     return true;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Push subscription error:', error);
     throw error;
   }
