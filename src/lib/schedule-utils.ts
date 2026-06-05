@@ -1,14 +1,10 @@
-import type { Employee, ScheduleEntry, ShiftType, ScheduleRequest } from '../types';
+import type { Employee, ScheduleEntry, ShiftType } from '../types';
 
-export function isScheduleRequest(entry: ScheduleEntry | ScheduleRequest): entry is ScheduleRequest {
-  return Boolean(
-    (entry as ScheduleRequest).requestType ||
-      entry.status === 'pending' ||
-      entry.status === 'submitted'
-  );
+export function isPendingRequest(entry: ScheduleEntry): boolean {
+  return entry.status === 'pending' || entry.status === 'submitted';
 }
 
-export function getRequestTypeLabel(request?: ScheduleRequest) {
+export function getRequestTypeLabel(request?: Pick<ScheduleEntry, 'requestType'>) {
   switch (request?.requestType) {
     case 'leave':
       return 'ลา';
@@ -44,8 +40,8 @@ export function createPositionLookupMap(positions: { id: string; code?: string; 
   return new Map(positions.map((position) => [position.id, position]));
 }
 
-export function filterPendingRequests(entries: Array<ScheduleEntry | ScheduleRequest>) {
-  return entries.filter(isScheduleRequest);
+export function filterPendingRequests(entries: ScheduleEntry[]) {
+  return entries.filter(isPendingRequest);
 }
 
 export function getScheduleStatusCounts(entries: ScheduleEntry[]) {

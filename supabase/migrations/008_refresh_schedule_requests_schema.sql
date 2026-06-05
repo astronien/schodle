@@ -1,11 +1,14 @@
--- Separate employee requests from approved schedules
+-- Normalize schedule_requests to match production expectations
+
 create table if not exists public.schedule_requests (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employees(id) on delete cascade,
   date text not null,
   shift_type_id uuid not null references public.shift_types(id),
-  request_type text not null default 'shift_change' check (request_type in ('leave', 'swap', 'shift_change', 'late_scan', 'off_request')),
-  status text not null default 'pending' check (status in ('draft', 'submitted', 'approved', 'rejected', 'pending')),
+  request_type text not null default 'shift_change'
+    check (request_type in ('leave', 'swap', 'shift_change', 'late_scan', 'off_request')),
+  status text not null default 'pending'
+    check (status in ('draft', 'submitted', 'approved', 'rejected', 'pending')),
   employee_note text,
   manager_remark text,
   swap_with_id uuid references public.employees(id),
@@ -42,8 +45,10 @@ execute function public.set_updated_at();
 
 alter table public.schedule_requests enable row level security;
 
-create policy "Allow all schedule requests"
+drop policy if exists "Allow all" on public.schedule_requests;
+create policy "Allow all"
 on public.schedule_requests
 for all
+to authenticated, anon
 using (true)
 with check (true);

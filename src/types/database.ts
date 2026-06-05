@@ -19,6 +19,8 @@ export interface Database {
           phone: string | null;
           email: string | null;
           avatar: string | null;
+          weekly_off_day: number | null;
+          must_change_password: boolean;
           created_at: string;
         };
         Insert: {
@@ -30,6 +32,8 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           avatar?: string | null;
+          weekly_off_day?: number | null;
+          must_change_password?: boolean;
           created_at?: string;
         };
         Update: {
@@ -41,6 +45,8 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           avatar?: string | null;
+          weekly_off_day?: number | null;
+          must_change_password?: boolean;
           created_at?: string;
         };
       };
@@ -121,9 +127,12 @@ export interface Database {
           date: string;
           shift_type_id: string;
           status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';
+          request_type: 'leave' | 'swap' | 'shift_change' | 'late_scan' | 'off_request';
           employee_note: string | null;
           manager_remark: string | null;
           swap_with_id: string | null;
+          evidence_url: string | null;
+          revert_shift_type_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -133,9 +142,12 @@ export interface Database {
           date: string;
           shift_type_id: string;
           status?: 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';
+          request_type?: 'leave' | 'swap' | 'shift_change' | 'late_scan' | 'off_request';
           employee_note?: string | null;
           manager_remark?: string | null;
           swap_with_id?: string | null;
+          evidence_url?: string | null;
+          revert_shift_type_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -145,9 +157,12 @@ export interface Database {
           date?: string;
           shift_type_id?: string;
           status?: 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';
+          request_type?: 'leave' | 'swap' | 'shift_change' | 'late_scan' | 'off_request';
           employee_note?: string | null;
           manager_remark?: string | null;
           swap_with_id?: string | null;
+          evidence_url?: string | null;
+          revert_shift_type_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

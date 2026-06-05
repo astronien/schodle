@@ -2,8 +2,41 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
-import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, ScheduleRequest } from '../types/index';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
+
+const RECENT_NOTIFICATION_WINDOW_MS = 7000;
+const REALTIME_THROTTLE_MS = 1500;
+
+type ScheduleRow = {
+  id: string;
+  employee_id: string;
+  date: string;
+  shift_type_id: string;
+  status: ScheduleEntry['status'];
+  request_type: ScheduleEntry['requestType'];
+  employee_note: string | null;
+  manager_remark: string | null;
+  swap_with_id: string | null;
+  evidence_url: string | null;
+  revert_shift_type_id: string | null;
+};
+
+function mapScheduleRow(row: ScheduleRow): ScheduleEntry {
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    date: row.date,
+    shiftTypeId: row.shift_type_id,
+    status: row.status,
+    requestType: row.request_type,
+    employeeNote: row.employee_note || undefined,
+    managerRemark: row.manager_remark || undefined,
+    swapWithId: row.swap_with_id || undefined,
+    evidenceUrl: row.evidence_url || undefined,
+    revertShiftTypeId: row.revert_shift_type_id || undefined,
+  };
+}
 
 export function useData() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -11,25 +44,29 @@ export function useData() {
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [positionGroups, setPositionGroups] = useState<PositionGroup[]>([]);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
-  const [scheduleRequests, setScheduleRequests] = useState<ScheduleRequest[]>([]);
-  const employeeLookupMaps = createEmployeeLookupMaps(employees, shiftTypes);
-
-
   const [settings, setSettings] = useState<AppSettings>({
     storeName: 'Central Plaza Rama 9',
     appName: 'ShiftFlow',
     allowEmployeeSetShifts: true,
   });
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState<string | null>(null);
 
+  const employeeLookupMaps = createEmployeeLookupMaps(employees, shiftTypes);
+
   const recentNotificationRef = useRef<Map<string, number>>(new Map());
+  const realtimeInFlightRef = useRef<Promise<void> | null>(null);
+  const realtimePendingRef = useRef<boolean>(false);
+
+  const scheduleById = useRef<Map<string, ScheduleEntry>>(new Map());
+  useEffect(() => {
+    scheduleById.current = new Map(schedules.map((s) => [s.id, s]));
+  }, [schedules]);
 
   const sendPush = useCallback(async (employeeId: string, title: string, body: string, url?: string) => {
     try {
       await supabase.functions.invoke('send-push', {
-        body: { employee_id: employeeId, title, body, url }
+        body: { employee_id: employeeId, title, body, url },
       });
     } catch (err) {
       console.error('[sendPush] Notification failed:', err);
@@ -39,25 +76,32 @@ export function useData() {
   const sendPushRole = useCallback(async (role: string, title: string, body: string, url?: string) => {
     try {
       await supabase.functions.invoke('send-push', {
-        body: { role, title, body, url }
+        body: { role, title, body, url },
       });
     } catch (err) {
       console.error('[sendPushRole] Notification failed:', err);
     }
   }, []);
 
+  const fetchSchedulesOnly = useCallback(async (): Promise<ScheduleEntry[]> => {
+    const { data, error: schedErr } = await supabase
+      .from('schedules')
+      .select('*')
+      .order('date');
+    if (schedErr) throw schedErr;
+    return (data || []).map(mapScheduleRow);
+  }, []);
+
   const fetchAll = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
-
     setError(null);
     try {
-      const [posRes, empRes, shiftRes, groupRes, schedRes, reqRes, settingsRes] = await Promise.all([
+      const [posRes, empRes, shiftRes, groupRes, schedRes, settingsRes] = await Promise.all([
         supabase.from('positions').select('*').order('code'),
         supabase.from('employees').select('*').order('full_name'),
         supabase.from('shift_types').select('*').order('code'),
         supabase.from('position_groups').select('*').order('name'),
         supabase.from('schedules').select('*').order('date'),
-        supabase.from('schedule_requests').select('*').order('date'),
         supabase.from('settings').select('*'),
       ]);
 
@@ -66,7 +110,6 @@ export function useData() {
       if (shiftRes.error) throw shiftRes.error;
       if (groupRes.error) throw groupRes.error;
       if (schedRes.error) throw schedRes.error;
-      if (reqRes.error) throw reqRes.error;
 
       setPositions(
         (posRes.data || []).map((p) => ({
@@ -74,14 +117,14 @@ export function useData() {
           code: p.code,
           name: p.name,
           minRequired: p.min_required,
-        }))
+        })),
       );
 
       setPositionGroups(
         (groupRes.data || []).map((g) => ({
           id: g.id,
           name: g.name,
-        }))
+        })),
       );
 
       setEmployees(
@@ -96,7 +139,7 @@ export function useData() {
           email: e.email || undefined,
           avatar: e.avatar || undefined,
           weeklyOffDay: typeof e.weekly_off_day === 'number' ? e.weekly_off_day : undefined,
-        }))
+        })),
       );
 
       setShiftTypes(
@@ -113,62 +156,10 @@ export function useData() {
           isVisible: s.is_visible,
           targetStaff: s.target_staff || undefined,
           category: (s.category as ShiftType['category']) || undefined,
-        }))
+        })),
       );
 
-      setSchedules(
-        (schedRes.data || []).map((s: {
-          id: string;
-          employee_id: string;
-          date: string;
-          shift_type_id: string;
-          status: ScheduleEntry['status'];
-          employee_note?: string | null;
-          manager_remark?: string | null;
-          swap_with_id?: string | null;
-          evidence_url?: string | null;
-          revert_shift_type_id?: string | null;
-        }) => ({
-          id: s.id,
-          employeeId: s.employee_id,
-          date: s.date,
-          shiftTypeId: s.shift_type_id,
-          status: s.status as ScheduleEntry['status'],
-          employeeNote: s.employee_note || undefined,
-          managerRemark: s.manager_remark || undefined,
-          swapWithId: s.swap_with_id || undefined,
-          evidenceUrl: s.evidence_url || undefined,
-          revertShiftTypeId: s.revert_shift_type_id || undefined,
-        }))
-      );
-
-      setScheduleRequests(
-        (reqRes.data || []).map((r: {
-          id: string;
-          employee_id: string;
-          date: string;
-          shift_type_id: string;
-          request_type: ScheduleRequest['requestType'];
-          status: ScheduleRequest['status'];
-          employee_note?: string | null;
-          manager_remark?: string | null;
-          swap_with_id?: string | null;
-          evidence_url?: string | null;
-          revert_shift_type_id?: string | null;
-        }) => ({
-          id: r.id,
-          employeeId: r.employee_id,
-          date: r.date,
-          shiftTypeId: r.shift_type_id,
-          requestType: r.request_type,
-          status: r.status as ScheduleRequest['status'],
-          employeeNote: r.employee_note || undefined,
-          managerRemark: r.manager_remark || undefined,
-          swapWithId: r.swap_with_id || undefined,
-          evidenceUrl: r.evidence_url || undefined,
-          revertShiftTypeId: r.revert_shift_type_id || undefined,
-        }))
-      );
+      setSchedules((schedRes.data || []).map(mapScheduleRow));
 
       if (settingsRes.data) {
         const settingsMap: Record<string, string> = {};
@@ -181,8 +172,6 @@ export function useData() {
           allowEmployeeSetShifts: settingsMap['allow_employee_set_shifts'] !== 'false',
         });
       }
-
-
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
@@ -194,24 +183,29 @@ export function useData() {
     void fetchAll();
   }, [fetchAll]);
 
-  useEffect(() => {
-    const pruneRecent = () => {
-      const now = Date.now();
-      for (const [k, ts] of recentNotificationRef.current.entries()) {
-        if (now - ts > 7000) recentNotificationRef.current.delete(k);
+  const refreshSchedulesThrottled = useCallback(() => {
+    const run = async () => {
+      try {
+        const fresh = await fetchSchedulesOnly();
+        setSchedules(fresh);
+      } catch (err) {
+        console.error('[refreshSchedulesThrottled] failed:', err);
+      } finally {
+        realtimeInFlightRef.current = null;
+        if (realtimePendingRef.current) {
+          realtimePendingRef.current = false;
+          void run();
+        }
       }
     };
+    if (realtimeInFlightRef.current) {
+      realtimePendingRef.current = true;
+      return;
+    }
+    realtimeInFlightRef.current = run();
+  }, [fetchSchedulesOnly]);
 
-    const shouldSkipByRecent = (key: string) => {
-      pruneRecent();
-      return recentNotificationRef.current.has(key);
-    };
-
-    const markRecent = (key: string) => {
-      pruneRecent();
-      recentNotificationRef.current.set(key, Date.now());
-    };
-
+  useEffect(() => {
     const channel = supabase
       .channel('realtime:schedules')
       .on(
@@ -219,20 +213,24 @@ export function useData() {
         { event: '*', schema: 'public', table: 'schedules' },
         (payload) => {
           const eventType = payload.eventType;
-          const record = (payload.new || payload.old) as {
-            employee_id?: string;
-            date?: string;
-            status?: string;
-            shift_type_id?: string;
-          };
-          const employeeId: string | undefined = record?.employee_id;
-          const date: string | undefined = record?.date;
-          const status: string | undefined = record?.status;
-          const shiftTypeId: string | undefined = record?.shift_type_id;
+          const record = (payload.new || payload.old) as Partial<ScheduleRow> | undefined;
+          const employeeId = record?.employee_id;
+          const date = record?.date;
+          const status = record?.status;
+          const shiftTypeId = record?.shift_type_id;
 
           if (employeeId && date) {
+            const pruneRecent = () => {
+              const now = Date.now();
+              for (const [k, ts] of recentNotificationRef.current.entries()) {
+                if (now - ts > RECENT_NOTIFICATION_WINDOW_MS) {
+                  recentNotificationRef.current.delete(k);
+                }
+              }
+            };
+            pruneRecent();
             const key = `${eventType}:${employeeId}:${date}:${status || ''}:${shiftTypeId || ''}`;
-            if (!shouldSkipByRecent(key)) {
+            if (!recentNotificationRef.current.has(key)) {
               const title = 'อัปเดตตารางงาน';
               let body = `ตารางงานวันที่ ${date} มีการเปลี่ยนแปลง`;
 
@@ -246,116 +244,106 @@ export function useData() {
                 body = `กะงานวันที่ ${date} ไม่ได้รับการอนุมัติ`;
               }
 
-              markRecent(key);
-              sendPush(employeeId, title, body, '/dashboard');
+              recentNotificationRef.current.set(key, Date.now());
+              void sendPush(employeeId, title, body, '/dashboard');
             }
           }
 
-          fetchAll(true);
-        }
+          setTimeout(refreshSchedulesThrottled, REALTIME_THROTTLE_MS);
+        },
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchAll, sendPush]);
+  }, [refreshSchedulesThrottled, sendPush]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      fetchAll(true);
-    }, 15000);
-
-    const onFocus = () => {
-      fetchAll(true);
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchAll(true);
-      }
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [fetchAll]);
-
-  const updateSchedule = useCallback(async (entry: ScheduleEntry, forceNotify?: boolean) => {
-    const emp = employeeLookupMaps.employeeById.get(entry.employeeId);
-    if (typeof emp?.weeklyOffDay === 'number') {
-      const day = new Date(`${entry.date}T00:00:00`).getDay();
-      if (day === emp.weeklyOffDay) {
-        const shiftType = employeeLookupMaps.shiftTypeById.get(entry.shiftTypeId);
-        if (shiftType?.code !== 'X') {
-          throw new Error(`ไม่สามารถจัดกะวันที่ ${entry.date} ได้ (วันหยุดประจำสัปดาห์)`);
+  const updateSchedule = useCallback(
+    async (entry: ScheduleEntry, forceNotify?: boolean) => {
+      const emp = employeeLookupMaps.employeeById.get(entry.employeeId);
+      if (typeof emp?.weeklyOffDay === 'number') {
+        const day = new Date(`${entry.date}T00:00:00`).getDay();
+        if (day === emp.weeklyOffDay) {
+          const shiftType = employeeLookupMaps.shiftTypeById.get(entry.shiftTypeId);
+          if (shiftType?.code !== 'X') {
+            throw new Error(`ไม่สามารถจัดกะวันที่ ${entry.date} ได้ (วันหยุดประจำสัปดาห์)`);
+          }
         }
       }
-    }
 
-    const { error } = await supabase.from('schedule_requests').upsert({
-      id: entry.id,
-      employee_id: entry.employeeId,
-      date: entry.date,
-      shift_type_id: entry.shiftTypeId,
-      request_type: 'shift_change',
-      status: entry.status,
-      employee_note: entry.employeeNote || null,
-      manager_remark: entry.managerRemark || null,
-      swap_with_id: entry.swapWithId || null,
-      evidence_url: entry.evidenceUrl || null,
-      revert_shift_type_id: entry.revertShiftTypeId || null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'id' });
+      const { error: upsertErr } = await supabase.from('schedules').upsert(
+        {
+          id: entry.id,
+          employee_id: entry.employeeId,
+          date: entry.date,
+          shift_type_id: entry.shiftTypeId,
+          status: entry.status,
+          request_type: entry.requestType,
+          employee_note: entry.employeeNote || null,
+          manager_remark: entry.managerRemark || null,
+          swap_with_id: entry.swapWithId || null,
+          evidence_url: entry.evidenceUrl || null,
+          revert_shift_type_id: entry.revertShiftTypeId || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' },
+      );
 
-    if (error) throw error;
+      if (upsertErr) throw upsertErr;
 
-    const oldRequest = scheduleRequests.find((request) => request.id === entry.id);
-    const statusChanged = oldRequest && oldRequest.status !== entry.status;
-    const isNewPending = (!oldRequest || oldRequest.status !== 'pending') && entry.status === 'pending';
+      const oldEntry = scheduleById.current.get(entry.id);
+      const statusChanged = oldEntry && oldEntry.status !== entry.status;
+      const isNewPending = (!oldEntry || oldEntry.status !== 'pending') && entry.status === 'pending';
 
-    if (isNewPending) {
-      sendPushRole('manager', 'มีคำขอใหม่จากพนักงาน', `${emp?.fullName || 'พนักงาน'} ส่งคำขอใหม่ วันที่ ${entry.date}`, '/manager/requests');
-    }
-    
-    if (statusChanged || forceNotify) {
-      const title = 'อัปเดตคำขอ';
-      let body = '';
-      
-      if (entry.status === 'approved') {
-        body = forceNotify 
-          ? `คำขอวันที่ ${entry.date} ได้รับการเปลี่ยนแปลง (สลับกะ)`
-          : `คำขอวันที่ ${entry.date} ได้รับการอนุมัติแล้ว`;
-      } else if (entry.status === 'rejected') {
-        body = `คำขอวันที่ ${entry.date} ไม่ได้รับการอนุมัติ`;
+      if (isNewPending) {
+        void sendPushRole(
+          'manager',
+          'มีคำขอใหม่จากพนักงาน',
+          `${emp?.fullName || 'พนักงาน'} ส่งคำขอใหม่ วันที่ ${entry.date}`,
+          '/manager/requests',
+        );
       }
 
-      if (body) {
-        const key = `UPDATE:${entry.employeeId}:${entry.date}:${entry.status}:${entry.shiftTypeId}`;
-        recentNotificationRef.current.set(key, Date.now());
-        sendPush(entry.employeeId, title, body, '/dashboard');
+      if (statusChanged || forceNotify) {
+        const title = 'อัปเดตคำขอ';
+        let body = '';
+
+        if (entry.status === 'approved') {
+          body = forceNotify
+            ? `คำขอวันที่ ${entry.date} ได้รับการเปลี่ยนแปลง (สลับกะ)`
+            : `คำขอวันที่ ${entry.date} ได้รับการอนุมัติแล้ว`;
+        } else if (entry.status === 'rejected') {
+          body = `คำขอวันที่ ${entry.date} ไม่ได้รับการอนุมัติ`;
+        }
+
+        if (body) {
+          const key = `UPDATE:${entry.employeeId}:${entry.date}:${entry.status}:${entry.shiftTypeId}`;
+          recentNotificationRef.current.set(key, Date.now());
+          void sendPush(entry.employeeId, title, body, '/dashboard');
+        }
       }
-    }
 
-    await fetchAll();
+      await fetchAll(true);
+    },
+    [employeeLookupMaps.employeeById, employeeLookupMaps.shiftTypeById, fetchAll, sendPush, sendPushRole],
+  );
 
-  }, [employeeLookupMaps.employeeById, employeeLookupMaps.shiftTypeById, fetchAll, scheduleRequests, sendPush, sendPushRole]);
-
-
-  const deleteSchedule = useCallback(async (id: string) => {
-    const { error } = await supabase.from('schedule_requests').delete().eq('id', id);
-    if (error) throw error;
-    await fetchAll();
-  }, [fetchAll]);
+  const deleteSchedule = useCallback(
+    async (id: string) => {
+      const { error: delErr } = await supabase.from('schedules').delete().eq('id', id);
+      if (delErr) throw delErr;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
   const compressImage = (file: File, maxDim = 1200, quality = 0.7): Promise<File> => {
     return new Promise((resolve) => {
-      if (!file.type.startsWith('image/')) { resolve(file); return; }
+      if (!file.type.startsWith('image/')) {
+        resolve(file);
+        return;
+      }
       const img = new Image();
       img.onload = () => {
         let { width, height } = img;
@@ -367,15 +355,22 @@ export function useData() {
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d')!;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
         ctx.drawImage(img, 0, 0, width, height);
         canvas.toBlob(
           (blob) => {
-            if (!blob) { resolve(file); return; }
+            if (!blob) {
+              resolve(file);
+              return;
+            }
             resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
           },
           'image/jpeg',
-          quality
+          quality,
         );
       };
       img.onerror = () => resolve(file);
@@ -389,225 +384,248 @@ export function useData() {
     const fileName = `${crypto.randomUUID()}.${fileExt}`;
     const filePath = `evidence/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('attachments')
-      .upload(filePath, compressed);
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, compressed);
+    if (uploadError) throw uploadError;
 
-    if (uploadError) {
-      console.error('[uploadFile] Error:', uploadError);
-      throw uploadError;
-    }
-
-    const { data } = supabase.storage
-      .from('attachments')
-      .getPublicUrl(filePath);
-
+    const { data } = supabase.storage.from('attachments').getPublicUrl(filePath);
     return data.publicUrl;
   }, []);
 
-  const createEmployee = useCallback(async (employee: Omit<Employee, 'id'>) => {
+  const createEmployee = useCallback(
+    async (employee: Omit<Employee, 'id'>) => {
+      const dup = employees.find((e) => e.employeeCode === employee.employeeCode);
+      if (dup) {
+        throw new Error(`รหัสพนักงาน "${employee.employeeCode}" ซ้ำ (มีอยู่แล้ว)`);
+      }
 
-    // 1. Check for duplicate employee_code
-    const dup = employeeLookupMaps.employeeById.size > 0
-      ? Array.from(employeeLookupMaps.employeeById.values()).find((e) => e.employeeCode === employee.employeeCode)
-      : employees.find((e) => e.employeeCode === employee.employeeCode);
-    if (dup) {
-      throw new Error(`รหัสพนักงาน "${employee.employeeCode}" ซ้ำ (มีอยู่แล้ว)`);
-    }
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(employee.positionId)) {
+        throw new Error(`position_id "${employee.positionId}" ไม่ใช่ UUID ที่ถูกต้อง`);
+      }
 
-    // 2. Validate UUID format for position_id
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(employee.positionId)) {
-      throw new Error(`position_id "${employee.positionId}" ไม่ใช่ UUID ที่ถูกต้อง`);
-    }
+      const { error: insErr } = await supabase.from('employees').insert({
+        employee_code: employee.employeeCode,
+        full_name: employee.fullName,
+        position_id: employee.positionId,
+        group_id: employee.groupId || null,
+        role: employee.role,
+        phone: employee.phone || null,
+        email: employee.email || null,
+        avatar: employee.avatar || null,
+        weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
+        password_hash: bcrypt.hashSync(employee.employeeCode, 10),
+      });
 
-    const payload = {
-      employee_code: employee.employeeCode,
-      full_name: employee.fullName,
-      position_id: employee.positionId,
-      group_id: employee.groupId || null,
-      role: employee.role,
-      phone: employee.phone || null,
-      email: employee.email || null,
-      avatar: employee.avatar || null,
-      weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
-      password_hash: bcrypt.hashSync(employee.employeeCode, 10),
-    };
+      if (insErr) {
+        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase insert failed');
+      }
+      await fetchAll(true);
+    },
+    [employees, fetchAll],
+  );
 
-    console.log('[createEmployee] payload:', payload);
+  const updateEmployee = useCallback(
+    async (employee: Employee) => {
+      const { error: updErr } = await supabase
+        .from('employees')
+        .update({
+          employee_code: employee.employeeCode,
+          full_name: employee.fullName,
+          position_id: employee.positionId,
+          group_id: employee.groupId || null,
+          role: employee.role,
+          phone: employee.phone || null,
+          email: employee.email || null,
+          avatar: employee.avatar || null,
+          weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
+        })
+        .eq('id', employee.id);
 
-    const { error } = await supabase.from('employees').insert(payload);
-    if (error) {
-      console.error('[createEmployee] Supabase error:', error);
-      const msg = [
-        error.message,
-        error.details,
-        error.hint,
-        `code: ${error.code}`,
-      ]
-        .filter(Boolean)
-        .join(' | ');
-      throw new Error(msg || 'Supabase insert failed');
-    }
-    await fetchAll();
-  }, [employeeLookupMaps.employeeById, employees, fetchAll]);
+      if (updErr) {
+        const msg = [updErr.message, updErr.details, updErr.hint, `code: ${updErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase update failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const updateEmployee = useCallback(async (employee: Employee) => {
-    console.log('[updateEmployee] payload:', employee);
-    const { error } = await supabase.from('employees').update({
-      employee_code: employee.employeeCode,
-      full_name: employee.fullName,
-      position_id: employee.positionId,
-      group_id: employee.groupId || null,
-      role: employee.role,
-      phone: employee.phone || null,
-      email: employee.email || null,
-      avatar: employee.avatar || null,
-      weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
-    }).eq('id', employee.id);
+  const deleteEmployee = useCallback(
+    async (id: string) => {
+      const { error: delErr } = await supabase.from('employees').delete().eq('id', id);
+      if (delErr) {
+        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase delete failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-    if (error) {
-      console.error('[updateEmployee] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase update failed');
-    }
-    await fetchAll();
-  }, [fetchAll]);
+  const createPosition = useCallback(
+    async (position: Omit<Position, 'id'>) => {
+      const { error: insErr } = await supabase.from('positions').insert({
+        code: position.code,
+        name: position.name,
+        min_required: position.minRequired,
+      });
+      if (insErr) {
+        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase insert failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const deleteEmployee = useCallback(async (id: string) => {
-    const { error } = await supabase.from('employees').delete().eq('id', id);
-    if (error) {
-      console.error('[deleteEmployee] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase delete failed');
-    }
-    await fetchAll();
-  }, [fetchAll]);
+  const deletePosition = useCallback(
+    async (id: string) => {
+      const { error: delErr } = await supabase.from('positions').delete().eq('id', id);
+      if (delErr) {
+        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase delete failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const createPosition = useCallback(async (position: Omit<Position, 'id'>) => {
-    const { error } = await supabase.from('positions').insert({
-      code: position.code,
-      name: position.name,
-      min_required: position.minRequired,
-    });
-    if (error) {
-      console.error('[createPosition] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase insert failed');
-    }
-    await fetchAll();
-  }, [fetchAll]);
+  const updatePosition = useCallback(
+    async (position: Position) => {
+      const { error: updErr } = await supabase
+        .from('positions')
+        .update({
+          code: position.code,
+          name: position.name,
+          min_required: position.minRequired,
+        })
+        .eq('id', position.id);
+      if (updErr) throw updErr;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const deletePosition = useCallback(async (id: string) => {
-    const { error } = await supabase.from('positions').delete().eq('id', id);
-    if (error) {
-      console.error('[deletePosition] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase delete failed');
-    }
-    await fetchAll();
-  }, [fetchAll]);
+  const createPositionGroup = useCallback(
+    async (group: Omit<PositionGroup, 'id'>) => {
+      const { error: insErr } = await supabase.from('position_groups').insert({ name: group.name });
+      if (insErr) throw insErr;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const updatePosition = useCallback(async (position: Position) => {
-    const { error } = await supabase.from('positions').update({
-      code: position.code,
-      name: position.name,
-      min_required: position.minRequired,
-    }).eq('id', position.id);
-    if (error) throw error;
-    await fetchAll();
-  }, [fetchAll]);
+  const updatePositionGroup = useCallback(
+    async (group: PositionGroup) => {
+      const { error: updErr } = await supabase.from('position_groups').update({ name: group.name }).eq('id', group.id);
+      if (updErr) throw updErr;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const createPositionGroup = useCallback(async (group: Omit<PositionGroup, 'id'>) => {
-    const { error } = await supabase.from('position_groups').insert({
-      name: group.name,
-    });
-    if (error) throw error;
-    await fetchAll();
-  }, [fetchAll]);
+  const deletePositionGroup = useCallback(
+    async (id: string) => {
+      const { error: delErr } = await supabase.from('position_groups').delete().eq('id', id);
+      if (delErr) throw delErr;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const updatePositionGroup = useCallback(async (group: PositionGroup) => {
-    const { error } = await supabase.from('position_groups').update({
-      name: group.name,
-    }).eq('id', group.id);
-    if (error) throw error;
-    await fetchAll();
-  }, [fetchAll]);
+  const createShiftType = useCallback(
+    async (shiftType: Omit<ShiftType, 'id'>) => {
+      const { error: insErr } = await supabase.from('shift_types').insert({
+        code: shiftType.code,
+        name: shiftType.name,
+        start_time: shiftType.startTime,
+        end_time: shiftType.endTime,
+        color: shiftType.color,
+        requires_approval: shiftType.requiresApproval,
+        requires_reason: shiftType.requiresReason,
+        requires_evidence: shiftType.requiresEvidence,
+        is_visible: shiftType.isVisible,
+        target_staff: shiftType.targetStaff || null,
+        category: shiftType.category || null,
+      });
+      if (insErr) {
+        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase insert failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-  const deletePositionGroup = useCallback(async (id: string) => {
-    const { error } = await supabase.from('position_groups').delete().eq('id', id);
-    if (error) throw error;
-    await fetchAll();
-  }, [fetchAll]);
+  const updateShiftType = useCallback(
+    async (shiftType: ShiftType) => {
+      const { error: updErr } = await supabase
+        .from('shift_types')
+        .update({
+          code: shiftType.code,
+          name: shiftType.name,
+          start_time: shiftType.startTime,
+          end_time: shiftType.endTime,
+          color: shiftType.color,
+          requires_approval: shiftType.requiresApproval,
+          requires_reason: shiftType.requiresReason,
+          requires_evidence: shiftType.requiresEvidence,
+          is_visible: shiftType.isVisible,
+          target_staff: shiftType.targetStaff || null,
+          category: shiftType.category || null,
+        })
+        .eq('id', shiftType.id);
+      if (updErr) {
+        const msg = [updErr.message, updErr.details, updErr.hint, `code: ${updErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase update failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
+  const deleteShiftType = useCallback(
+    async (id: string) => {
+      const { error: delErr } = await supabase.from('shift_types').delete().eq('id', id);
+      if (delErr) {
+        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase delete failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
-
-  const createShiftType = useCallback(async (shiftType: Omit<ShiftType, 'id'>) => {
-    const { error } = await supabase.from('shift_types').insert({
-      code: shiftType.code,
-      name: shiftType.name,
-      start_time: shiftType.startTime,
-      end_time: shiftType.endTime,
-      color: shiftType.color,
-      requires_approval: shiftType.requiresApproval,
-      requires_reason: shiftType.requiresReason,
-      requires_evidence: shiftType.requiresEvidence,
-      is_visible: shiftType.isVisible,
-      target_staff: shiftType.targetStaff || null,
-      category: shiftType.category || null,
-    });
-    if (error) {
-      console.error('[createShiftType] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase insert failed');
-    }
-    await fetchAll();
-  }, [fetchAll]);
-
-  const updateShiftType = useCallback(async (shiftType: ShiftType) => {
-    const { error } = await supabase.from('shift_types').update({
-      code: shiftType.code,
-      name: shiftType.name,
-      start_time: shiftType.startTime,
-      end_time: shiftType.endTime,
-      color: shiftType.color,
-      requires_approval: shiftType.requiresApproval,
-      requires_reason: shiftType.requiresReason,
-      requires_evidence: shiftType.requiresEvidence,
-      is_visible: shiftType.isVisible,
-      target_staff: shiftType.targetStaff || null,
-      category: shiftType.category || null,
-    }).eq('id', shiftType.id);
-    if (error) {
-      console.error('[updateShiftType] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase update failed');
-    }
-    await fetchAll();
-  }, [fetchAll]);
-
-  const deleteShiftType = useCallback(async (id: string) => {
-    const { error } = await supabase.from('shift_types').delete().eq('id', id);
-    if (error) {
-      console.error('[deleteShiftType] Supabase error:', error);
-      const msg = [error.message, error.details, error.hint, `code: ${error.code}`].filter(Boolean).join(' | ');
-      throw new Error(msg || 'Supabase delete failed');
-    }
-    await fetchAll();
-  }, [fetchAll]);
-
-  const updateSettings = useCallback(async (newSettings: AppSettings) => {
-    const { error: err1 } = await supabase.from('settings').upsert({ key: 'store_name', value: newSettings.storeName });
-    const { error: err2 } = await supabase.from('settings').upsert({ key: 'app_name', value: newSettings.appName });
-    const { error: err3 } = await supabase.from('settings').upsert({ key: 'allow_employee_set_shifts', value: String(newSettings.allowEmployeeSetShifts) });
-    
-    if (err1 || err2 || err3) {
-      console.error('[updateSettings] Error:', err1 || err2 || err3);
-      throw err1 || err2 || err3;
-    }
-    await fetchAll(true);
-  }, [fetchAll]);
-
+  const updateSettings = useCallback(
+    async (newSettings: AppSettings) => {
+      const results = await Promise.all([
+        supabase.from('settings').upsert({ key: 'store_name', value: newSettings.storeName }),
+        supabase.from('settings').upsert({ key: 'app_name', value: newSettings.appName }),
+        supabase.from('settings').upsert({ key: 'allow_employee_set_shifts', value: String(newSettings.allowEmployeeSetShifts) }),
+      ]);
+      const firstError = results.find((r) => r.error)?.error;
+      if (firstError) throw firstError;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
 
   return {
     employees,
@@ -615,7 +633,6 @@ export function useData() {
     shiftTypes,
     positionGroups,
     schedules,
-    scheduleRequests,
     loading,
     error,
     refresh: fetchAll,

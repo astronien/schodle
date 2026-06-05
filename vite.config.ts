@@ -17,13 +17,16 @@ export default defineConfig({
       includeAssets: ['icon.svg'],
 
       manifest: {
-        name: 'ShiftFlow Premium Scheduler',
+        name: 'ShiftFlow | ระบบจัดกะพรีเมียม',
         short_name: 'ShiftFlow',
-        description: 'Advanced Shift Management System',
-        theme_color: '#4F46E5',
-        background_color: '#ffffff',
+        description: 'ระบบจัดการตารางงานและกะพนักงานอัจฉริยะ',
+        lang: 'th',
+        dir: 'ltr',
+        theme_color: '#2f80ff',
+        background_color: '#050608',
         display: 'standalone',
         orientation: 'portrait',
+        categories: ['business', 'productivity'],
         icons: [
           {
             src: 'icon.svg',

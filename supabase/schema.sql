@@ -1,8 +1,11 @@
 -- Enable RLS
 alter table if exists employees enable row level security;
 alter table if exists positions enable row level security;
+alter table if exists position_groups enable row level security;
 alter table if exists shift_types enable row level security;
 alter table if exists schedules enable row level security;
+alter table if exists settings enable row level security;
+alter table if exists push_subscriptions enable row level security;
 
 -- Drop existing tables
 DROP TABLE IF EXISTS schedules CASCADE;
@@ -38,6 +41,7 @@ CREATE TABLE employees (
   email text,
   avatar text,
   password_hash text,
+  must_change_password boolean NOT NULL DEFAULT false,
   weekly_off_day integer,
   created_at timestamptz DEFAULT now()
 );
@@ -59,19 +63,20 @@ CREATE TABLE shift_types (
   created_at timestamptz DEFAULT now()
 );
 
--- Schedules
+-- Schedules (single source of truth for all shift entries + pending requests)
 CREATE TABLE schedules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id uuid NOT NULL REFERENCES employees(id),
   date text NOT NULL,
   shift_type_id uuid NOT NULL REFERENCES shift_types(id),
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'approved', 'rejected', 'pending')),
+  request_type text NOT NULL DEFAULT 'shift_change' CHECK (request_type IN ('leave', 'swap', 'shift_change', 'late_scan', 'off_request')),
   employee_note text,
   manager_remark text,
   swap_with_id uuid REFERENCES employees(id),
   evidence_url text,
+  revert_shift_type_id uuid REFERENCES shift_types(id),
   created_at timestamptz DEFAULT now(),
-
   updated_at timestamptz DEFAULT now()
 );
 
@@ -97,15 +102,49 @@ CREATE TABLE push_subscriptions (
 -- Indexes
 CREATE INDEX idx_schedules_employee_date ON schedules(employee_id, date);
 CREATE INDEX idx_schedules_date ON schedules(date);
+CREATE INDEX idx_schedules_status ON schedules(status);
 
--- RLS Policies (allow all for demo; tighten later)
-CREATE POLICY "Allow all" ON positions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON employees FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON shift_types FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON schedules FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON push_subscriptions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON position_groups FOR ALL USING (true) WITH CHECK (true);
+-- RLS Policies
+-- Public read access on reference data so the SPA can render menus and legends.
+CREATE POLICY "Allow read" ON positions FOR SELECT USING (true);
+CREATE POLICY "Allow read" ON position_groups FOR SELECT USING (true);
+CREATE POLICY "Allow read" ON shift_types FOR SELECT USING (true);
+CREATE POLICY "Allow read" ON schedules FOR SELECT USING (true);
+CREATE POLICY "Allow read" ON employees FOR SELECT USING (true);
+CREATE POLICY "Allow read" ON push_subscriptions FOR SELECT USING (true);
+
+-- Writes to mutable tables remain open for now because the SPA talks to
+-- Supabase with the anon key. The Edge Function `verify-password` performs
+-- sensitive operations with the service role. Migrate writes to RPCs
+-- before exposing this app to the public.
+CREATE POLICY "Allow write" ON positions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write" ON position_groups FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write" ON shift_types FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write" ON schedules FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write" ON employees FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write" ON push_subscriptions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow delete own push" ON push_subscriptions FOR DELETE USING (true);
+
+-- Hide password_hash from the anon and authenticated roles. Edge Functions
+-- that need it use the service role, which bypasses these grants.
+REVOKE SELECT ON employees FROM anon, authenticated;
+GRANT SELECT (
+  id,
+  employee_code,
+  full_name,
+  position_id,
+  group_id,
+  role,
+  phone,
+  email,
+  avatar,
+  weekly_off_day,
+  must_change_password,
+  created_at
+) ON employees TO anon, authenticated;
+
+-- settings is read-only for clients; mutations go through service role.
+CREATE POLICY "Allow read settings" ON settings FOR SELECT USING (true);
 
 
 

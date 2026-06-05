@@ -2,6 +2,7 @@ import { Clock, Bell, Users, LogOut } from 'lucide-react';
 import type { Employee, UserRole } from '../../types';
 import { subscribeToNotifications } from '../../lib/push';
 import { useState } from 'react';
+import { useToast } from '../../lib/toast';
 import { cn } from '../../lib/utils';
 
 interface HeaderProps {
@@ -14,15 +15,16 @@ interface HeaderProps {
 }
 
 export function Header({ currentUser, role, isManager, onToggleRole, onLogout, appName }: HeaderProps) {
+  const toast = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
 
   const handleEnableNotifications = async () => {
     setIsSubscribing(true);
     try {
       await subscribeToNotifications(currentUser.id);
-      alert('เปิดการแจ้งเตือนสำเร็จ!');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'ไม่สามารถเปิดการแจ้งเตือนได้');
+      toast.success('เปิดการแจ้งเตือนสำเร็จ');
+    } catch (err: unknown) {
+      toast.error('เปิดการแจ้งเตือนไม่สำเร็จ', err instanceof Error ? err.message : undefined);
     } finally {
       setIsSubscribing(false);
     }

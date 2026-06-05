@@ -1,0 +1,140 @@
+import { format, isSameDay, isToday, startOfMonth } from 'date-fns';
+import { XCircle, CheckCircle2, Users } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import type { Employee, ScheduleEntry, ShiftType } from '../../types';
+
+interface CalendarProps {
+  days: Date[];
+  currentUser: Employee;
+  shiftTypes: ShiftType[];
+  selectedDate: Date | null;
+  onSelectDate: (date: Date) => void;
+  getDaySchedule: (date: Date) => ScheduleEntry | undefined;
+}
+
+export function Calendar({
+  days,
+  currentUser,
+  shiftTypes,
+  selectedDate,
+  onSelectDate,
+  getDaySchedule,
+}: CalendarProps) {
+  const firstDay = startOfMonth(days[0] ?? new Date()).getDay();
+  return (
+    <>
+      <div className="p-2 sm:p-5">
+        <div className="grid grid-cols-7 gap-1 mb-2 sm:gap-2 sm:mb-3">
+          {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((day) => (
+            <div
+              key={day}
+              className="text-center text-[10px] sm:text-xs font-medium text-text-quaternary uppercase tracking-wider py-2"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
+          {Array.from({ length: firstDay }).map((_, i) => (
+            <div key={`pad-${i}`} className="aspect-square"></div>
+          ))}
+
+          {days.map((day) => {
+            const schedule = getDaySchedule(day);
+            const shift = schedule ? shiftTypes.find((t) => t.id === schedule.shiftTypeId) : null;
+            const isOffDay =
+              typeof currentUser.weeklyOffDay === 'number' && day.getDay() === currentUser.weeklyOffDay;
+
+            return (
+              <button
+                key={day.toString()}
+                onClick={() => !isOffDay && onSelectDate(day)}
+                disabled={isOffDay}
+                className={cn(
+                  'aspect-square rounded-md sm:rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200',
+                  isOffDay
+                    ? 'bg-bg-elevated border-white/[0.03] opacity-60 cursor-not-allowed'
+                    : isToday(day)
+                    ? 'bg-brand/10 border-brand/30'
+                    : isSameDay(selectedDate || new Date(0), day)
+                    ? 'border-brand ring-1 ring-brand/20 scale-[0.97]'
+                    : schedule?.status === 'rejected'
+                    ? 'bg-danger/10 border-danger/30'
+                    : schedule?.status === 'pending'
+                    ? 'bg-warn/10 border-warn/30'
+                    : 'bg-bg-surface border-white/[0.05] hover:border-white/[0.12] hover:bg-white/[0.03]'
+                )}
+              >
+                <span
+                  className={cn(
+                    'text-sm sm:text-base font-medium',
+                    isOffDay
+                      ? 'text-text-quaternary'
+                      : isToday(day)
+                      ? 'text-brand-accent'
+                      : schedule?.status === 'rejected'
+                      ? 'text-danger line-through'
+                      : 'text-text-primary'
+                  )}
+                >
+                  {format(day, 'd')}
+                </span>
+                {isOffDay && <span className="text-[9px] font-bold text-text-quaternary mt-0.5">หยุด</span>}
+                {shift && !isOffDay && (
+                  <>
+                    <div
+                      className={cn(
+                        'mt-1 px-1 sm:px-1.5 py-px sm:py-0.5 rounded-md text-[8px] sm:text-[10px] font-medium text-white',
+                        schedule?.status === 'rejected' && 'opacity-40 grayscale'
+                      )}
+                      style={{ backgroundColor: shift.color }}
+                    >
+                      {shift.code}
+                    </div>
+                    {shift.startTime !== '-' && (
+                      <span className="hidden sm:block text-[7px] sm:text-[8px] font-medium text-text-quaternary mt-0.5">
+                        {shift.startTime}–{shift.endTime}
+                      </span>
+                    )}
+                  </>
+                )}
+                {schedule?.status === 'draft' && (
+                  <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 bg-warn rounded-full"></span>
+                )}
+                {schedule?.status === 'pending' && (
+                  <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 flex items-center gap-0.5">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warn opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-warn"></span>
+                    </span>
+                    {schedule.swapWithId && <Users className="hidden sm:block w-2.5 h-2.5 text-brand-accent" />}
+                  </span>
+                )}
+                {schedule?.status === 'rejected' && (
+                  <XCircle className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 text-danger" />
+                )}
+                {schedule?.status === 'approved' && (
+                  <CheckCircle2 className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 text-success" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-white/[0.05] flex gap-2 overflow-x-auto custom-scrollbar text-[10px]">
+        {shiftTypes
+          .filter((t) => t.isVisible)
+          .slice(0, 6)
+          .map((type) => (
+            <div key={type.id} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: type.color }}></div>
+              <span className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+                {type.code}: {type.name}
+              </span>
+            </div>
+          ))}
+      </div>
+    </>
+  );
+}

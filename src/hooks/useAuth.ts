@@ -1,14 +1,60 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
-import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
 import type { Employee } from '../types';
 
 const AUTH_KEY = 'schodle_auth_employee_id';
+const SESSION_KEY = 'schodle_session_token';
 
 export type AuthEmployee = Employee & {
-  position?: { code: string; name: string };
+  position?: { code: string; name: string } | null;
+  mustChangePassword?: boolean;
 };
+
+interface SessionPayload {
+  session: string;
+  employee: AuthEmployee;
+  expiresAt: number;
+}
+
+async function callVerifyPassword(employeeCode: string, password: string): Promise<SessionPayload> {
+  const { data, error } = await supabase.functions.invoke<SessionPayload>('verify-password', {
+    body: { employee_code: employeeCode, password },
+  });
+  if (error) {
+    const message = (data as { error?: string } | null)?.error ?? error.message;
+    throw new Error(message);
+  }
+  if (!data) {
+    throw new Error('ไม่ได้รับข้อมูลจากเซิร์ฟเวอร์');
+  }
+  return data;
+}
+
+async function fetchEmployeeProfile(id: string): Promise<AuthEmployee | null> {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, positions!employees_position_id_fkey(code, name)')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  const positionRaw = (data as { positions?: unknown }).positions;
+  const position = Array.isArray(positionRaw) ? positionRaw[0] : positionRaw;
+  return {
+    id: data.id,
+    employeeCode: data.employee_code,
+    fullName: data.full_name,
+    positionId: data.position_id,
+    groupId: data.group_id || undefined,
+    role: data.role as Employee['role'],
+    phone: data.phone || undefined,
+    email: data.email || undefined,
+    avatar: data.avatar || undefined,
+    weeklyOffDay: typeof data.weekly_off_day === 'number' ? data.weekly_off_day : undefined,
+    mustChangePassword: !!data.must_change_password,
+    position: (position as { code: string; name: string } | null) ?? null,
+  };
+}
 
 export function useAuth() {
   const [currentEmployee, setCurrentEmployee] = useState<AuthEmployee | null>(null);
@@ -17,35 +63,20 @@ export function useAuth() {
 
   const restoreSession = useCallback(async () => {
     const storedId = localStorage.getItem(AUTH_KEY);
-    if (!storedId) {
+    const token = sessionStorage.getItem(SESSION_KEY);
+    if (!storedId || !token) {
       setIsLoading(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from('employees')
-      .select('*, positions(code, name)')
-      .eq('id', storedId)
-      .single();
-
-    if (error || !data) {
+    const profile = await fetchEmployeeProfile(storedId);
+    if (!profile) {
       localStorage.removeItem(AUTH_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
       setIsLoading(false);
       return;
     }
-
-    setCurrentEmployee({
-      id: data.id,
-      employeeCode: data.employee_code,
-      fullName: data.full_name,
-      positionId: data.position_id,
-      role: data.role as Employee['role'],
-      phone: data.phone || undefined,
-      email: data.email || undefined,
-      avatar: data.avatar || undefined,
-      weeklyOffDay: typeof data.weekly_off_day === 'number' ? data.weekly_off_day : undefined,
-      position: data.positions,
-    });
+    setCurrentEmployee(profile);
     setIsLoading(false);
   }, []);
 
@@ -56,53 +87,38 @@ export function useAuth() {
   const login = useCallback(async (employeeCode: string, password: string) => {
     setAuthError(null);
     setIsLoading(true);
-
-    const { data, error } = await supabase
-      .from('employees')
-      .select('*, positions(code, name)')
-      .eq('employee_code', employeeCode)
-      .single();
-
-    if (error || !data) {
-      setAuthError('รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง');
+    try {
+      const result = await callVerifyPassword(employeeCode, password);
+      localStorage.setItem(AUTH_KEY, result.employee.id);
+      sessionStorage.setItem(SESSION_KEY, result.session);
+      setCurrentEmployee(result.employee);
+      setIsLoading(false);
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'ไม่สามารถเข้าสู่ระบบได้';
+      setAuthError(message);
       setIsLoading(false);
       return false;
     }
-
-    if (!data.password_hash) {
-      setAuthError('บัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบ');
-      setIsLoading(false);
-      return false;
-    }
-
-    const match = await bcrypt.compare(password, data.password_hash);
-    if (!match) {
-      setAuthError('รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง');
-      setIsLoading(false);
-      return false;
-    }
-
-    localStorage.setItem(AUTH_KEY, data.id);
-    setCurrentEmployee({
-      id: data.id,
-      employeeCode: data.employee_code,
-      fullName: data.full_name,
-      positionId: data.position_id,
-      role: data.role as Employee['role'],
-      phone: data.phone || undefined,
-      email: data.email || undefined,
-      avatar: data.avatar || undefined,
-      weeklyOffDay: typeof data.weekly_off_day === 'number' ? data.weekly_off_day : undefined,
-      position: data.positions,
-    });
-    setIsLoading(false);
-    return true;
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
     setCurrentEmployee(null);
     window.location.reload();
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    if (!currentEmployee) return;
+    const profile = await fetchEmployeeProfile(currentEmployee.id);
+    if (profile) {
+      setCurrentEmployee(profile);
+    }
+  }, [currentEmployee]);
+
+  const clearMustChangePassword = useCallback(() => {
+    setCurrentEmployee((prev) => (prev ? { ...prev, mustChangePassword: false } : prev));
   }, []);
 
   const isManager =
@@ -117,5 +133,7 @@ export function useAuth() {
     authError,
     login,
     logout,
+    refreshProfile,
+    clearMustChangePassword,
   };
 }

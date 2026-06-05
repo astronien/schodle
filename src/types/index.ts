@@ -38,6 +38,7 @@ export type Employee = {
   email?: string;
   avatar?: string;
   weeklyOffDay?: number;
+  mustChangePassword?: boolean;
 };
 
 
@@ -50,27 +51,17 @@ export type ScheduleEntry = {
   date: string; // ISO string YYYY-MM-DD
   shiftTypeId: string;
   status: ScheduleStatus;
-  employeeNote?: string;
-  managerRemark?: string;
-  swapWithId?: string;
-  evidenceUrl?: string;
-  revertShiftTypeId?: string;
-}
-;
-
-export type ScheduleRequest = {
-  id: string;
-  employeeId: string;
-  date: string;
-  shiftTypeId: string;
   requestType: RequestType;
-  status: ScheduleStatus;
   employeeNote?: string;
   managerRemark?: string;
   swapWithId?: string;
   evidenceUrl?: string;
   revertShiftTypeId?: string;
 };
+
+// ScheduleRequest is now an alias of ScheduleEntry: the schedules table is
+// the single source of truth for both published shifts and pending requests.
+export type ScheduleRequest = ScheduleEntry;
 
 export type MonthlyCoverage = {
   date: string;
