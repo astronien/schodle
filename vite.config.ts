@@ -1,10 +1,23 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.test.{ts,tsx}'],
+    exclude: ['node_modules', 'dist', 'e2e'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['src/lib/**/*.ts', 'src/lib/**/*.tsx'],
+      exclude: ['**/*.test.{ts,tsx}', '**/*.d.ts']
+    }
+  },
+
   plugins: [
     react(),
     tailwindcss(),
@@ -14,7 +27,16 @@ export default defineConfig({
       filename: 'sw.ts',
       registerType: 'prompt',
 
-      includeAssets: ['icon.svg'],
+      includeAssets: [
+        'icon.svg',
+        'icon-192.png',
+        'icon-512.png',
+        'icon-maskable-192.png',
+        'icon-maskable-512.png',
+        'apple-touch-icon.png',
+        'favicon-32.png',
+        'favicon-16.png'
+      ],
 
       manifest: {
         name: 'ShiftFlow | ระบบจัดกะพรีเมียม',
@@ -29,20 +51,28 @@ export default defineConfig({
         categories: ['business', 'productivity'],
         icons: [
           {
-            src: 'icon.svg',
+            src: 'icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: 'icon.svg',
+            src: 'icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: 'icon.svg',
+            src: 'icon-maskable-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: 'icon-maskable-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }
