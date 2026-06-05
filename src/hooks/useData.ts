@@ -1,11 +1,13 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState, useCallback, useRef } from 'react';
-import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabase';
+import { getSessionToken } from '../lib/session';
+import { sendPushToEmployee, sendPushToRole } from '../lib/push';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
 
 const RECENT_NOTIFICATION_WINDOW_MS = 7000;
+const PUSH_DEDUP_WINDOW_MS = 30000;
 const REALTIME_THROTTLE_MS = 1500;
 
 type ScheduleRow = {
@@ -63,25 +65,50 @@ export function useData() {
     scheduleById.current = new Map(schedules.map((s) => [s.id, s]));
   }, [schedules]);
 
+  const recentPushKeys = useRef(new Map<string, number>());
+
+  const shouldSendPush = useCallback((key: string): boolean => {
+    const now = Date.now();
+    const last = recentPushKeys.current.get(key);
+    if (last && now - last < PUSH_DEDUP_WINDOW_MS) return false;
+    recentPushKeys.current.set(key, now);
+    if (recentPushKeys.current.size > 200) {
+      for (const [k, t] of recentPushKeys.current) {
+        if (now - t > PUSH_DEDUP_WINDOW_MS * 2) recentPushKeys.current.delete(k);
+      }
+    }
+    return true;
+  }, []);
+
   const sendPush = useCallback(async (employeeId: string, title: string, body: string, url?: string) => {
+    const dedupKey = `e:${employeeId}:${title}:${body}`;
+    if (!shouldSendPush(dedupKey)) return;
     try {
-      await supabase.functions.invoke('send-push', {
-        body: { employee_id: employeeId, title, body, url },
-      });
+      const result = await sendPushToEmployee(employeeId, title, body, url);
+      if (!result.success) {
+        console.warn('[sendPush] Non-fatal failure:', result.error);
+      } else if (typeof result.sent === 'number' && result.failed && result.failed > 0) {
+        console.warn(`[sendPush] Partial delivery: ${result.sent} sent, ${result.failed} failed`);
+      }
     } catch (err) {
       console.error('[sendPush] Notification failed:', err);
     }
-  }, []);
+  }, [shouldSendPush]);
 
   const sendPushRole = useCallback(async (role: string, title: string, body: string, url?: string) => {
+    const dedupKey = `r:${role}:${title}:${body}`;
+    if (!shouldSendPush(dedupKey)) return;
     try {
-      await supabase.functions.invoke('send-push', {
-        body: { role, title, body, url },
-      });
+      const result = await sendPushToRole(role, title, body, url);
+      if (!result.success) {
+        console.warn('[sendPushRole] Non-fatal failure:', result.error);
+      } else if (typeof result.sent === 'number' && result.failed && result.failed > 0) {
+        console.warn(`[sendPushRole] Partial delivery: ${result.sent} sent, ${result.failed} failed`);
+      }
     } catch (err) {
       console.error('[sendPushRole] Notification failed:', err);
     }
-  }, []);
+  }, [shouldSendPush]);
 
   const fetchSchedulesOnly = useCallback(async (): Promise<ScheduleEntry[]> => {
     const { data, error: schedErr } = await supabase
@@ -403,25 +430,38 @@ export function useData() {
         throw new Error(`position_id "${employee.positionId}" ไม่ใช่ UUID ที่ถูกต้อง`);
       }
 
-      const { error: insErr } = await supabase.from('employees').insert({
-        employee_code: employee.employeeCode,
-        full_name: employee.fullName,
-        position_id: employee.positionId,
-        group_id: employee.groupId || null,
-        role: employee.role,
-        phone: employee.phone || null,
-        email: employee.email || null,
-        avatar: employee.avatar || null,
-        weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
-        password_hash: bcrypt.hashSync(employee.employeeCode, 10),
-      });
-
-      if (insErr) {
-        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase insert failed');
+      const token = getSessionToken();
+      if (!token) {
+        throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
       }
+
+      const { data, error: fnError } = await supabase.functions.invoke<{ id: string; error?: string }>(
+        'create-employee',
+        {
+          body: {
+            employee_code: employee.employeeCode,
+            full_name: employee.fullName,
+            position_id: employee.positionId,
+            group_id: employee.groupId || null,
+            role: employee.role,
+            phone: employee.phone || null,
+            email: employee.email || null,
+            avatar: employee.avatar || null,
+            weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (fnError) {
+        throw new Error((data as { error?: string } | null)?.error ?? fnError.message);
+      }
+      if (data && data.error) {
+        throw new Error(data.error);
+      }
+
       await fetchAll(true);
     },
     [employees, fetchAll],
@@ -627,6 +667,30 @@ export function useData() {
     [fetchAll],
   );
 
+  const swapScheduleShifts = useCallback(
+    async (requesterId: string, targetId: string) => {
+      const token = getSessionToken();
+      if (!token) {
+        throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      }
+      const { data, error: fnError } = await supabase.functions.invoke<{ swapped: unknown[]; error?: string }>(
+        'swap-schedule-shifts',
+        {
+          body: { requester_id: requesterId, target_id: targetId },
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (fnError) {
+        throw new Error((data as { error?: string } | null)?.error ?? fnError.message);
+      }
+      if (data && data.error) {
+        throw new Error(data.error);
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
   return {
     employees,
     positions,
@@ -655,5 +719,6 @@ export function useData() {
     deleteShiftType,
     updateSettings,
     uploadFile,
+    swapScheduleShifts,
   };
 }

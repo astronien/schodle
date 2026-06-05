@@ -2,9 +2,8 @@
 import { useState, useEffect } from 'react';
 import { Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getSessionToken } from '../../lib/session';
 import { cn } from '../../lib/utils';
-
-const SESSION_KEY = 'schodle_session_token';
 
 interface ChangePasswordModalProps {
   open: boolean;
@@ -50,7 +49,7 @@ export function ChangePasswordModal({ open, force, onClose, onSuccess }: ChangeP
       return;
     }
 
-    const token = sessionStorage.getItem(SESSION_KEY);
+    const token = getSessionToken();
     if (!token) {
       setError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
       return;

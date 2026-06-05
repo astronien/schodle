@@ -68,6 +68,7 @@ function AppShell() {
     refresh,
     updateSchedule,
     deleteSchedule,
+    swapScheduleShifts,
     createEmployee,
     updateEmployee,
     deleteEmployee,
@@ -352,6 +353,7 @@ function AppShell() {
                 deletePositionGroup={deletePositionGroup}
                 updateSchedule={updateSchedule}
                 deleteSchedule={deleteSchedule}
+                swapScheduleShifts={swapScheduleShifts}
                 currentMonth={currentMonth}
                 setCurrentMonth={setCurrentMonth}
                 generateSmartSchedule={generateSmartSchedule}

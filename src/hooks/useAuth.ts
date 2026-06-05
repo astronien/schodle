@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { clearSessionToken, getSessionToken, setSessionToken } from '../lib/session';
 import type { Employee } from '../types';
 
 const AUTH_KEY = 'schodle_auth_employee_id';
-const SESSION_KEY = 'schodle_session_token';
 
 export type AuthEmployee = Employee & {
   position?: { code: string; name: string } | null;
@@ -63,7 +63,7 @@ export function useAuth() {
 
   const restoreSession = useCallback(async () => {
     const storedId = localStorage.getItem(AUTH_KEY);
-    const token = sessionStorage.getItem(SESSION_KEY);
+    const token = getSessionToken();
     if (!storedId || !token) {
       setIsLoading(false);
       return;
@@ -72,7 +72,7 @@ export function useAuth() {
     const profile = await fetchEmployeeProfile(storedId);
     if (!profile) {
       localStorage.removeItem(AUTH_KEY);
-      sessionStorage.removeItem(SESSION_KEY);
+      clearSessionToken();
       setIsLoading(false);
       return;
     }
@@ -90,7 +90,7 @@ export function useAuth() {
     try {
       const result = await callVerifyPassword(employeeCode, password);
       localStorage.setItem(AUTH_KEY, result.employee.id);
-      sessionStorage.setItem(SESSION_KEY, result.session);
+      setSessionToken(result.session);
       setCurrentEmployee(result.employee);
       setIsLoading(false);
       return true;
@@ -104,7 +104,7 @@ export function useAuth() {
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_KEY);
-    sessionStorage.removeItem(SESSION_KEY);
+    clearSessionToken();
     setCurrentEmployee(null);
     window.location.reload();
   }, []);

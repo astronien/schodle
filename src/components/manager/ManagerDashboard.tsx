@@ -40,6 +40,7 @@ interface ManagerDashboardProps {
   updatePositionGroup: (group: PositionGroup) => Promise<void>;
   deletePositionGroup: (id: string) => Promise<void>;
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
+  swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
   currentMonth: Date;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
@@ -78,6 +79,7 @@ export function ManagerDashboard({
   deletePositionGroup,
   updateSchedule,
   deleteSchedule,
+  swapScheduleShifts,
   currentMonth,
   setCurrentMonth,
   generateSmartSchedule,
@@ -137,12 +139,7 @@ export function ManagerDashboard({
         const requesterShift = schedules.find((s) => s.employeeId === requesterId && s.date === date);
         const targetShift = schedules.find((s) => s.employeeId === targetId && s.date === date);
         if (requesterShift && targetShift) {
-          const requesterShiftTypeId = requesterShift.shiftTypeId;
-          const targetShiftTypeId = targetShift.shiftTypeId;
-          await Promise.all([
-            updateSchedule({ ...requesterShift, shiftTypeId: targetShiftTypeId, status: 'approved', swapWithId: undefined }, true),
-            updateSchedule({ ...targetShift, shiftTypeId: requesterShiftTypeId, status: 'approved' }, true),
-          ]);
+          await swapScheduleShifts(requesterShift.id, targetShift.id);
         }
         toast.success('อนุมัติและสลับกะสำเร็จ');
       } else if (status === 'rejected' && request.revertShiftTypeId) {
