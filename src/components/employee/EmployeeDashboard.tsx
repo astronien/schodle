@@ -11,7 +11,7 @@ import {
   startOfDay,
 } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Plus, Search, Briefcase, Calendar as CalIcon } from 'lucide-react';
+import { Search, Briefcase, Calendar as CalIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../lib/toast';
 import { Calendar } from './Calendar';
@@ -64,7 +64,15 @@ export function EmployeeDashboard({
     [monthStart, monthEnd],
   );
 
-  const selectedSchedule = selectedDate ? getDaySchedule(selectedDate) : null;
+  const handlePillClick = (d: Date) => {
+    setSelectedDate(d);
+    const sched = getDaySchedule(d);
+    if (!sched) {
+      setEditorOpen(true);
+    }
+  };
+
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const handleSetShift = async (shiftId: string | null, reason?: string, evidenceUrl?: string, isLateScan?: boolean) => {
     if (!selectedDate) return;
@@ -136,27 +144,46 @@ export function EmployeeDashboard({
   };
 
   const handleCloseEditor = () => {
-    setSelectedDate(null);
+    setEditorOpen(false);
     setValidationError(null);
+  };
+
+  const openEditorForDate = (date: Date) => {
+    setSelectedDate(date);
+    setEditorOpen(true);
   };
 
   return (
     <div className="w-full space-y-4 sm:space-y-6 pb-32">
       {/* Header */}
-      <div className="flex items-end justify-between px-1">
-        <div>
+      <div className="flex items-end justify-between gap-3 px-1">
+        <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-text-primary leading-tight">My Shifts</h1>
           <p className="text-text-tertiary text-sm mt-0.5">
             {format(currentMonth, 'MMMM yyyy', { locale: th })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            aria-label="เพิ่มกะ"
-            className="w-11 h-11 rounded-full bg-bg-panel border border-border-solid shadow-card flex items-center justify-center text-text-primary hover:bg-bg-surface transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex bg-bg-panel border border-border-solid rounded-full p-1 shadow-card">
+            <button
+              onClick={() => setActiveView('calendar')}
+              className={cn(
+                'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+                activeView === 'calendar' ? 'bg-brand text-white' : 'text-text-tertiary hover:text-text-secondary',
+              )}
+            >
+              ของฉัน
+            </button>
+            <button
+              onClick={() => setActiveView('coverage')}
+              className={cn(
+                'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+                activeView === 'coverage' ? 'bg-brand text-white' : 'text-text-tertiary hover:text-text-secondary',
+              )}
+            >
+              ทั้งทีม
+            </button>
+          </div>
           <button
             aria-label="ค้นหา"
             className="w-11 h-11 rounded-full bg-bg-panel border border-border-solid shadow-card flex items-center justify-center text-text-primary hover:bg-bg-surface transition-colors"
@@ -174,7 +201,7 @@ export function EmployeeDashboard({
           return (
             <button
               key={d.toISOString()}
-              onClick={() => setSelectedDate(d)}
+              onClick={() => handlePillClick(d)}
               data-active={active}
               className={cn(
                 'day-pill shrink-0',
@@ -212,7 +239,11 @@ export function EmployeeDashboard({
                 </p>
               </div>
               {shift ? (
-                <div className="rounded-2xl bg-bg-surface border border-border-solid p-4 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => openEditorForDate(date)}
+                  className="w-full text-left rounded-2xl bg-bg-surface border border-border-solid p-4 space-y-3 hover:border-border-solid-light hover:bg-bg-panel transition-all"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-11 h-11 rounded-2xl bg-bg-panel border border-border-solid flex items-center justify-center shrink-0">
@@ -256,11 +287,16 @@ export function EmployeeDashboard({
                       หมายเหตุ: {daySchedule.employeeNote}
                     </p>
                   )}
-                </div>
+                  <p className="text-[10px] text-text-quaternary font-medium pt-1">แตะเพื่อแก้ไข</p>
+                </button>
               ) : (
-                <div className="rounded-2xl bg-bg-surface border border-dashed border-border-solid p-4 text-center text-text-tertiary text-sm">
-                  ไม่มีกะ — แตะวันด้านบนเพื่อเพิ่ม
-                </div>
+                <button
+                  type="button"
+                  onClick={() => openEditorForDate(date)}
+                  className="w-full rounded-2xl bg-bg-surface border border-dashed border-border-solid p-4 text-center text-text-tertiary text-sm hover:border-brand hover:text-brand transition-colors"
+                >
+                  ไม่มีกะ — แตะเพื่อเพิ่ม
+                </button>
               )}
             </div>
           );
@@ -336,16 +372,14 @@ export function EmployeeDashboard({
         </div>
       )}
 
-      {/* Bottom view switcher (mobile) */}
+      {/* Mobile view switcher (fixed bottom) */}
       <div className="sm:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-        <div className="flex bg-bg-panel/90 backdrop-blur-xl border border-border-solid rounded-full p-1 shadow-overlay">
+        <div className="flex bg-bg-panel/95 backdrop-blur-xl border border-border-solid rounded-full p-1 shadow-overlay">
           <button
             onClick={() => setActiveView('calendar')}
             className={cn(
               'px-4 py-2 rounded-full text-xs font-semibold transition-all',
-              activeView === 'calendar'
-                ? 'bg-brand text-white'
-                : 'text-text-tertiary'
+              activeView === 'calendar' ? 'bg-brand text-white' : 'text-text-tertiary',
             )}
           >
             ของฉัน
@@ -354,9 +388,7 @@ export function EmployeeDashboard({
             onClick={() => setActiveView('coverage')}
             className={cn(
               'px-4 py-2 rounded-full text-xs font-semibold transition-all',
-              activeView === 'coverage'
-                ? 'bg-brand text-white'
-                : 'text-text-tertiary'
+              activeView === 'coverage' ? 'bg-brand text-white' : 'text-text-tertiary',
             )}
           >
             ทั้งทีม
@@ -365,7 +397,7 @@ export function EmployeeDashboard({
       </div>
 
       <ShiftEditor
-        open={selectedDate !== null && !selectedSchedule}
+        open={editorOpen}
         selectedDate={selectedDate}
         currentUser={currentUser}
         employees={employees}
