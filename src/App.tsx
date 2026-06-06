@@ -105,9 +105,21 @@ function AppShell() {
   }, [effectiveRole, activeMobileTab]);
 
   const generateSmartSchedule = async () => {
+    if (employees.length === 0) {
+      toast.warning('ไม่มีพนักงาน', 'กรุณาเพิ่มพนักงานก่อนรัน AI');
+      return;
+    }
     const xShift = shiftTypes.find((t) => t.code === 'X');
     if (!xShift) {
-      toast.error('ไม่พบประเภทกะ X', 'กรุณาสร้างกะ X ก่อนรัน AI');
+      toast.error('ไม่พบประเภทกะ X', 'กรุณาสร้างกะ X (กะหยุด) ก่อนรัน AI');
+      return;
+    }
+    const targetShifts = shiftTypes.filter((t) => (t.targetStaff || 0) > 0);
+    if (targetShifts.length === 0) {
+      toast.warning(
+        'ไม่มีกะที่ตั้งเป้าไว้',
+        'ไปที่ "ตั้งค่า → ประเภทกะ" แล้วตั้งค่า target_staff (> 0) ให้กะที่ต้องการจัด'
+      );
       return;
     }
 
@@ -119,21 +131,38 @@ function AppShell() {
     });
 
     if (entries.length === 0) {
-      toast.warning(
+      console.warn('[generateSmartSchedule] no entries — shiftTypes:', shiftTypes);
+      toast.error(
         'ไม่สามารถจัดตารางได้',
-        'ไม่มีกะที่ตั้งเป้าไว้ (target_staff > 0) — กรุณาตั้งค่ากะก่อน'
+        'ตรวจสอบว่าพนักงานมี position_id และไม่ขัดกับกะดึก-เช้า'
       );
       return;
     }
 
+    let failed = 0;
     for (const entry of entries) {
-      await updateSchedule(entry);
+      try {
+        await updateSchedule(entry);
+      } catch (err) {
+        failed += 1;
+        console.error('[generateSmartSchedule] update failed:', err, entry);
+      }
     }
     await refresh();
     if (warnings.length > 0) {
       console.warn('[generateSmartSchedule] warnings:', warnings);
     }
-    toast.success('จัดตารางอัตโนมัติสำเร็จ', 'ระบบได้ตรวจสอบเงื่อนไขกะดึก-เช้าเรียบร้อยแล้ว');
+    if (failed > 0) {
+      toast.warning(
+        `จัดตารางสำเร็จ ${entries.length - failed} รายการ`,
+        `มี ${failed} รายการล้มเหลว (ดู Console)`
+      );
+    } else {
+      toast.success(
+        `จัดตารางอัตโนมัติสำเร็จ ${entries.length} รายการ`,
+        'ระบบได้ตรวจสอบเงื่อนไขกะดึก-เช้าเรียบร้อยแล้ว'
+      );
+    }
   };
 
   if (authLoading) {

@@ -7,8 +7,6 @@ import {
   isSameDay,
   addMonths,
   subMonths,
-  addDays,
-  startOfWeek,
   isBefore,
   startOfDay,
 } from 'date-fns';
@@ -59,12 +57,11 @@ export function EmployeeDashboard({
   const getDaySchedule = (date: Date) =>
     userSchedules.find((s) => isSameDay(new Date(s.date), date));
 
-  // 7 days starting from today (or selectedDate) for the pill selector
+  // All days in the visible month for the pill selector
   const today = startOfDay(new Date());
-  const baseDate = selectedDate ?? today;
   const pillDays = useMemo(
-    () => eachDayOfInterval({ start: startOfWeek(baseDate, { weekStartsOn: 1 }), end: addDays(startOfWeek(baseDate, { weekStartsOn: 1 }), 6) }),
-    [baseDate],
+    () => eachDayOfInterval({ start: monthStart, end: monthEnd }),
+    [monthStart, monthEnd],
   );
 
   const selectedSchedule = selectedDate ? getDaySchedule(selectedDate) : null;
