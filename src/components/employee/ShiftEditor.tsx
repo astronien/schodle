@@ -133,8 +133,8 @@ export function ShiftEditor({
               </p>
             )}
             <div className="grid grid-cols-1 gap-2">
-              {shiftTypes
-                .filter((t) => {
+              {(() => {
+                const visible = shiftTypes.filter((t) => {
                   const isVisible = t.isVisible || t.id === 'xc';
                   const isWeeklyOffMatch = !isOffDay || t.code === 'X';
                   // Two modes:
@@ -145,10 +145,20 @@ export function ShiftEditor({
                   //    "คำขอลา พนักงานเลือกได้ตามที่ผู้จัดการตั้งค่าไว้" rule.
                   const isAllowedBySetting = settings.allowEmployeeSetShifts
                     ? true
-                    : Boolean(t.isLeave) || t.requiresApproval;
+                    : Boolean(t.isLeave);
                   return isVisible && isWeeklyOffMatch && isAllowedBySetting;
-                })
-                .map((type) => {
+                });
+
+                if (visible.length === 0 && !settings.allowEmployeeSetShifts) {
+                  return (
+                    <div className="p-6 text-center text-text-tertiary text-xs">
+                      <p className="font-semibold text-text-secondary mb-1">ยังไม่มีประเภทการลาให้เลือก</p>
+                      <p>ผู้จัดการยังไม่ได้เปิดประเภทการลาในระบบ กรุณาติดต่อผู้จัดการ</p>
+                    </div>
+                  );
+                }
+
+                return visible.map((type) => {
                   const isSelected = selectedShiftId === type.id;
                   const count = schedules.filter(
                     (s) =>
@@ -208,7 +218,8 @@ export function ShiftEditor({
                       </div>
                     </button>
                   );
-                })}
+                });
+              })()}
             </div>
 
             {getDaySchedule(selectedDate) && !isSwapping && (
