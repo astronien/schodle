@@ -195,79 +195,99 @@ export function EmployeeDashboard({
         })}
       </div>
 
-      {/* Selected day header */}
-      <div className="card p-4 sm:p-5">
-        <h2 className="text-lg sm:text-xl font-bold text-text-primary">
-          {selectedDate
-            ? `ตารางวันที่ ${format(selectedDate, 'd MMMM', { locale: th })}`
-            : "Today's Workshift"}
-        </h2>
-      </div>
+      {/* Today's Workshift card — shows today's shift + selected day's shift in one card */}
+      {activeView === 'calendar' && (() => {
+        const renderShiftBlock = (date: Date, label: string, labelColor: 'brand' | 'success') => {
+          const daySchedule = getDaySchedule(date);
+          const shift = daySchedule ? shiftTypes.find((t) => t.id === daySchedule.shiftTypeId) : null;
+          const position = positions.find((p) => p.id === currentUser.positionId);
+          const toneClass = labelColor === 'brand' ? 'text-brand' : 'text-success';
+          const dotClass = labelColor === 'brand' ? 'bg-brand' : 'bg-success';
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+                <p className={`text-xs font-semibold uppercase tracking-wider ${toneClass}`}>
+                  {label} · {format(date, 'd MMM', { locale: th })}
+                </p>
+              </div>
+              {shift ? (
+                <div className="rounded-2xl bg-bg-surface border border-border-solid p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-2xl bg-bg-panel border border-border-solid flex items-center justify-center shrink-0">
+                        <Briefcase className={`w-5 h-5 ${toneClass}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-text-primary truncate">
+                          {position?.name || 'ไม่ระบุตำแหน่ง'}
+                        </p>
+                        <p className="text-xs text-text-tertiary truncate">
+                          {shift.name}
+                        </p>
+                      </div>
+                    </div>
+                    {shift.startTime && (
+                      <span className={`badge ${labelColor === 'brand' ? 'badge-orange' : 'badge-green'} shrink-0`}>
+                        {shift.startTime}
+                      </span>
+                    )}
+                  </div>
+
+                  {(shift.startTime || shift.endTime) && (
+                    <div className="flex items-center gap-4 text-sm text-text-secondary pt-1">
+                      {shift.startTime && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-text-quaternary">เริ่ม</span>
+                          <span className="font-semibold">{shift.startTime}</span>
+                        </div>
+                      )}
+                      {shift.endTime && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-text-quaternary">ถึง</span>
+                          <span className="font-semibold">{shift.endTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {daySchedule?.employeeNote && (
+                    <p className="text-xs text-text-tertiary pt-2 border-t border-border-solid">
+                      หมายเหตุ: {daySchedule.employeeNote}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-bg-surface border border-dashed border-border-solid p-4 text-center text-text-tertiary text-sm">
+                  ไม่มีกะ — แตะวันด้านบนเพื่อเพิ่ม
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const showSelected = selectedDate && !isSameDay(selectedDate, today);
+        return (
+          <div className="card p-4 sm:p-5 space-y-4">
+            <h2 className="text-lg sm:text-xl font-bold text-text-primary">
+              Today's Workshift
+            </h2>
+            <div className="space-y-4">
+              {renderShiftBlock(today, 'วันนี้', 'brand')}
+              {showSelected && selectedDate && (
+                <>
+                  <div className="border-t border-border-solid" />
+                  {renderShiftBlock(selectedDate, 'วันที่เลือก', 'success')}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Shift list for selected day */}
       {activeView === 'calendar' ? (
         <div className="space-y-3">
-          {(() => {
-            const daySchedule = selectedDate ? getDaySchedule(selectedDate) : null;
-            if (!daySchedule) {
-              return (
-                <div className="card p-6 text-center text-text-tertiary text-sm">
-                  ไม่มีกะในวันนี้ — แตะปุ่มด้านบนเพื่อเพิ่ม
-                </div>
-              );
-            }
-            const shift = shiftTypes.find((t) => t.id === daySchedule.shiftTypeId);
-            if (!shift) return null;
-            const position = positions.find((p) => p.id === currentUser.positionId);
-            return (
-              <div className="card p-4 sm:p-5 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-brand/10 flex items-center justify-center shrink-0">
-                      <Briefcase className="w-5 h-5 text-brand" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-text-primary truncate">
-                        {position?.name || 'ไม่ระบุตำแหน่ง'}
-                      </p>
-                      <p className="text-xs text-text-tertiary truncate">
-                        {shift.name}
-                      </p>
-                    </div>
-                  </div>
-                  {shift.startTime && (
-                    <span className="badge badge-orange shrink-0">
-                      {shift.startTime}
-                    </span>
-                  )}
-                </div>
-
-                {(shift.startTime || shift.endTime) && (
-                  <div className="flex items-center gap-4 text-sm text-text-secondary pt-1">
-                    {shift.startTime && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-text-quaternary">เริ่ม</span>
-                        <span className="font-semibold">{shift.startTime}</span>
-                      </div>
-                    )}
-                    {shift.endTime && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-text-quaternary">ถึง</span>
-                        <span className="font-semibold">{shift.endTime}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {daySchedule.employeeNote && (
-                  <p className="text-xs text-text-tertiary pt-2 border-t border-border-solid">
-                    หมายเหตุ: {daySchedule.employeeNote}
-                  </p>
-                )}
-              </div>
-            );
-          })()}
-
           {/* All-month compact calendar (collapsed) */}
           <div className="card p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
