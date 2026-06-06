@@ -17,7 +17,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { bcrypt as bcryptMod } from "npm:bcryptjs@2.4.3";
+import bcrypt from "npm:bcryptjs@2.4.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -126,7 +126,7 @@ serve(async (req) => {
     return json({ error: "บัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบ" }, 401);
   }
 
-  const passwordOk = await bcryptMod.compare(password, employee.password_hash);
+  const passwordOk = await bcrypt.compare(password, employee.password_hash);
   if (!passwordOk) {
     return json({ error: "รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง" }, 401);
   }

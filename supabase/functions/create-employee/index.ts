@@ -5,7 +5,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { bcrypt as bcryptMod } from "npm:bcryptjs@2.4.3";
+import bcrypt from "npm:bcryptjs@2.4.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,7 +138,7 @@ serve(async (req) => {
   }
   if (existing) return json({ error: `รหัสพนักงาน "${employeeCode}" ซ้ำ (มีอยู่แล้ว)` }, 409);
 
-  const passwordHash = await bcryptMod.hash(defaultPassword, 10);
+  const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
   const { data: created, error: insertError } = await supabase
     .from("employees")

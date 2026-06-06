@@ -5,7 +5,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { bcrypt as bcryptMod } from "npm:bcryptjs@2.4.3";
+import bcrypt from "npm:bcryptjs@2.4.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -100,11 +100,11 @@ serve(async (req) => {
   if (lookupError || !employee) return json({ error: "ไม่พบบัญชีผู้ใช้" }, 404);
 
   if (currentPassword) {
-    const ok = await bcryptMod.compare(currentPassword, employee.password_hash ?? "");
+    const ok = await bcrypt.compare(currentPassword, employee.password_hash ?? "");
     if (!ok) return json({ error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" }, 401);
   }
 
-  const newHash = await bcryptMod.hash(newPassword, 10);
+  const newHash = await bcrypt.hash(newPassword, 10);
   const { error: updateError } = await supabase
     .from("employees")
     .update({ password_hash: newHash, must_change_password: false })

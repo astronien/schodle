@@ -8,6 +8,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Auto-detect project ref from .env / .env.local
+PROJECT_REF=""
+for env_file in .env .env.local; do
+  if [ -f "$env_file" ] && grep -q "VITE_SUPABASE_URL" "$env_file"; then
+    PROJECT_REF=$(grep "VITE_SUPABASE_URL" "$env_file" | sed -E 's|.*https://([^.]+)\.supabase\.co.*|\1|' | head -1)
+    break
+  fi
+done
+if [ -z "$PROJECT_REF" ]; then
+  echo "ERROR: Could not detect project ref from .env / .env.local (need VITE_SUPABASE_URL)"
+  exit 1
+fi
+
 FUNCTIONS=(
   verify-password
   change-password
@@ -18,7 +31,7 @@ FUNCTIONS=(
 
 for fn in "${FUNCTIONS[@]}"; do
   echo "→ deploying $fn"
-  supabase functions deploy "$fn" --no-verify-jwt
+  npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --no-verify-jwt
 done
 
 echo ""
