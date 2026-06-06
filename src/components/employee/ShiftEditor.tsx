@@ -279,7 +279,7 @@ export function ShiftEditor({
             <div className="space-y-3 mt-5">
               {shiftType && (
                 <>
-                  {shiftType.requiresEvidence && (
+                  {(shiftType.requiresEvidence || isLateScan) && (
                     <div className="p-4 bg-brand/15 border border-dashed border-brand/30 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
                       <input
                         type="file"
@@ -293,6 +293,9 @@ export function ShiftEditor({
                         </div>
                         <span className="text-xs font-semibold text-brand-accent uppercase tracking-wide">
                           {attachment ? attachment.name : 'แนบหลักฐานรูปภาพ'}
+                        </span>
+                        <span className="text-[10px] text-text-tertiary mt-1">
+                          ต้องแนบรูปภาพเพื่อยืนยัน
                         </span>
                       </label>
                     </div>
