@@ -11,7 +11,7 @@ import {
   startOfDay,
 } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Play, Plus, Search, Briefcase, Calendar as CalIcon } from 'lucide-react';
+import { Plus, Search, Briefcase, Calendar as CalIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../lib/toast';
 import { Calendar } from './Calendar';
@@ -65,9 +65,6 @@ export function EmployeeDashboard({
   );
 
   const selectedSchedule = selectedDate ? getDaySchedule(selectedDate) : null;
-  const selectedShift = selectedSchedule
-    ? shiftTypes.find((t) => t.id === selectedSchedule.shiftTypeId)
-    : null;
 
   const handleSetShift = async (shiftId: string | null, reason?: string, evidenceUrl?: string, isLateScan?: boolean) => {
     if (!selectedDate) return;
@@ -198,33 +195,13 @@ export function EmployeeDashboard({
         })}
       </div>
 
-      {/* Selected day header + "Start Now" CTA */}
-      <div className="card p-4 sm:p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl font-bold text-text-primary">
-            {selectedDate
-              ? `ตารางวันที่ ${format(selectedDate, 'd MMMM', { locale: th })}`
-              : "Today's Workshift"}
-          </h2>
-        </div>
-
-        {selectedShift ? (
-          <button
-            onClick={() => toast.info('เริ่มงาน', `${selectedShift.name} เริ่ม ${selectedShift.startTime || '-'}`)}
-            className="w-full btn btn-secondary text-base"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            เริ่มงานตอนนี้
-          </button>
-        ) : (
-          <button
-            onClick={() => setSelectedDate(selectedDate ?? today)}
-            className="w-full btn btn-primary text-base"
-          >
-            <Plus className="w-4 h-4" />
-            เพิ่มกะวันนี้
-          </button>
-        )}
+      {/* Selected day header */}
+      <div className="card p-4 sm:p-5">
+        <h2 className="text-lg sm:text-xl font-bold text-text-primary">
+          {selectedDate
+            ? `ตารางวันที่ ${format(selectedDate, 'd MMMM', { locale: th })}`
+            : "Today's Workshift"}
+        </h2>
       </div>
 
       {/* Shift list for selected day */}
