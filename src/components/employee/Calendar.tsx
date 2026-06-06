@@ -28,7 +28,7 @@ export function Calendar({
           {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((day) => (
             <div
               key={day}
-              className="text-center text-[10px] sm:text-xs font-medium text-text-quaternary uppercase tracking-wider py-2"
+              className="text-center text-[10px] sm:text-xs font-semibold text-text-quaternary uppercase tracking-wider py-2"
             >
               {day}
             </div>
@@ -51,70 +51,68 @@ export function Calendar({
                 onClick={() => !isOffDay && onSelectDate(day)}
                 disabled={isOffDay}
                 className={cn(
-                  'aspect-square rounded-md sm:rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200',
+                  'min-h-[3.25rem] sm:aspect-square rounded-lg sm:rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200 px-0.5 py-1.5 sm:py-0',
                   isOffDay
-                    ? 'bg-bg-elevated border-white/[0.03] opacity-60 cursor-not-allowed'
+                    ? 'bg-bg-elevated border-border-solid opacity-60 cursor-not-allowed'
                     : isToday(day)
                     ? 'bg-brand/10 border-brand/30'
                     : isSameDay(selectedDate || new Date(0), day)
-                    ? 'border-brand ring-1 ring-brand/20 scale-[0.97]'
+                    ? 'border-brand ring-1 ring-brand/20'
                     : schedule?.status === 'rejected'
                     ? 'bg-danger/10 border-danger/30'
                     : schedule?.status === 'pending'
                     ? 'bg-warn/10 border-warn/30'
-                    : 'bg-bg-surface border-border-solid hover:border-border-solid-light hover:bg-white/[0.03]'
+                    : 'bg-bg-surface border-border-solid hover:border-border-solid-light hover:bg-bg-panel',
                 )}
               >
-                <span
-                  className={cn(
-                    'text-sm sm:text-base font-medium',
-                    isOffDay
-                      ? 'text-text-quaternary'
-                      : isToday(day)
-                      ? 'text-brand-accent'
-                      : schedule?.status === 'rejected'
-                      ? 'text-danger line-through'
-                      : 'text-text-primary'
-                  )}
-                >
-                  {format(day, 'd')}
-                </span>
-                {isOffDay && <span className="text-[9px] font-bold text-text-quaternary mt-0.5">หยุด</span>}
-                {shift && !isOffDay && (
-                  <>
-                    <div
-                      className={cn(
-                        'mt-1 px-1 sm:px-1.5 py-px sm:py-0.5 rounded-md text-[8px] sm:text-[10px] font-medium text-white',
-                        schedule?.status === 'rejected' && 'opacity-40 grayscale'
-                      )}
-                      style={{ backgroundColor: shift.color }}
-                    >
-                      {shift.code}
-                    </div>
-                    {shift.startTime !== '-' && (
-                      <span className="hidden sm:block text-[7px] sm:text-[8px] font-medium text-text-quaternary mt-0.5">
-                        {shift.startTime}–{shift.endTime}
-                      </span>
+                <div className="flex items-center gap-1">
+                  <span
+                    className={cn(
+                      'text-sm sm:text-base font-bold leading-none',
+                      isOffDay
+                        ? 'text-text-quaternary'
+                        : isToday(day)
+                        ? 'text-brand'
+                        : schedule?.status === 'rejected'
+                        ? 'text-danger line-through'
+                        : 'text-text-primary',
                     )}
-                  </>
-                )}
-                {schedule?.status === 'draft' && (
-                  <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 bg-warn rounded-full"></span>
-                )}
-                {schedule?.status === 'pending' && (
-                  <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 flex items-center gap-0.5">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warn opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-warn"></span>
-                    </span>
-                    {schedule.swapWithId && <Users className="hidden sm:block w-2.5 h-2.5 text-brand-accent" />}
+                  >
+                    {format(day, 'd')}
                   </span>
-                )}
-                {schedule?.status === 'rejected' && (
-                  <XCircle className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 text-danger" />
-                )}
-                {schedule?.status === 'approved' && (
-                  <CheckCircle2 className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 text-success" />
+                  {schedule?.status === 'approved' && (
+                    <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-success" />
+                  )}
+                  {schedule?.status === 'rejected' && (
+                    <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-danger" />
+                  )}
+                  {schedule?.status === 'pending' && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warn opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-warn"></span>
+                    </span>
+                  )}
+                  {schedule?.swapWithId && (
+                    <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-brand" />
+                  )}
+                </div>
+                {isOffDay ? (
+                  <span className="text-[9px] sm:text-[10px] font-bold text-text-quaternary mt-1">หยุด</span>
+                ) : shift ? (
+                  <div
+                    className={cn(
+                      'mt-1 px-1.5 py-px rounded-md text-[9px] sm:text-[10px] font-bold text-white leading-tight',
+                      schedule?.status === 'rejected' && 'opacity-40 grayscale',
+                    )}
+                    style={{ backgroundColor: shift.color }}
+                  >
+                    {shift.code}
+                  </div>
+                ) : null}
+                {shift && !isOffDay && shift.startTime !== '-' && (
+                  <span className="hidden sm:block text-[8px] font-medium text-text-quaternary mt-0.5">
+                    {shift.startTime}–{shift.endTime}
+                  </span>
                 )}
               </button>
             );
@@ -122,14 +120,14 @@ export function Calendar({
         </div>
       </div>
 
-      <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-border-solid flex gap-2 overflow-x-auto custom-scrollbar text-[10px]">
+      <div className="px-4 sm:px-5 py-3 bg-bg-surface/50 border-t border-border-solid flex gap-3 overflow-x-auto custom-scrollbar text-[10px]">
         {shiftTypes
           .filter((t) => t.isVisible)
           .slice(0, 6)
           .map((type) => (
-            <div key={type.id} className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: type.color }}></div>
-              <span className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+            <div key={type.id} className="flex items-center gap-1.5 shrink-0">
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: type.color }}></div>
+              <span className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide whitespace-nowrap">
                 {type.code}: {type.name}
               </span>
             </div>
