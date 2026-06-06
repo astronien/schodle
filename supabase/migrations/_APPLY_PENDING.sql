@@ -311,3 +311,18 @@ update public.shift_types
 set is_leave = true
 where is_leave = false
   and code in ('XC', 'V', 'ป่วย', 'EV', 'AT2', 'AT3', 'B-A2');
+
+-- ===== 015_push_subscriptions_update_policy.sql =====
+-- Adds the missing UPDATE policy for push_subscriptions.
+-- The subscribe flow uses upsert with onConflict: 'employee_id,
+-- subscription'. When the browser reuses the same PushSubscription
+-- on a re-subscribe, PostgreSQL converts the INSERT into an UPDATE
+-- which needs an UPDATE RLS policy. Without this:
+--   "new row violates row-level security policy (USING expression)
+--    for table 'push_subscriptions'"
+drop policy if exists "push_subscriptions self update" on public.push_subscriptions;
+create policy "push_subscriptions self update" on public.push_subscriptions
+  for update
+  to anon, authenticated
+  using (true)
+  with check (true);
