@@ -164,7 +164,7 @@ export function EmployeeDashboard({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden sm:flex bg-bg-panel border border-border-solid rounded-full p-1 shadow-card">
+          <div className="hidden sm:flex glass-nav rounded-full p-1">
             <button
               onClick={() => setActiveView('calendar')}
               className={cn(
@@ -186,7 +186,7 @@ export function EmployeeDashboard({
           </div>
           <button
             aria-label="ค้นหา"
-            className="w-11 h-11 rounded-full bg-bg-panel border border-border-solid shadow-card flex items-center justify-center text-text-primary hover:bg-bg-surface transition-colors"
+            className="w-11 h-11 rounded-full glass-nav flex items-center justify-center text-text-primary hover:!bg-white/70 transition-colors"
           >
             <Search className="w-5 h-5" />
           </button>
@@ -242,11 +242,11 @@ export function EmployeeDashboard({
                 <button
                   type="button"
                   onClick={() => openEditorForDate(date)}
-                  className="w-full text-left rounded-2xl bg-bg-surface border border-border-solid p-4 space-y-3 hover:border-border-solid-light hover:bg-bg-panel transition-all"
+                  className="w-full text-left rounded-2xl glass-cell p-4 space-y-3 hover:!bg-white/70 transition-all"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-2xl bg-bg-panel border border-border-solid flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-2xl glass-cell flex items-center justify-center shrink-0">
                         <Briefcase className={`w-5 h-5 ${toneClass}`} />
                       </div>
                       <div className="min-w-0">
@@ -293,7 +293,7 @@ export function EmployeeDashboard({
                 <button
                   type="button"
                   onClick={() => openEditorForDate(date)}
-                  className="w-full rounded-2xl bg-bg-surface border border-dashed border-border-solid p-4 text-center text-text-tertiary text-sm hover:border-brand hover:text-brand transition-colors"
+                  className="w-full rounded-2xl glass-cell border-dashed p-4 text-center text-text-tertiary text-sm hover:!bg-white/70 hover:border-brand hover:text-brand transition-colors"
                 >
                   ไม่มีกะ — แตะเพื่อเพิ่ม
                 </button>
@@ -374,7 +374,7 @@ export function EmployeeDashboard({
 
       {/* Mobile view switcher (fixed bottom) */}
       <div className="sm:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-        <div className="flex bg-bg-panel/95 backdrop-blur-xl border border-border-solid rounded-full p-1 shadow-overlay">
+        <div className="flex glass-nav rounded-full p-1">
           <button
             onClick={() => setActiveView('calendar')}
             className={cn(

@@ -53,16 +53,16 @@ export function Calendar({
                 className={cn(
                   'min-h-[3.25rem] sm:aspect-square rounded-lg sm:rounded-lg border flex flex-col items-center justify-center relative transition-all duration-200 px-0.5 py-1.5 sm:py-0',
                   isOffDay
-                    ? 'bg-bg-elevated border-border-solid opacity-60 cursor-not-allowed'
+                    ? 'glass-cell opacity-60 cursor-not-allowed'
                     : isToday(day)
-                    ? 'bg-brand/10 border-brand/30'
+                    ? 'glass-cell border-brand/40 bg-brand/10'
                     : isSameDay(selectedDate || new Date(0), day)
-                    ? 'border-brand ring-1 ring-brand/20'
+                    ? 'glass-cell border-brand ring-1 ring-brand/25'
                     : schedule?.status === 'rejected'
-                    ? 'bg-danger/10 border-danger/30'
+                    ? 'glass-cell border-danger/40 bg-danger/10'
                     : schedule?.status === 'pending'
-                    ? 'bg-warn/10 border-warn/30'
-                    : 'bg-bg-surface border-border-solid hover:border-border-solid-light hover:bg-bg-panel',
+                    ? 'glass-cell border-warn/40 bg-warn/10'
+                    : 'glass-cell hover:!bg-white/70',
                 )}
               >
                 <div className="flex items-center gap-1">
@@ -120,7 +120,7 @@ export function Calendar({
         </div>
       </div>
 
-      <div className="px-4 sm:px-5 py-3 bg-bg-surface/50 border-t border-border-solid flex gap-3 overflow-x-auto custom-scrollbar text-[10px]">
+      <div className="px-4 sm:px-5 py-3 glass-nav rounded-none border-x-0 border-b-0 flex gap-3 overflow-x-auto custom-scrollbar text-[10px]">
         {shiftTypes
           .filter((t) => t.isVisible)
           .slice(0, 6)

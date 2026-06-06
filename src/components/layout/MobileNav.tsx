@@ -15,7 +15,7 @@ export function MobileNav({ activeTab, onChangeTab }: MobileNavProps) {
 
   return (
     <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 safe-bottom">
-      <div className="mx-3 mb-3 flex items-center justify-around gap-2 bg-bg-panel/95 backdrop-blur-xl border border-border-solid shadow-overlay rounded-full px-2 py-2">
+      <div className="mx-3 mb-3 flex items-center justify-around gap-2 glass-nav rounded-full px-2 py-2">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
@@ -28,7 +28,7 @@ export function MobileNav({ activeTab, onChangeTab }: MobileNavProps) {
                 'flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-full transition-all duration-200',
                 isActive
                   ? 'bg-brand text-white shadow-md'
-                  : 'text-text-quaternary hover:text-text-secondary hover:bg-bg-surface',
+                  : 'text-text-quaternary hover:text-text-secondary hover:bg-white/40',
               )}
             >
               <Icon className={cn('w-5 h-5', isActive && 'scale-110')} />

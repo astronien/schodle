@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
-/* ── Soft Organic Light Theme (v2) ── */
+/* ── iOS 26 Liquid Glass Theme ── */
 @theme {
-  /* Background Surfaces — warm cream palette */
-  --color-bg-primary: #f5f1ea;
-  --color-bg-panel: #ffffff;
-  --color-bg-surface: #faf7f1;
-  --color-bg-elevated: #ffffff;
+  /* Background — warm cream with light tints (visible through glass) */
+  --color-bg-primary: #ede4d3;
+  --color-bg-panel: rgba(255, 255, 255, 0.65);
+  --color-bg-surface: rgba(255, 255, 255, 0.45);
+  --color-bg-elevated: rgba(250, 247, 241, 0.55);
 
   /* Text */
   --color-text-primary: #1a1a1a;
@@ -26,9 +26,9 @@
   --color-warn: #eab308;
   --color-danger: #dc2626;
 
-  /* Solid borders */
-  --color-border-solid: #ebe5d8;
-  --color-border-solid-light: #e0d9c8;
+  /* Solid borders — softer, glass-like */
+  --color-border-solid: rgba(255, 255, 255, 0.55);
+  --color-border-solid-light: rgba(255, 255, 255, 0.85);
 
   /* Radius — softer, more organic */
   --radius-sm: 6px;
@@ -38,10 +38,10 @@
   --radius-2xl: 28px;
   --radius-pill: 9999px;
 
-  /* Shadows — soft, low-contrast */
-  --shadow-card: 0 2px 8px rgba(120, 100, 70, 0.06), 0 0 0 1px rgba(120, 100, 70, 0.04);
-  --shadow-raised: 0 8px 24px rgba(120, 100, 70, 0.10);
-  --shadow-overlay: 0 25px 50px -12px rgba(120, 100, 70, 0.20);
+  /* Shadows — soft, layered for glass effect */
+  --shadow-card: 0 1px 2px rgba(120, 100, 70, 0.05), 0 8px 32px -8px rgba(120, 100, 70, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --shadow-raised: 0 4px 16px rgba(120, 100, 70, 0.10), 0 24px 48px -16px rgba(120, 100, 70, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-overlay: 0 25px 50px -12px rgba(120, 100, 70, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
   /* Font */
   --font-sans: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -95,37 +95,49 @@
     font-family: var(--font-sans);
     color: var(--color-text-secondary);
     background:
-      radial-gradient(circle at 20% 0%, rgba(232, 130, 90, 0.08), transparent 40%),
-      radial-gradient(circle at 80% 100%, rgba(95, 138, 107, 0.06), transparent 40%),
+      radial-gradient(circle at 15% 10%, rgba(232, 130, 90, 0.18), transparent 50%),
+      radial-gradient(circle at 85% 80%, rgba(95, 138, 107, 0.14), transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(255, 200, 150, 0.10), transparent 60%),
       var(--color-bg-primary);
     background-attachment: fixed;
     min-height: 100vh;
   }
 
   ::selection {
-    background-color: rgba(232, 130, 90, 0.25);
+    background-color: rgba(232, 130, 90, 0.30);
     color: var(--color-text-primary);
   }
 }
 
 @layer components {
-  /* Soft, white cards with subtle warm shadow */
+  /* Glass card — translucent + backdrop blur + soft inner highlight */
   .card {
     background: var(--color-bg-panel);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid var(--color-border-solid);
     border-radius: var(--radius-2xl);
-    box-shadow: 0 2px 8px rgba(120, 100, 70, 0.04), 0 0 0 1px rgba(120, 100, 70, 0.03);
-    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 1px 2px rgba(120, 100, 70, 0.05), 0 8px 32px -8px rgba(120, 100, 70, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
   }
 
   .card:hover {
+    background: rgba(255, 255, 255, 0.75);
     border-color: var(--color-border-solid-light);
-    transform: translateY(-1px);
   }
 
   .card-hover:hover {
     background: var(--color-bg-surface);
     border-color: var(--color-border-solid-light);
+  }
+
+  /* Glass nav — strong frosted */
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
+    backdrop-filter: blur(30px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 -8px 32px -8px rgba(120, 100, 70, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   }
 
   /* Buttons */
@@ -147,13 +159,13 @@
     background: var(--color-brand);
     color: #ffffff;
     padding: 12px 24px;
-    box-shadow: 0 6px 16px rgba(232, 130, 90, 0.28);
+    box-shadow: 0 6px 16px rgba(232, 130, 90, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
   .btn-primary:hover {
     background: var(--color-brand-hover);
     transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(232, 130, 90, 0.35);
+    box-shadow: 0 8px 20px rgba(232, 130, 90, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   }
 
   .btn-primary:active {
@@ -164,7 +176,7 @@
     background: var(--color-success);
     color: #ffffff;
     padding: 12px 24px;
-    box-shadow: 0 6px 16px rgba(95, 138, 107, 0.28);
+    box-shadow: 0 6px 16px rgba(95, 138, 107, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
   .btn-secondary:hover {
@@ -173,14 +185,16 @@
   }
 
   .btn-ghost {
-    background: var(--color-bg-panel);
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     color: var(--color-text-secondary);
     border: 1px solid var(--color-border-solid);
     padding: 10px 20px;
   }
 
   .btn-ghost:hover {
-    background: var(--color-bg-surface);
+    background: rgba(255, 255, 255, 0.75);
     color: var(--color-text-primary);
     border-color: var(--color-border-solid-light);
   }
@@ -196,22 +210,25 @@
     color: var(--color-text-primary);
   }
 
-  /* Inputs */
+  /* Inputs — glassy */
   .input-field {
     width: 100%;
     padding: 12px 16px;
     border: 1px solid var(--color-border-solid);
     border-radius: var(--radius-pill);
-    background: var(--color-bg-panel);
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     font-size: 0.9375rem;
     color: var(--color-text-primary);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   }
 
   .input-field:focus {
     outline: none;
     border-color: var(--color-brand);
-    box-shadow: 0 0 0 4px rgba(232, 130, 90, 0.12);
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 0 4px rgba(232, 130, 90, 0.15);
   }
 
   .input-field::placeholder {
@@ -241,7 +258,9 @@
   }
 
   .badge-light {
-    background: var(--color-bg-surface);
+    background: rgba(255, 255, 255, 0.6);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     color: var(--color-text-secondary);
   }
 
@@ -254,11 +273,13 @@
     font-size: 12px;
     font-weight: 500;
     border: 1px solid var(--color-border-solid);
-    background: var(--color-bg-panel);
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     color: var(--color-text-secondary);
   }
 
-  /* Day pill selector */
+  /* Day pill selector — glass */
   .day-pill {
     display: flex;
     flex-direction: column;
@@ -267,15 +288,18 @@
     width: 56px;
     height: 72px;
     border-radius: var(--radius-2xl);
-    background: var(--color-bg-panel);
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     border: 1px solid var(--color-border-solid);
     color: var(--color-text-secondary);
     transition: all 0.2s ease;
     cursor: pointer;
+    box-shadow: 0 2px 8px rgba(120, 100, 70, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   }
 
   .day-pill:hover {
-    background: var(--color-bg-surface);
+    background: rgba(255, 255, 255, 0.75);
   }
 
   .day-pill[data-active="true"] {
@@ -283,7 +307,21 @@
     border-color: var(--color-brand);
     color: #ffffff;
     transform: scale(1.05);
-    box-shadow: 0 8px 20px rgba(232, 130, 90, 0.30);
+    box-shadow: 0 8px 20px rgba(232, 130, 90, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+
+  /* Calendar cell — glass */
+  .glass-cell {
+    background: rgba(255, 255, 255, 0.45);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--color-border-solid);
+    box-shadow: 0 1px 2px rgba(120, 100, 70, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  .glass-cell:hover {
+    background: rgba(255, 255, 255, 0.65);
+    border-color: var(--color-border-solid-light);
   }
 
   /* Scrollbar */
