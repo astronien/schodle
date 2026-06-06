@@ -1,4 +1,4 @@
-import { XCircle, CheckCircle2 } from 'lucide-react';
+import { X, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../../lib/utils';
@@ -34,28 +34,30 @@ export function CellEditor({
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity"
         onClick={onClose}
       ></div>
-      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-border-solid">
-        <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
-        <div className="p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h3 className="text-lg font-medium text-text-primary">แก้ไขกะงาน</h3>
-              <p className="text-sm font-medium text-brand-accent">
-                {employee?.fullName ?? ''} · {format(new Date(date), 'EEEE ที่ d MMM yyyy', { locale: th })}
+      <div className="relative w-full sm:max-w-md bg-bg-panel rounded-t-2xl sm:rounded-2xl shadow-overlay overflow-hidden animate-slide-up border border-white/40 max-h-[90vh] flex flex-col">
+        <div className="w-10 h-1 bg-text-quaternary/30 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
+        <div className="p-5 flex flex-col min-h-0 flex-1">
+          <div className="flex items-start justify-between mb-4 gap-2">
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-text-primary">แก้ไขกะงาน</h3>
+              <p className="text-xs font-semibold text-brand-accent mt-0.5 truncate">
+                {employee?.fullName ?? ''} ·{' '}
+                {format(new Date(date), 'EEEE ที่ d MMM yyyy', { locale: th })}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
+              className="w-9 h-9 bg-white/60 rounded-full flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white border border-border-solid transition-colors shrink-0"
+              aria-label="ปิด"
             >
-              <XCircle className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 max-h-[45vh] overflow-y-auto custom-scrollbar pr-1">
+          <div className="grid grid-cols-1 gap-2 overflow-y-auto custom-scrollbar pr-1 -mr-1 flex-1">
             {shiftTypes
               .filter((t) => t.isVisible)
               .map((type) => {
@@ -67,23 +69,28 @@ export function CellEditor({
                     disabled={isDisabled}
                     onClick={() => onAssign(type.id)}
                     className={cn(
-                      'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
+                      'flex items-center justify-between p-3 rounded-xl border transition-all active:scale-[0.98]',
                       isSelected
-                        ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
+                        ? 'border-brand bg-brand/15 ring-1 ring-brand/30'
                         : isDisabled
-                        ? 'border-white/[0.03] bg-white/[0.02] opacity-40 cursor-not-allowed'
-                        : 'border-border-solid hover:border-border-solid-light bg-bg-surface'
+                        ? 'border-border-solid bg-bg-elevated opacity-50 cursor-not-allowed'
+                        : 'border-border-solid bg-white/50 hover:bg-white/80 hover:border-brand/40',
                     )}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className="w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium text-white"
+                        className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm"
                         style={{ backgroundColor: type.color }}
                       >
                         {type.code}
                       </div>
-                      <div className="text-left">
-                        <p className={cn('font-medium text-sm', isDisabled ? 'text-text-quaternary' : 'text-text-primary')}>
+                      <div className="text-left min-w-0">
+                        <p
+                          className={cn(
+                            'font-semibold text-sm truncate',
+                            isDisabled ? 'text-text-quaternary' : 'text-text-primary',
+                          )}
+                        >
                           {type.name}
                         </p>
                         <p className="text-xs text-text-tertiary font-medium">
@@ -91,7 +98,7 @@ export function CellEditor({
                         </p>
                       </div>
                     </div>
-                    {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}
+                    {isSelected && <CheckCircle2 className="w-5 h-5 text-brand shrink-0" />}
                   </button>
                 );
               })}
@@ -100,7 +107,7 @@ export function CellEditor({
           {currentShiftId && (
             <button
               onClick={onClear}
-              className="mt-3 w-full py-3 bg-danger/10 text-danger border border-danger/20 rounded-lg text-sm font-medium hover:bg-danger/20 transition-colors"
+              className="mt-3 w-full py-3 bg-danger/10 text-danger border border-danger/20 rounded-xl text-sm font-semibold hover:bg-danger/20 transition-colors shrink-0"
             >
               ลบกะออก
             </button>
