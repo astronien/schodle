@@ -125,7 +125,7 @@ export function useData() {
     try {
       const [posRes, empRes, shiftRes, groupRes, schedRes, settingsRes] = await Promise.all([
         supabase.from('positions').select('*').order('code'),
-        supabase.from('employees').select('*').order('full_name'),
+        supabase.from('employees').select('id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at').order('full_name'),
         supabase.from('shift_types').select('*').order('code'),
         supabase.from('position_groups').select('*').order('name'),
         supabase.from('schedules').select('*').order('date'),
