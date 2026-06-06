@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { RefreshCw, X } from 'lucide-react';
 
@@ -5,7 +6,32 @@ export function UpdatePrompt() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
-  } = useRegisterSW();
+  } = useRegisterSW({
+    onRegisteredSW(swUrl) {
+      console.info('[PWA] SW registered:', swUrl);
+    },
+    onRegisterError(err) {
+      console.error('[PWA] SW registration failed:', err);
+    },
+  });
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        navigator.serviceWorker?.getRegistration()?.then((reg) => {
+          reg?.update().catch(() => {});
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  useEffect(() => {
+    if (needRefresh) {
+      console.info('[PWA] New version available — showing update prompt');
+    }
+  }, [needRefresh]);
 
   if (!needRefresh) return null;
 
