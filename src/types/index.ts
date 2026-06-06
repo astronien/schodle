@@ -18,6 +18,7 @@ export type ShiftType = {
   requiresReason: boolean;
   requiresEvidence: boolean;
   isVisible: boolean;
+  isLeave?: boolean;
   targetStaff?: number;
   category?: 'morning' | 'afternoon' | 'other';
 };

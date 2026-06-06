@@ -295,3 +295,19 @@ create policy "Allow employees to update own pending"
   to authenticated
   using (employee_id = (select id from public.employees where id = auth.uid()))
   with check (employee_id = (select id from public.employees where id = auth.uid()));
+
+-- ===== 014_add_shift_type_is_leave.sql =====
+-- Adds an `is_leave` flag on shift_types so the manager can
+-- mark which shifts are leave categories (Day Off, Vacation,
+-- Sick Leave, …) that employees may request. The employee-
+-- facing "ส่งคำขอลา" flow will only show shifts with
+-- is_leave = true (when allow_employee_set_shifts is off).
+alter table public.shift_types
+  add column if not exists is_leave boolean not null default false;
+
+-- Best-effort backfill: mark the obvious leave codes so the
+-- existing seed data works without manual admin work.
+update public.shift_types
+set is_leave = true
+where is_leave = false
+  and code in ('XC', 'V', 'ป่วย', 'EV', 'AT2', 'AT3', 'B-A2');

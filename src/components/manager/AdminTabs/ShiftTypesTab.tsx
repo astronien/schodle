@@ -11,10 +11,31 @@ const SHIFT_CATEGORIES: Array<{ id: 'morning' | 'afternoon' | 'other'; label: st
   { id: 'other', label: 'อื่นๆ' },
 ];
 
-const TOGGLEABLE: Array<{ key: keyof ShiftType; label: string; activeColor: string }> = [
-  { key: 'requiresApproval', label: 'ต้องรออนุมัติ', activeColor: 'bg-brand' },
-  { key: 'requiresReason', label: 'ต้องใส่เหตุผล', activeColor: 'bg-warn' },
-  { key: 'requiresEvidence', label: 'ต้องแนบรูป', activeColor: 'bg-brand' },
+const TOGGLEABLE: Array<{ key: keyof ShiftType; label: string; activeColor: string; description: string }> = [
+  {
+    key: 'requiresApproval',
+    label: 'ต้องรออนุมัติ',
+    activeColor: 'bg-brand',
+    description: 'พนักงานเลือกแล้วรอหัวหน้าอนุมัติ',
+  },
+  {
+    key: 'requiresReason',
+    label: 'ต้องใส่เหตุผล',
+    activeColor: 'bg-warn',
+    description: 'พนักงานต้องระบุเหตุผลประกอบ',
+  },
+  {
+    key: 'requiresEvidence',
+    label: 'ต้องแนบรูป',
+    activeColor: 'bg-brand',
+    description: 'พนักงานต้องแนบรูปหลักฐาน',
+  },
+  {
+    key: 'isLeave',
+    label: 'เป็นประเภทการลา',
+    activeColor: 'bg-danger',
+    description: 'พนักงานสามารถเลือกจากเมนูขอลาได้',
+  },
 ];
 
 interface ShiftTypesTabProps {
@@ -133,18 +154,23 @@ export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: Shif
 
             <div className="space-y-1 pt-2 border-t border-white/[0.03]">
               {TOGGLEABLE.map((item) => {
-                const value = type[item.key];
+                const value = Boolean(type[item.key]);
                 return (
                   <div
                     key={item.key as string}
                     className="flex items-center justify-between p-2 hover:bg-bg-panel rounded-lg transition-colors"
                   >
-                    <span className="text-xs font-bold text-text-tertiary uppercase tracking-wide">
-                      {item.label}
-                    </span>
+                    <div className="min-w-0 pr-2">
+                      <p className="text-xs font-bold text-text-tertiary uppercase tracking-wide leading-none">
+                        {item.label}
+                      </p>
+                      <p className="text-[10px] text-text-quaternary mt-0.5 leading-tight">
+                        {item.description}
+                      </p>
+                    </div>
                     <button
                       onClick={() => onUpdate({ ...type, [item.key]: !value }).catch(showError)}
-                      className={cn('w-10 h-5 rounded-full transition-colors relative', value ? item.activeColor : 'bg-bg-elevated')}
+                      className={cn('w-10 h-5 rounded-full transition-colors relative shrink-0', value ? item.activeColor : 'bg-bg-elevated')}
                     >
                       <div
                         className={cn(

@@ -127,12 +127,25 @@ export function ShiftEditor({
           )}
 
           <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1 pb-4">
+            {settings.allowEmployeeSetShifts ? null : (
+              <p className="text-[11px] text-text-tertiary font-semibold mb-2">
+                เลือกประเภทการลาที่ผู้จัดการเปิดให้
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-2">
               {shiftTypes
                 .filter((t) => {
                   const isVisible = t.isVisible || t.id === 'xc';
                   const isWeeklyOffMatch = !isOffDay || t.code === 'X';
-                  const isAllowedBySetting = settings.allowEmployeeSetShifts || t.requiresApproval;
+                  // Two modes:
+                  //  - work mode (allowEmployeeSetShifts=true): show every
+                  //    visible shift so the employee can self-pick.
+                  //  - leave mode (allowEmployeeSetShifts=false): show ONLY
+                  //    shifts the manager flagged as isLeave. This is the
+                  //    "คำขอลา พนักงานเลือกได้ตามที่ผู้จัดการตั้งค่าไว้" rule.
+                  const isAllowedBySetting = settings.allowEmployeeSetShifts
+                    ? true
+                    : Boolean(t.isLeave) || t.requiresApproval;
                   return isVisible && isWeeklyOffMatch && isAllowedBySetting;
                 })
                 .map((type) => {

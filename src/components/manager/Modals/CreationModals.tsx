@@ -256,6 +256,7 @@ export function CreateShiftTypeModal({ open, onClose, onCreate }: CreateShiftTyp
         requiresReason: false,
         requiresEvidence: false,
         isVisible: true,
+        isLeave: false,
         category,
       });
       toast.success('เพิ่มประเภทกะสำเร็จ', `${name} (${code})`);

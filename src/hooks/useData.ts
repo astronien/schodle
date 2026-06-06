@@ -183,6 +183,7 @@ export function useData() {
           requiresReason: s.requires_reason,
           requiresEvidence: s.requires_evidence,
           isVisible: s.is_visible,
+          isLeave: s.is_leave ?? false,
           targetStaff: s.target_staff || undefined,
           category: (s.category as ShiftType['category']) || undefined,
         })),
@@ -599,6 +600,7 @@ export function useData() {
         requires_reason: shiftType.requiresReason,
         requires_evidence: shiftType.requiresEvidence,
         is_visible: shiftType.isVisible,
+        is_leave: shiftType.isLeave ?? false,
         target_staff: shiftType.targetStaff || null,
         category: shiftType.category || null,
       });
@@ -627,6 +629,7 @@ export function useData() {
           requires_reason: shiftType.requiresReason,
           requires_evidence: shiftType.requiresEvidence,
           is_visible: shiftType.isVisible,
+          is_leave: shiftType.isLeave ?? false,
           target_staff: shiftType.targetStaff || null,
           category: shiftType.category || null,
         })
