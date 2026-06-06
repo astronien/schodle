@@ -129,6 +129,7 @@ alter table public.settings enable row level security;
 alter table public.push_subscriptions enable row level security;
 
 -- ===== 011_atomic_swap_rpc.sql =====
+drop function if exists public.swap_schedule_shifts(uuid, uuid) cascade;
 create or replace function public.swap_schedule_shifts(
   p_requester_id uuid,
   p_target_id uuid
