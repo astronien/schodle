@@ -59,6 +59,69 @@ export async function getSubscriptionState(): Promise<PushSubscriptionState> {
   }
 }
 
+export interface PushDiagnostic {
+  serviceWorker: 'registered' | 'unregistered' | 'unsupported';
+  permission: NotificationPermission | 'unavailable';
+  subscribed: boolean;
+  endpoint?: string;
+  isIOS: boolean;
+  isStandalone: boolean;
+}
+
+export async function getPushDiagnostic(): Promise<PushDiagnostic> {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+  const isStandalone = detectStandalone();
+
+  const hasSW = typeof navigator !== 'undefined' && 'serviceWorker' in navigator && !!navigator.serviceWorker;
+  const hasPush = typeof window !== 'undefined' && 'PushManager' in window;
+  if (!hasSW || !hasPush) {
+    return {
+      serviceWorker: 'unsupported',
+      permission: typeof Notification !== 'undefined' ? Notification.permission : 'unavailable',
+      subscribed: false,
+      isIOS,
+      isStandalone,
+    };
+  }
+
+  let serviceWorker: PushDiagnostic['serviceWorker'] = 'unregistered';
+  let subscribed = false;
+  let endpoint: string | undefined;
+
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) {
+      serviceWorker = 'registered';
+      const sub = await reg.pushManager.getSubscription();
+      subscribed = !!sub;
+      endpoint = sub?.endpoint;
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    serviceWorker,
+    permission: typeof Notification !== 'undefined' ? Notification.permission : 'unavailable',
+    subscribed,
+    endpoint,
+    isIOS,
+    isStandalone,
+  };
+}
+
+function detectStandalone(): boolean {
+  try {
+    const mqlStandalone =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(display-mode: standalone)').matches;
+    const navStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    return mqlStandalone || navStandalone;
+  } catch {
+    return false;
+  }
+}
+
 async function ensurePermission(): Promise<NotificationPermission> {
   if (typeof Notification === 'undefined') {
     throw new PushNotSupportedError('เบราว์เซอร์ของคุณไม่รองรับการแจ้งเตือน');
@@ -100,7 +163,7 @@ export async function subscribeToNotifications(employeeId: string): Promise<bool
       const key = urlBase64ToUint8Array(vapidKey);
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: key.buffer as ArrayBuffer,
+        applicationServerKey: new Uint8Array(key),
       });
     }
 
@@ -180,4 +243,13 @@ export async function sendPushToRole(
   url?: string,
 ): Promise<PushResult> {
   return invokeSendPush({ role, title, body, url });
+}
+
+export async function sendTestPushToSelf(employeeId: string): Promise<PushResult> {
+  return invokeSendPush({
+    employee_id: employeeId,
+    title: 'ทดสอบการแจ้งเตือน',
+    body: 'ถ้าคุณเห็นข้อความนี้ แสดงว่าระบบทำงานสมบูรณ์',
+    url: '/',
+  });
 }

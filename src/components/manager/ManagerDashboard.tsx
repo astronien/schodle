@@ -4,7 +4,7 @@ import { th } from 'date-fns/locale';
 import { PlusCircle, Bell, LayoutGrid, Download, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { filterPendingRequests } from '../../lib/schedule-utils';
-import { subscribeToNotifications } from '../../lib/push';
+import { subscribeToNotifications, sendTestPushToSelf } from '../../lib/push';
 import { useToast } from '../../lib/toast';
 import { WeeklyOffDayEditor } from './Modals/WeeklyOffDayEditor';
 import { CoverageGrid } from './CoverageGrid';
@@ -126,6 +126,10 @@ export function ManagerDashboard({
     } finally {
       setIsSubscribing(false);
     }
+  };
+
+  const handleSendTestPush = async () => {
+    return sendTestPushToSelf(currentUser.id);
   };
 
   const handleUpdateShiftStatus = async (id: string, status: 'approved' | 'rejected') => {
@@ -486,6 +490,7 @@ export function ManagerDashboard({
           updateSettings={updateSettings}
           isSubscribing={isSubscribing}
           onEnableNotifications={handleEnableNotifications}
+          onSendTestPush={handleSendTestPush}
         />
       )}
 

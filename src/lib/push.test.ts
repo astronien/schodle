@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getSubscriptionState } from './push';
+import { getSubscriptionState, getPushDiagnostic } from './push';
 
 type NotificationCtor = typeof Notification;
 
@@ -28,7 +28,7 @@ function setPushManager(impl: unknown) {
   }
 }
 
-function setServiceWorker(impl: { ready?: Promise<unknown> } | undefined) {
+function setServiceWorker(impl: { ready?: Promise<unknown>; getRegistration?: () => Promise<unknown> } | undefined) {
   Object.defineProperty(navigator, 'serviceWorker', {
     configurable: true,
     value: impl,
@@ -121,5 +121,65 @@ describe('getSubscriptionState', () => {
     });
     const result = await getSubscriptionState();
     expect(result).toEqual({ state: 'granted', subscribed: false });
+  });
+});
+
+describe('getPushDiagnostic', () => {
+  const originalNotification = (window as unknown as { Notification?: NotificationCtor }).Notification;
+  const originalPushManager = (window as unknown as { PushManager?: unknown }).PushManager;
+  const originalSW = navigator.serviceWorker;
+
+  beforeEach(() => {
+    setNotification(undefined);
+    setPushManager(undefined);
+    setServiceWorker(undefined);
+  });
+
+  afterEach(() => {
+    setNotification(originalNotification);
+    setPushManager(originalPushManager);
+    setServiceWorker(originalSW);
+  });
+
+  it('returns unsupported when serviceWorker is missing', async () => {
+    setNotification({ permission: 'default', requestPermission: async () => 'default' });
+    setPushManager({});
+    setServiceWorker(undefined);
+    const result = await getPushDiagnostic();
+    expect(result.serviceWorker).toBe('unsupported');
+    expect(result.subscribed).toBe(false);
+  });
+
+  it('returns unregistered when no SW registration exists', async () => {
+    setNotification({ permission: 'default', requestPermission: async () => 'default' });
+    setPushManager({});
+    setServiceWorker({ getRegistration: () => Promise.resolve(undefined) });
+    const result = await getPushDiagnostic();
+    expect(result.serviceWorker).toBe('unregistered');
+  });
+
+  it('returns registered + subscribed=true with endpoint', async () => {
+    setNotification({ permission: 'granted', requestPermission: async () => 'granted' });
+    setPushManager({});
+    const pushManager = {
+      getSubscription: vi.fn().mockResolvedValue({ endpoint: 'https://fcm.googleapis.com/x' }),
+    };
+    setServiceWorker({
+      getRegistration: () =>
+        Promise.resolve({ pushManager } as unknown as ServiceWorkerRegistration),
+    });
+    const result = await getPushDiagnostic();
+    expect(result.serviceWorker).toBe('registered');
+    expect(result.subscribed).toBe(true);
+    expect(result.endpoint).toBe('https://fcm.googleapis.com/x');
+    expect(result.permission).toBe('granted');
+  });
+
+  it('returns unavailable permission when Notification is undefined', async () => {
+    setNotification(undefined);
+    setPushManager({});
+    setServiceWorker({ getRegistration: () => Promise.resolve(undefined) });
+    const result = await getPushDiagnostic();
+    expect(result.permission).toBe('unavailable');
   });
 });

@@ -8,23 +8,29 @@ declare const self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST);
 
 self.addEventListener('push', (event: PushEvent) => {
+  let data: { title?: string; body?: string; url?: string } = {
+    title: 'การแจ้งเตือน',
+    body: 'คุณมีอัปเดตใหม่',
+  };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch {
+      data.body = event.data.text();
+    }
+  }
 
-  const data = event.data ? event.data.json() : { title: 'Notification', body: 'You have a new update!' };
-  
-  const options = {
+  const options: NotificationOptions & { vibrate?: number[] } = {
     body: data.body,
-    icon: '/icon.svg',
-    badge: '/icon.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     data: data.url || '/',
     vibrate: [100, 50, 100],
-    actions: [
-      { action: 'open', title: 'ดูรายละเอียด' }
-    ]
+    tag: 'schodle-push',
+    requireInteraction: false,
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+  event.waitUntil(self.registration.showNotification(data.title || 'Schodle', options));
 });
 
 self.addEventListener('notificationclick', (event: NotificationEvent) => {

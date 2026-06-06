@@ -46,6 +46,7 @@ interface AdminTabsProps {
   updateSettings: (settings: AppSettings) => Promise<void>;
   isSubscribing: boolean;
   onEnableNotifications: () => Promise<void>;
+  onSendTestPush: () => Promise<{ success: boolean; sent?: number; error?: string }>;
 }
 
 export function AdminTabs({
@@ -75,6 +76,7 @@ export function AdminTabs({
   updateSettings,
   isSubscribing,
   onEnableNotifications,
+  onSendTestPush,
 }: AdminTabsProps) {
   const counts: Partial<Record<AdminTabId, number>> = {
     employees: employees.length,
@@ -153,6 +155,7 @@ export function AdminTabs({
               onSave={updateSettings}
               onEnableNotifications={onEnableNotifications}
               isSubscribing={isSubscribing}
+              onSendTestPush={onSendTestPush}
             />
           )}
         </div>
