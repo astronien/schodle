@@ -154,36 +154,37 @@ export async function subscribeToNotifications(employeeId: string): Promise<bool
   }
   await ensurePermission();
 
-  try {
-    const vapidKey = getVapidPublicKey();
-    const registration = await navigator.serviceWorker.ready;
+  const vapidKey = getVapidPublicKey();
+  const registration = await navigator.serviceWorker.ready;
 
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      const key = urlBase64ToUint8Array(vapidKey);
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    const key = urlBase64ToUint8Array(vapidKey);
+    try {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: new Uint8Array(key),
       });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`เบราว์เซอร์ปฏิเสธการสมัครรับการแจ้งเตือน: ${msg}`, { cause: err });
     }
-
-    const { error } = await supabase.from('push_subscriptions').upsert(
-      {
-        employee_id: employeeId,
-        subscription: subscription.toJSON(),
-      },
-      {
-        onConflict: 'employee_id, subscription',
-      },
-    );
-
-    if (error) throw error;
-    return true;
-  } catch (error: unknown) {
-    if (error instanceof PushConfigError || error instanceof PushPermissionDeniedError) throw error;
-    console.error('Push subscription error:', error);
-    throw error;
   }
+
+  if (!subscription) throw new Error('ไม่สามารถสร้าง push subscription ได้');
+
+  const { error } = await supabase.from('push_subscriptions').upsert(
+    {
+      employee_id: employeeId,
+      subscription: subscription.toJSON(),
+    },
+    {
+      onConflict: 'employee_id, subscription',
+    },
+  );
+
+  if (error) throw new Error(`บันทึก subscription ลงฐานข้อมูลไม่สำเร็จ: ${error.message}`, { cause: error });
+  return true;
 }
 
 export async function unsubscribeFromNotifications(employeeId?: string): Promise<boolean> {
@@ -217,14 +218,31 @@ interface PushResult {
 
 async function invokeSendPush(body: Record<string, unknown>): Promise<PushResult> {
   const token = getSessionToken();
-  if (!token) return { success: false, error: 'no session' };
-  const { data, error } = await supabase.functions.invoke<PushResult & { results?: unknown[] }>(
-    'send-push',
-    { body, headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (error) return { success: false, error: (data as { error?: string } | null)?.error ?? error.message };
-  if (data && 'error' in data && data.error) return { success: false, error: data.error };
-  return { success: true, sent: data?.sent, failed: data?.failed };
+  if (!token) return { success: false, error: 'ไม่มี session token กรุณาเข้าสู่ระบบใหม่' };
+  try {
+    const { data, error } = await supabase.functions.invoke<PushResult & { error?: string; results?: unknown[] }>(
+      'send-push',
+      { body, headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (error) {
+      const serverMsg = (data as { error?: string } | null)?.error;
+      return {
+        success: false,
+        error: serverMsg
+          ? `Server: ${serverMsg}`
+          : `Edge Function: ${error.message ?? 'unknown error'}`,
+      };
+    }
+    if (data && 'error' in data && data.error) {
+      return { success: false, error: data.error };
+    }
+    return { success: true, sent: data?.sent, failed: data?.failed };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: `เรียก Edge Function ไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 }
 
 export async function sendPushToEmployee(
