@@ -94,7 +94,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </div>
               <button
                 onClick={() => dismiss(toast.id)}
-                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-text-quaternary hover:text-text-primary hover:bg-white/[0.05] transition-colors"
+                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
                 aria-label="ปิดการแจ้งเตือน"
               >
                 <X className="w-4 h-4" />

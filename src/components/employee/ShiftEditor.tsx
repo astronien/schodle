@@ -98,7 +98,7 @@ export function ShiftEditor({
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onClick={handleClose}></div>
 
-      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-2xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08] flex flex-col max-h-[88vh]">
+      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-2xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-border-solid flex flex-col max-h-[88vh]">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
 
         <div className="p-5 flex flex-col min-h-0">
@@ -113,7 +113,7 @@ export function ShiftEditor({
             </div>
             <button
               onClick={handleClose}
-              className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
             >
               <XCircle className="w-5 h-5" />
             </button>
@@ -157,8 +157,8 @@ export function ShiftEditor({
                         isSelected
                           ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
                           : isFull
-                          ? 'border-white/[0.05] bg-white/[0.02] opacity-50 cursor-not-allowed'
-                          : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
+                          ? 'border-border-solid bg-white/[0.02] opacity-50 cursor-not-allowed'
+                          : 'border-border-solid hover:border-border-solid-light bg-bg-surface'
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -185,7 +185,7 @@ export function ShiftEditor({
                           <span
                             className={cn(
                               'text-[10px] font-medium px-2 py-1 rounded-md',
-                              isFull ? 'bg-danger/10 text-danger' : 'bg-white/[0.05] text-text-quaternary'
+                              isFull ? 'bg-danger/10 text-danger' : 'bg-bg-surface text-text-quaternary'
                             )}
                           >
                             {isFull ? 'เต็ม' : `${count}/3`}
@@ -246,7 +246,7 @@ export function ShiftEditor({
                             'w-full p-3 rounded-md border flex items-center justify-between transition-all',
                             targetSwapId === emp.id
                               ? 'bg-bg-surface border-brand shadow-raised'
-                              : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.12]'
+                              : 'bg-white/[0.03] border-border-solid hover:border-border-solid-light'
                           )}
                         >
                           <div className="flex items-center gap-3">
@@ -288,7 +288,7 @@ export function ShiftEditor({
                         onChange={(e) => setAttachment(e.target.files ? e.target.files[0] : null)}
                       />
                       <label htmlFor="evidence" className="flex flex-col items-center cursor-pointer group">
-                        <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-white/[0.08]">
+                        <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-border-solid">
                           <Plus className="w-5 h-5" />
                         </div>
                         <span className="text-xs font-medium text-brand-accent uppercase tracking-wide">
@@ -299,7 +299,7 @@ export function ShiftEditor({
                   )}
 
                   {shiftType.requiresReason && (
-                    <div className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.05] animate-fade-in">
+                    <div className="p-4 bg-white/[0.02] rounded-lg border border-border-solid animate-fade-in">
                       <label className="block text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">
                         ระบุเหตุผลความจำเป็น
                       </label>
@@ -315,12 +315,12 @@ export function ShiftEditor({
                 </>
               )}
 
-              <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-lg border border-white/[0.05]">
+              <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-lg border border-border-solid">
                 <div className="flex items-center gap-3">
                   <div
                     className={cn(
                       'p-2 rounded-md transition-colors',
-                      isLateScan ? 'bg-warn/15 text-warn' : 'bg-white/[0.05] text-text-quaternary'
+                      isLateScan ? 'bg-warn/15 text-warn' : 'bg-bg-surface text-text-quaternary'
                     )}
                   >
                     <AlertCircle className="w-4 h-4" />
@@ -348,7 +348,7 @@ export function ShiftEditor({
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-white/[0.05] flex gap-3 shrink-0 pb-[env(safe-area-inset-bottom)]">
+          <div className="mt-4 pt-4 border-t border-border-solid flex gap-3 shrink-0 pb-[env(safe-area-inset-bottom)]">
             <button onClick={() => onConfirm(null)} className="btn btn-ghost px-5 py-3.5 rounded-lg font-medium">
               ล้างกะ
             </button>
@@ -366,7 +366,7 @@ export function ShiftEditor({
                   Boolean(shiftType?.requiresReason && !requestReason) ||
                   Boolean(shiftType?.requiresEvidence && !attachment) ||
                   Boolean(isLateScan && !attachment)
-                  ? 'bg-white/[0.05] text-text-quaternary cursor-not-allowed'
+                  ? 'bg-bg-surface text-text-quaternary cursor-not-allowed'
                   : 'btn-primary'
               )}
             >

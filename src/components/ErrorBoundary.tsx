@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </p>
             </div>
             {this.state.error && (
-              <pre className="text-left text-[11px] text-text-quaternary bg-bg-panel border border-white/[0.05] rounded-lg p-3 overflow-auto max-h-32">
+              <pre className="text-left text-[11px] text-text-quaternary bg-bg-panel border border-border-solid rounded-lg p-3 overflow-auto max-h-32">
                 {this.state.error.message}
               </pre>
             )}

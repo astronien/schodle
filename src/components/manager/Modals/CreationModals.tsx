@@ -47,7 +47,7 @@ export function CreateEmployeeModal({ open, onClose, onCreate, positionGroups }:
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-border-solid">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden" />
         <div className="p-5">
           <div className="flex items-center justify-between mb-5">
@@ -57,7 +57,7 @@ export function CreateEmployeeModal({ open, onClose, onCreate, positionGroups }:
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
             >
               <XCircle className="w-5 h-5" />
             </button>
@@ -87,7 +87,7 @@ export function CreateEmployeeModal({ open, onClose, onCreate, positionGroups }:
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 py-3 bg-white/[0.04] text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-white/[0.07] transition-colors"
+              className="flex-1 py-3 bg-bg-surface text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-bg-surface transition-colors"
             >
               ยกเลิก
             </button>
@@ -151,7 +151,7 @@ export function CreatePositionModal({ open, onClose, onCreate }: CreatePositionM
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-border-solid">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden" />
         <div className="p-5">
           <div className="flex items-center justify-between mb-5">
@@ -161,7 +161,7 @@ export function CreatePositionModal({ open, onClose, onCreate }: CreatePositionM
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
             >
               <XCircle className="w-5 h-5" />
             </button>
@@ -182,7 +182,7 @@ export function CreatePositionModal({ open, onClose, onCreate }: CreatePositionM
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 py-3 bg-white/[0.04] text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-white/[0.07] transition-colors"
+              className="flex-1 py-3 bg-bg-surface text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-bg-surface transition-colors"
             >
               ยกเลิก
             </button>
@@ -271,7 +271,7 @@ export function CreateShiftTypeModal({ open, onClose, onCreate }: CreateShiftTyp
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-border-solid">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden" />
         <div className="p-5">
           <div className="flex items-center justify-between mb-5">
@@ -281,7 +281,7 @@ export function CreateShiftTypeModal({ open, onClose, onCreate }: CreateShiftTyp
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
             >
               <XCircle className="w-5 h-5" />
             </button>
@@ -346,7 +346,7 @@ export function CreateShiftTypeModal({ open, onClose, onCreate }: CreateShiftTyp
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 py-3 bg-white/[0.04] text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-white/[0.07] transition-colors"
+              className="flex-1 py-3 bg-bg-surface text-text-tertiary border border-white/[0.06] rounded-lg text-sm font-medium hover:bg-bg-surface transition-colors"
             >
               ยกเลิก
             </button>

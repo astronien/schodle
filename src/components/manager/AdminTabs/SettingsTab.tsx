@@ -63,7 +63,7 @@ export function SettingsTab({ settings, onSave, onEnableNotifications, isSubscri
           />
         </div>
 
-        <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl space-y-4">
+        <div className="p-4 bg-white/[0.02] border border-border-solid rounded-xl space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider">

@@ -148,7 +148,7 @@ export function RequestList({
                       href={request.evidenceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block rounded-lg overflow-hidden border border-white/[0.08] hover:border-brand/40 transition-colors"
+                      className="block rounded-lg overflow-hidden border border-border-solid hover:border-brand/40 transition-colors"
                     >
                       <img src={request.evidenceUrl} alt="หลักฐาน" className="w-full h-32 object-cover" />
                       <div className="flex items-center justify-center gap-1.5 py-1.5 bg-white/[0.03] text-brand-accent text-[10px] font-semibold uppercase tracking-wide">
@@ -168,7 +168,7 @@ export function RequestList({
                     value={remarks[request.id] || ''}
                     onChange={(e) => setRemarks((prev) => ({ ...prev, [request.id]: e.target.value }))}
                     placeholder="เช่น เหตุผลที่ปฏิเสธ..."
-                    className="w-full bg-bg-panel border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-quaternary focus:border-brand/40 outline-none transition-all"
+                    className="w-full bg-bg-panel border border-border-solid rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-quaternary focus:border-brand/40 outline-none transition-all"
                   />
                 </div>
               </div>

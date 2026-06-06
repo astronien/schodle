@@ -94,7 +94,7 @@ export function ReportPanel({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setReportEmployeeId(null)}
-            className="p-2 rounded-md hover:bg-white/[0.05] border border-transparent hover:border-white/[0.08] transition-all text-text-tertiary hover:text-text-primary"
+            className="p-2 rounded-md hover:bg-bg-surface border border-transparent hover:border-border-solid transition-all text-text-tertiary hover:text-text-primary"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -106,7 +106,7 @@ export function ReportPanel({
 
         <div className="card p-5 sm:p-6 rounded-xl">
           <div className="flex items-center gap-4 mb-5">
-            <div className="w-14 h-14 rounded-xl overflow-hidden bg-bg-surface border border-white/[0.08]">
+            <div className="w-14 h-14 rounded-xl overflow-hidden bg-bg-surface border border-border-solid">
               <img
                 src={emp.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
                 alt=""
@@ -147,7 +147,7 @@ export function ReportPanel({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/[0.05]">
+                <tr className="border-b border-border-solid">
                   <th className="text-left py-2.5 px-3 text-xs font-semibold text-text-quaternary uppercase tracking-wider">วันที่</th>
                   <th className="text-left py-2.5 px-3 text-xs font-semibold text-text-quaternary uppercase tracking-wider">กะงาน</th>
                   <th className="text-left py-2.5 px-3 text-xs font-semibold text-text-quaternary uppercase tracking-wider">สถานะ</th>
@@ -290,7 +290,7 @@ export function ReportPanel({
               onClick={() => setReportEmployeeId(emp.id)}
               className="w-full card p-4 sm:p-5 rounded-xl flex items-center gap-4 hover:border-brand/30 transition-all text-left group"
             >
-              <div className="w-11 h-11 rounded-xl overflow-hidden bg-bg-surface border border-white/[0.08] shrink-0">
+              <div className="w-11 h-11 rounded-xl overflow-hidden bg-bg-surface border border-border-solid shrink-0">
                 <img
                   src={emp.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
                   alt=""

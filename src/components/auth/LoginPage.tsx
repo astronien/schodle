@@ -32,10 +32,10 @@ export function LoginPage({ onLogin, error, isLoading, appName }: LoginPageProps
     <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center font-sans px-4 py-8 sm:py-12">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-2.5 mb-6 sm:mb-8">
-          <div className="w-10 h-10 bg-brand rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-brand rounded-full flex items-center justify-center shadow-md">
             <Clock className="text-white w-5 h-5" />
           </div>
-          <h1 className="text-2xl font-medium tracking-tight text-text-primary">
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">
             {appName}
           </h1>
 

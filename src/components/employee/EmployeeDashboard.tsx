@@ -1,10 +1,21 @@
-import { useState } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
+import { useState, useMemo } from 'react';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameDay,
+  addMonths,
+  subMonths,
+  addDays,
+  startOfWeek,
+  isBefore,
+  startOfDay,
+} from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Clock, ChevronRight, ChevronLeft, Users, LayoutGrid } from 'lucide-react';
+import { Play, Plus, Search, Briefcase, Calendar as CalIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../lib/toast';
-import { getEmployeeMonthlyStats } from '../../lib/schedule-utils';
 import { Calendar } from './Calendar';
 import { CoverageView } from './CoverageView';
 import { ShiftEditor } from './ShiftEditor';
@@ -44,19 +55,22 @@ export function EmployeeDashboard({
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const monthlySchedules = userSchedules.filter((s) => {
-    const d = new Date(s.date);
-    return d >= monthStart && d <= monthEnd;
-  });
-  const monthlyStats = getEmployeeMonthlyStats(currentUser.id, monthlySchedules, shiftTypes);
-  const approvedDays = monthlySchedules.filter((s) => s.status === 'approved').length;
-  const pendingDays = monthlySchedules.filter((s) => s.status === 'pending' || s.status === 'submitted').length;
-  const targetOffDays = 4;
-  const remainingOffDays = Math.max(0, targetOffDays - (monthlyStats.counts['X'] || 0));
-  const progressPercent = Math.round((approvedDays / days.length) * 100);
 
   const getDaySchedule = (date: Date) =>
     userSchedules.find((s) => isSameDay(new Date(s.date), date));
+
+  // 7 days starting from today (or selectedDate) for the pill selector
+  const today = startOfDay(new Date());
+  const baseDate = selectedDate ?? today;
+  const pillDays = useMemo(
+    () => eachDayOfInterval({ start: startOfWeek(baseDate, { weekStartsOn: 1 }), end: addDays(startOfWeek(baseDate, { weekStartsOn: 1 }), 6) }),
+    [baseDate],
+  );
+
+  const selectedSchedule = selectedDate ? getDaySchedule(selectedDate) : null;
+  const selectedShift = selectedSchedule
+    ? shiftTypes.find((t) => t.id === selectedSchedule.shiftTypeId)
+    : null;
 
   const handleSetShift = async (shiftId: string | null, reason?: string, evidenceUrl?: string, isLateScan?: boolean) => {
     if (!selectedDate) return;
@@ -132,134 +146,180 @@ export function EmployeeDashboard({
     setValidationError(null);
   };
 
-  const quickActions = [
-    { id: 'today', label: 'วันนี้', icon: Clock, action: () => setCurrentMonth(new Date()) },
-    { id: 'requests', label: 'คำขอ', icon: Users, action: () => setSelectedDate(new Date()) },
-    { id: 'coverage', label: 'ตารางรวม', icon: LayoutGrid, action: () => setActiveView('coverage') },
-  ];
-
-  const pendingSwaps = schedules.filter(
-    (s) => s.employeeId === currentUser.id && s.swapWithId && s.status === 'pending'
-  );
-
   return (
-    <div className="w-full space-y-5 sm:space-y-6">
-      <div className="relative overflow-hidden rounded-2xl bg-bg-surface p-4 sm:p-8 border border-white/[0.08]">
-        <div className="absolute -right-6 -top-6 w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-brand/5"></div>
-        <div className="absolute -left-6 -bottom-6 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-brand/5"></div>
-
-        <div className="relative z-10 space-y-4">
-          <div>
-            <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-text-quaternary font-semibold">
-              Employee Dashboard
-            </p>
-            <h2 className="text-lg sm:text-2xl font-medium mt-1 text-text-primary leading-tight">
-              ตารางงานเดือน {format(currentMonth, 'MMMM yyyy', { locale: th })}
-            </h2>
-            <p className="text-text-tertiary text-sm max-w-xl mt-2">
-              ดูตารางของคุณ ส่งคำขอ และเช็คสถานะได้แบบแตะครั้งเดียวบนมือถือ
-            </p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-            <div className="rounded-xl bg-bg-panel/70 border border-white/[0.05] px-3 py-2">
-              <div className="text-lg font-bold text-text-primary leading-none">{approvedDays}</div>
-              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mt-1">อนุมัติ</div>
-            </div>
-            <div className="rounded-xl bg-bg-panel/70 border border-white/[0.05] px-3 py-2">
-              <div className="text-lg font-bold text-warn leading-none">{pendingDays}</div>
-              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mt-1">รออนุมัติ</div>
-            </div>
-            <div className="rounded-xl bg-bg-panel/70 border border-white/[0.05] px-3 py-2">
-              <div className="text-lg font-bold text-brand-accent leading-none">{remainingOffDays}</div>
-              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mt-1">วันหยุด</div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="pill text-text-tertiary text-[11px] sm:text-xs">
-              <span className="relative flex h-2 w-2 mr-1">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warn opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-warn"></span>
-              </span>
-              กำหนดส่ง: 25 พฤษภาคม
-            </div>
-            <div className="pill text-brand-accent bg-brand/10 border border-brand/20 text-[11px] sm:text-xs">
-              แตะวันที่เพื่อบันทึกกะ/คำขอ
-            </div>
-          </div>
+    <div className="w-full space-y-4 sm:space-y-6 pb-32">
+      {/* Header */}
+      <div className="flex items-end justify-between px-1">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary leading-tight">My Shifts</h1>
+          <p className="text-text-tertiary text-sm mt-0.5">
+            {format(currentMonth, 'MMMM yyyy', { locale: th })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            aria-label="เพิ่มกะ"
+            className="w-11 h-11 rounded-full bg-bg-panel border border-border-solid shadow-card flex items-center justify-center text-text-primary hover:bg-bg-surface transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+          <button
+            aria-label="ค้นหา"
+            className="w-11 h-11 rounded-full bg-bg-panel border border-border-solid shadow-card flex items-center justify-center text-text-primary hover:bg-bg-surface transition-colors"
+          >
+            <Search className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      <div className="fixed right-4 bottom-24 hidden lg:flex flex-col gap-2 z-40">
-        {quickActions.map((action) => {
-          const Icon = action.icon;
+      {/* Day pill selector */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 custom-scrollbar">
+        {pillDays.map((d) => {
+          const active = selectedDate ? isSameDay(d, selectedDate) : isSameDay(d, today);
+          const isPast = isBefore(d, today) && !active;
           return (
             <button
-              key={action.id}
-              onClick={action.action}
-              className="group flex items-center gap-2 rounded-full bg-bg-panel/90 backdrop-blur-xl border border-white/[0.08] px-3 py-2 shadow-lg hover:border-brand/30 hover:bg-brand/10 transition-all"
+              key={d.toISOString()}
+              onClick={() => setSelectedDate(d)}
+              data-active={active}
+              className={cn(
+                'day-pill shrink-0',
+                !active && isPast && 'opacity-60',
+              )}
             >
-              <Icon className="w-4 h-4 text-brand-accent" />
-              <span className="text-xs font-semibold text-text-primary whitespace-nowrap">{action.label}</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider opacity-80">
+                {format(d, 'EEE', { locale: th })}
+              </span>
+              <span className="text-lg font-bold leading-none mt-1">
+                {format(d, 'd')}
+              </span>
+              {active && (
+                <span className="w-1 h-1 rounded-full bg-white/90 mt-1" />
+              )}
             </button>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <section className="lg:col-span-2 card overflow-hidden rounded-none sm:rounded-lg order-1">
-          <div className="p-4 sm:p-5 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                className="p-2 rounded-md hover:bg-white/[0.05] border border-transparent hover:border-white/[0.08] transition-all text-text-tertiary hover:text-text-primary"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <h3 className="font-medium text-text-primary text-base sm:text-lg min-w-[120px] text-center">
-                {format(currentMonth, 'MMMM yyyy', { locale: th })}
+      {/* Selected day header + "Start Now" CTA */}
+      <div className="card p-4 sm:p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-text-primary">
+            {selectedDate
+              ? `ตารางวันที่ ${format(selectedDate, 'd MMMM', { locale: th })}`
+              : "Today's Workshift"}
+          </h2>
+        </div>
+
+        {selectedShift ? (
+          <button
+            onClick={() => toast.info('เริ่มงาน', `${selectedShift.name} เริ่ม ${selectedShift.startTime || '-'}`)}
+            className="w-full btn btn-secondary text-base"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            เริ่มงานตอนนี้
+          </button>
+        ) : (
+          <button
+            onClick={() => setSelectedDate(selectedDate ?? today)}
+            className="w-full btn btn-primary text-base"
+          >
+            <Plus className="w-4 h-4" />
+            เพิ่มกะวันนี้
+          </button>
+        )}
+      </div>
+
+      {/* Shift list for selected day */}
+      {activeView === 'calendar' ? (
+        <div className="space-y-3">
+          {(() => {
+            const daySchedule = selectedDate ? getDaySchedule(selectedDate) : null;
+            if (!daySchedule) {
+              return (
+                <div className="card p-6 text-center text-text-tertiary text-sm">
+                  ไม่มีกะในวันนี้ — แตะปุ่มด้านบนเพื่อเพิ่ม
+                </div>
+              );
+            }
+            const shift = shiftTypes.find((t) => t.id === daySchedule.shiftTypeId);
+            if (!shift) return null;
+            const position = positions.find((p) => p.id === currentUser.positionId);
+            return (
+              <div className="card p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-brand/10 flex items-center justify-center shrink-0">
+                      <Briefcase className="w-5 h-5 text-brand" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-text-primary truncate">
+                        {position?.name || 'ไม่ระบุตำแหน่ง'}
+                      </p>
+                      <p className="text-xs text-text-tertiary truncate">
+                        {shift.name}
+                      </p>
+                    </div>
+                  </div>
+                  {shift.startTime && (
+                    <span className="badge badge-orange shrink-0">
+                      {shift.startTime}
+                    </span>
+                  )}
+                </div>
+
+                {(shift.startTime || shift.endTime) && (
+                  <div className="flex items-center gap-4 text-sm text-text-secondary pt-1">
+                    {shift.startTime && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-text-quaternary">เริ่ม</span>
+                        <span className="font-semibold">{shift.startTime}</span>
+                      </div>
+                    )}
+                    {shift.endTime && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-text-quaternary">ถึง</span>
+                        <span className="font-semibold">{shift.endTime}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {daySchedule.employeeNote && (
+                  <p className="text-xs text-text-tertiary pt-2 border-t border-border-solid">
+                    หมายเหตุ: {daySchedule.employeeNote}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* All-month compact calendar (collapsed) */}
+          <div className="card p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-text-primary text-sm">
+                ตารางเดือนนี้
               </h3>
-              <button
-                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                className="p-2 rounded-md hover:bg-white/[0.05] border border-transparent hover:border-white/[0.08] transition-all text-text-tertiary hover:text-text-primary"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setCurrentMonth(new Date())}
-                className="text-sm font-medium text-brand-accent hover:bg-brand/10 px-3 py-1.5 rounded-md transition-colors"
-              >
-                วันนี้
-              </button>
-              <div className="flex bg-bg-surface p-0.5 rounded-lg border border-white/[0.05]">
+              <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setActiveView('calendar')}
-                  className={cn(
-                    'px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5',
-                    activeView === 'calendar' ? 'bg-brand text-white' : 'text-text-tertiary hover:text-text-secondary'
-                  )}
+                  onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                  className="p-1.5 rounded-full text-text-tertiary hover:bg-bg-surface"
+                  aria-label="เดือนก่อนหน้า"
                 >
-                  <Clock className="w-3.5 h-3.5" />
-                  ปฏิทิน
+                  <CalIcon className="w-4 h-4" />
                 </button>
+                <span className="text-xs font-medium text-text-secondary min-w-[80px] text-center">
+                  {format(currentMonth, 'MMM yyyy', { locale: th })}
+                </span>
                 <button
-                  onClick={() => setActiveView('coverage')}
-                  className={cn(
-                    'px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5',
-                    activeView === 'coverage' ? 'bg-brand text-white' : 'text-text-tertiary hover:text-text-secondary'
-                  )}
+                  onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                  className="p-1.5 rounded-full text-text-tertiary hover:bg-bg-surface"
+                  aria-label="เดือนถัดไป"
                 >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  ตารางรวม
+                  <CalIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
-          </div>
-
-          {activeView === 'calendar' ? (
             <Calendar
               days={days}
               currentUser={currentUser}
@@ -268,89 +328,50 @@ export function EmployeeDashboard({
               onSelectDate={setSelectedDate}
               getDaySchedule={getDaySchedule}
             />
-          ) : (
-            <CoverageView
-              days={days}
-              employees={employees}
-              positions={positions}
-              schedules={schedules}
-              shiftTypes={shiftTypes}
-            />
-          )}
-        </section>
-
-        <section className="space-y-4 sm:space-y-5 order-2 lg:order-none">
-          <div className="card p-5">
-            <h3 className="font-medium text-text-primary mb-4 flex items-center gap-2 text-sm sm:text-base">
-              <Clock className="w-5 h-5 text-brand" />
-              สรุปความคืบหน้า
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-tertiary font-medium">กะที่อนุมัติแล้ว</span>
-                <span className="text-sm font-medium text-success">{approvedDays} วัน</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-tertiary font-medium">รอการอนุมัติ</span>
-                <span className="text-sm font-medium text-warn">{pendingDays} วัน</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-tertiary font-medium">วันหยุดคงเหลือ</span>
-                <span className="text-sm font-medium text-text-primary">{remainingOffDays} วัน</span>
-              </div>
-              <div className="pt-3 border-t border-white/[0.05]">
-                <div className="w-full bg-white/[0.05] h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-brand h-full rounded-full transition-all duration-500"
-                    style={{ width: `${progressPercent}%` }}
-                  ></div>
-                </div>
-                <p className="text-[10px] font-medium text-text-quaternary mt-2 uppercase tracking-wider">
-                  ความคืบหน้าของเดือน: {progressPercent}%
-                </p>
-              </div>
-            </div>
           </div>
+        </div>
+      ) : (
+        <div className="card p-4 sm:p-5">
+          <CoverageView
+            days={days}
+            employees={employees}
+            positions={positions}
+            schedules={schedules}
+            shiftTypes={shiftTypes}
+          />
+        </div>
+      )}
 
-          {pendingSwaps.length > 0 && (
-            <div className="card p-5 animate-fade-in">
-              <h3 className="font-medium text-text-primary mb-4 flex items-center gap-2 text-sm sm:text-base">
-                <Users className="w-5 h-5 text-brand" />
-                รายการขอสลับกะ
-              </h3>
-              <div className="space-y-2">
-                {pendingSwaps.map((s) => {
-                  const targetEmp = employees.find((e) => e.id === s.swapWithId);
-                  return (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between p-3 bg-brand/10 rounded-lg border border-brand/20"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-md bg-brand/15 flex items-center justify-center text-brand-accent">
-                          <Clock className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-text-primary">
-                            {format(new Date(s.date), 'd MMM', { locale: th })}
-                          </p>
-                          <p className="text-[10px] font-medium text-brand-accent">
-                            สลับกับ {targetEmp?.fullName}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="pill text-warn border-warn/30">รออนุมัติ</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </section>
+      {/* Bottom view switcher (mobile) */}
+      <div className="sm:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
+        <div className="flex bg-bg-panel/90 backdrop-blur-xl border border-border-solid rounded-full p-1 shadow-overlay">
+          <button
+            onClick={() => setActiveView('calendar')}
+            className={cn(
+              'px-4 py-2 rounded-full text-xs font-semibold transition-all',
+              activeView === 'calendar'
+                ? 'bg-brand text-white'
+                : 'text-text-tertiary'
+            )}
+          >
+            ของฉัน
+          </button>
+          <button
+            onClick={() => setActiveView('coverage')}
+            className={cn(
+              'px-4 py-2 rounded-full text-xs font-semibold transition-all',
+              activeView === 'coverage'
+                ? 'bg-brand text-white'
+                : 'text-text-tertiary'
+            )}
+          >
+            ทั้งทีม
+          </button>
+        </div>
       </div>
 
       <ShiftEditor
-        open={selectedDate !== null}
+        open={selectedDate !== null && !selectedSchedule}
         selectedDate={selectedDate}
         currentUser={currentUser}
         employees={employees}

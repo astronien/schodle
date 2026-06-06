@@ -363,7 +363,7 @@ export function ManagerDashboard({
         </div>
       </div>
 
-      <div className="sticky top-[calc(3.5rem+1px)] z-20 rounded-2xl border border-white/[0.08] bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4">
+      <div className="sticky top-[calc(3.5rem+1px)] z-20 rounded-2xl border border-border-solid bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
             <button
@@ -391,7 +391,7 @@ export function ManagerDashboard({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                className="px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-text-tertiary hover:text-text-primary transition-colors"
+                className="px-3 py-2 rounded-lg bg-bg-surface hover:bg-bg-surface text-text-tertiary hover:text-text-primary transition-colors"
                 title="เดือนก่อนหน้า"
               >
                 ‹
@@ -408,7 +408,7 @@ export function ManagerDashboard({
             </div>
             <button
               onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-              className="px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-text-tertiary hover:text-text-primary transition-colors"
+              className="px-3 py-2 rounded-lg bg-bg-surface hover:bg-bg-surface text-text-tertiary hover:text-text-primary transition-colors"
               title="เดือนถัดไป"
             >
               ›

@@ -1,47 +1,47 @@
 @import "tailwindcss";
 
-/* ── Linear Open Design System (nexu-io/open-design) ── */
+/* ── Soft Organic Light Theme (v2) ── */
 @theme {
-  /* Background Surfaces */
-  --color-bg-primary: #050608;
-  --color-bg-panel: #0b1020;
-  --color-bg-surface: #101828;
-  --color-bg-elevated: #17233a;
+  /* Background Surfaces — warm cream palette */
+  --color-bg-primary: #f5f1ea;
+  --color-bg-panel: #ffffff;
+  --color-bg-surface: #faf7f1;
+  --color-bg-elevated: #ffffff;
 
   /* Text */
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #d9e6ff;
-  --color-text-tertiary: #95a6c6;
-  --color-text-quaternary: #6f809f;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #4a4a4a;
+  --color-text-tertiary: #8a8a8a;
+  --color-text-quaternary: #b8b3a8;
 
-  /* Brand */
-  --color-brand: #2f80ff;
-  --color-brand-accent: #4fd1c5;
-  --color-brand-hover: #63a4ff;
-  --color-brand-muted: #6fb7ff;
+  /* Brand — warm coral / sage green */
+  --color-brand: #e8825a;
+  --color-brand-accent: #5f8a6b;
+  --color-brand-hover: #d96f48;
+  --color-brand-muted: #f4a988;
 
   /* Status */
-  --color-success: #27a644;
-  --color-success-secondary: #10b981;
+  --color-success: #5f8a6b;
+  --color-success-secondary: #7ba687;
   --color-warn: #eab308;
   --color-danger: #dc2626;
 
   /* Solid borders */
-  --color-border-solid: #23252a;
-  --color-border-solid-light: #34343a;
+  --color-border-solid: #ebe5d8;
+  --color-border-solid-light: #e0d9c8;
 
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 22px;
+  /* Radius — softer, more organic */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
   --radius-pill: 9999px;
 
-  /* Shadows */
-  --shadow-card: 0 0 0 1px rgba(0,0,0,0.2);
-  --shadow-raised: 0 4px 12px rgba(0,0,0,0.1);
-  --shadow-overlay: 0 25px 50px -12px rgba(0,0,0,0.5);
+  /* Shadows — soft, low-contrast */
+  --shadow-card: 0 2px 8px rgba(120, 100, 70, 0.06), 0 0 0 1px rgba(120, 100, 70, 0.04);
+  --shadow-raised: 0 8px 24px rgba(120, 100, 70, 0.10);
+  --shadow-overlay: 0 25px 50px -12px rgba(120, 100, 70, 0.20);
 
   /* Font */
   --font-sans: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -95,36 +95,37 @@
     font-family: var(--font-sans);
     color: var(--color-text-secondary);
     background:
-      radial-gradient(circle at top left, rgba(47, 128, 255, 0.14), transparent 26%),
-      radial-gradient(circle at top right, rgba(79, 209, 197, 0.12), transparent 24%),
-      linear-gradient(180deg, #050608 0%, #070b12 100%);
-    background-color: var(--color-bg-primary);
+      radial-gradient(circle at 20% 0%, rgba(232, 130, 90, 0.08), transparent 40%),
+      radial-gradient(circle at 80% 100%, rgba(95, 138, 107, 0.06), transparent 40%),
+      var(--color-bg-primary);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
 
   ::selection {
-    background-color: rgba(47, 128, 255, 0.35);
+    background-color: rgba(232, 130, 90, 0.25);
     color: var(--color-text-primary);
   }
 }
 
 @layer components {
-  /* Translucent card — never solid */
+  /* Soft, white cards with subtle warm shadow */
   .card {
-    background: linear-gradient(180deg, rgba(18, 28, 49, 0.92), rgba(10, 16, 29, 0.92));
-    border: 1px solid rgba(147, 197, 253, 0.10);
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border-solid);
     border-radius: var(--radius-2xl);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.03);
+    box-shadow: 0 2px 8px rgba(120, 100, 70, 0.04), 0 0 0 1px rgba(120, 100, 70, 0.03);
     transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
   }
 
   .card:hover {
-    border-color: rgba(147, 197, 253, 0.18);
+    border-color: var(--color-border-solid-light);
     transform: translateY(-1px);
   }
 
   .card-hover:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--color-bg-surface);
+    border-color: var(--color-border-solid-light);
   }
 
   /* Buttons */
@@ -133,71 +134,84 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border-radius: var(--radius-md);
-    font-size: 0.8125rem;
-    font-weight: 510;
+    border-radius: var(--radius-pill);
+    font-size: 0.875rem;
+    font-weight: 600;
     line-height: 1.25rem;
-    transition: all 0.12s ease;
+    transition: all 0.15s ease;
     white-space: nowrap;
     cursor: pointer;
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, var(--color-brand), var(--color-brand-accent));
+    background: var(--color-brand);
     color: #ffffff;
-    padding: 8px 16px;
-    box-shadow: 0 10px 24px rgba(47, 128, 255, 0.22);
+    padding: 12px 24px;
+    box-shadow: 0 6px 16px rgba(232, 130, 90, 0.28);
   }
 
   .btn-primary:hover {
-    filter: brightness(1.05);
+    background: var(--color-brand-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(232, 130, 90, 0.35);
   }
 
   .btn-primary:active {
-    transform: translateY(0.5px);
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    background: var(--color-success);
+    color: #ffffff;
+    padding: 12px 24px;
+    box-shadow: 0 6px 16px rgba(95, 138, 107, 0.28);
+  }
+
+  .btn-secondary:hover {
+    background: var(--color-success-secondary);
+    transform: translateY(-1px);
   }
 
   .btn-ghost {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--color-bg-panel);
     color: var(--color-text-secondary);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 8px 16px;
+    border: 1px solid var(--color-border-solid);
+    padding: 10px 20px;
   }
 
   .btn-ghost:hover {
-    background: rgba(79, 209, 197, 0.08);
+    background: var(--color-bg-surface);
     color: var(--color-text-primary);
-    border-color: rgba(79, 209, 197, 0.18);
+    border-color: var(--color-border-solid-light);
   }
 
   .btn-subtle {
-    background: rgba(255, 255, 255, 0.04);
+    background: transparent;
     color: var(--color-text-secondary);
-    padding: 0px 6px;
-    border-radius: var(--radius-md);
+    padding: 6px 12px;
   }
 
   .btn-subtle:hover {
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--color-bg-surface);
     color: var(--color-text-primary);
   }
 
   /* Inputs */
   .input-field {
     width: 100%;
-    padding: 10px 14px;
-    border: 1px solid rgba(147, 197, 253, 0.12);
-    border-radius: var(--radius-xl);
-    background: rgba(255, 255, 255, 0.03);
-    font-size: 0.875rem;
-    color: var(--color-text-secondary);
-    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    padding: 12px 16px;
+    border: 1px solid var(--color-border-solid);
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-panel);
+    font-size: 0.9375rem;
+    color: var(--color-text-primary);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   .input-field:focus {
     outline: none;
-    border-color: var(--color-brand-accent);
-    box-shadow: 0 0 0 3px rgba(79, 209, 197, 0.12);
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 4px rgba(232, 130, 90, 0.12);
   }
 
   .input-field::placeholder {
@@ -209,23 +223,67 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0px 8px 0px 2px;
-    border-radius: 2px;
-    font-size: 10px;
-    font-weight: 510;
-    letter-spacing: 0.01em;
-    line-height: 1.4rem;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .badge-orange {
+    background: var(--color-brand);
+    color: #ffffff;
+  }
+
+  .badge-green {
+    background: var(--color-success);
+    color: #ffffff;
+  }
+
+  .badge-light {
+    background: var(--color-bg-surface);
+    color: var(--color-text-secondary);
   }
 
   .pill {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0px 10px 0px 5px;
+    padding: 6px 14px;
     border-radius: var(--radius-pill);
     font-size: 12px;
-    font-weight: 510;
-    border: 1px solid rgb(35, 37, 42);
+    font-weight: 500;
+    border: 1px solid var(--color-border-solid);
+    background: var(--color-bg-panel);
+    color: var(--color-text-secondary);
+  }
+
+  /* Day pill selector */
+  .day-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 72px;
+    border-radius: var(--radius-2xl);
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border-solid);
+    color: var(--color-text-secondary);
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .day-pill:hover {
+    background: var(--color-bg-surface);
+  }
+
+  .day-pill[data-active="true"] {
+    background: var(--color-brand);
+    border-color: var(--color-brand);
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(232, 130, 90, 0.30);
   }
 
   /* Scrollbar */
@@ -239,12 +297,12 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(120, 100, 70, 0.18);
     border-radius: 9999px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(120, 100, 70, 0.30);
   }
 
   .safe-top {
@@ -255,4 +313,3 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
-

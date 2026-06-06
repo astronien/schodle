@@ -62,7 +62,7 @@ export function Calendar({
                     ? 'bg-danger/10 border-danger/30'
                     : schedule?.status === 'pending'
                     ? 'bg-warn/10 border-warn/30'
-                    : 'bg-bg-surface border-white/[0.05] hover:border-white/[0.12] hover:bg-white/[0.03]'
+                    : 'bg-bg-surface border-border-solid hover:border-border-solid-light hover:bg-white/[0.03]'
                 )}
               >
                 <span
@@ -122,7 +122,7 @@ export function Calendar({
         </div>
       </div>
 
-      <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-white/[0.05] flex gap-2 overflow-x-auto custom-scrollbar text-[10px]">
+      <div className="px-4 sm:px-5 py-3 bg-white/[0.02] border-t border-border-solid flex gap-2 overflow-x-auto custom-scrollbar text-[10px]">
         {shiftTypes
           .filter((t) => t.isVisible)
           .slice(0, 6)

@@ -37,7 +37,7 @@ export function CellEditor({
         className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       ></div>
-      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-white/[0.08]">
+      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-border-solid">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
         <div className="p-5">
           <div className="flex items-center justify-between mb-5">
@@ -49,7 +49,7 @@ export function CellEditor({
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 bg-white/[0.04] rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white/[0.07] transition-colors"
+              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
             >
               <XCircle className="w-5 h-5" />
             </button>
@@ -72,7 +72,7 @@ export function CellEditor({
                         ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
                         : isDisabled
                         ? 'border-white/[0.03] bg-white/[0.02] opacity-40 cursor-not-allowed'
-                        : 'border-white/[0.05] hover:border-white/[0.12] bg-bg-surface'
+                        : 'border-border-solid hover:border-border-solid-light bg-bg-surface'
                     )}
                   >
                     <div className="flex items-center gap-3">

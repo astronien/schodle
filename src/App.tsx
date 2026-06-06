@@ -206,7 +206,7 @@ function AppShell() {
           <Suspense fallback={<DashboardFallback />}>
             {effectiveRole === 'employee' ? (
               <>
-                <div className="sm:hidden mb-4 rounded-2xl border border-white/[0.08] bg-bg-surface/80 backdrop-blur px-3 py-2">
+                <div className="sm:hidden mb-4 rounded-2xl border border-border-solid bg-bg-surface/80 backdrop-blur px-3 py-2">
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <div>
                       <p className="text-text-quaternary uppercase tracking-[0.16em] font-semibold">มุมมองปัจจุบัน</p>
@@ -292,7 +292,7 @@ function AppShell() {
                                 </div>
 
                                 {(s.employeeNote || s.managerRemark) && (
-                                  <div className="space-y-2 mt-3 pt-3 border-t border-white/[0.05]">
+                                  <div className="space-y-2 mt-3 pt-3 border-t border-border-solid">
                                     {s.employeeNote && (
                                       <div className="flex gap-2">
                                         <div className="text-[10px] font-bold text-text-quaternary uppercase shrink-0">คำขอ:</div>
