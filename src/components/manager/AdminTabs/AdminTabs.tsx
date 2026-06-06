@@ -1,20 +1,13 @@
-import { cn } from '../../../lib/utils';
 import { PositionGroupManager } from '../PositionGroupManager';
 import type { AppSettings, Employee, Position, PositionGroup, ShiftType } from '../../../types';
+import { AdminSidebar, AdminMobileSubTabs } from '../AdminSidebar';
+import type { AdminTabId } from '../AdminSidebar';
 import { EmployeesTab } from './EmployeesTab';
 import { ShiftTypesTab } from './ShiftTypesTab';
 import { PositionsTab } from './PositionsTab';
 import { SettingsTab } from './SettingsTab';
 
-export type AdminTabId = 'employees' | 'shifts' | 'positions' | 'groups' | 'settings';
-
-const ADMIN_TABS: Array<{ id: AdminTabId; label: string }> = [
-  { id: 'employees', label: 'พนักงาน' },
-  { id: 'shifts', label: 'กะงาน' },
-  { id: 'positions', label: 'ตำแหน่ง' },
-  { id: 'groups', label: 'กลุ่ม' },
-  { id: 'settings', label: 'ตั้งค่าแอป' },
-];
+export type { AdminTabId };
 
 interface AdminTabsProps {
   activeTab: AdminTabId;
@@ -83,85 +76,87 @@ export function AdminTabs({
   isSubscribing,
   onEnableNotifications,
 }: AdminTabsProps) {
+  const counts: Partial<Record<AdminTabId, number>> = {
+    employees: employees.length,
+    shifts: shiftTypes.length,
+    positions: positions.length,
+    groups: positionGroupsForManager.length,
+  };
+
   return (
-    <div className="card p-5 sm:p-6 rounded-xl">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-1.5 h-6 bg-brand rounded-full"></div>
+    <div className="card p-4 sm:p-6 rounded-2xl">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-1.5 h-6 bg-brand rounded-full" />
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight">
             จัดการระบบ
           </h2>
-        </div>
-        <div className="flex bg-bg-surface p-1 rounded-lg">
-          {ADMIN_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={cn(
-                'px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all',
-                activeTab === tab.id
-                  ? 'bg-bg-surface text-brand-accent shadow-sm'
-                  : 'text-text-tertiary hover:text-text-secondary'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <p className="text-xs text-text-tertiary">
+            ตั้งค่าพนักงาน กะงาน ตำแหน่ง และกลุ่มทั้งหมด
+          </p>
         </div>
       </div>
 
-      {activeTab === 'employees' && (
-        <EmployeesTab
-          employees={employees}
-          positions={positions}
-          positionGroups={positionGroups}
-          search={employeeSearch}
-          onSearchChange={onEmployeeSearchChange}
-          onOpenWeeklyOff={onOpenWeeklyOff}
-          onDeleteEmployee={onDeleteEmployee}
-          createEmployee={createEmployee}
-        />
-      )}
+      <AdminMobileSubTabs activeTab={activeTab} onChangeTab={onTabChange} counts={counts} />
 
-      {activeTab === 'shifts' && (
-        <ShiftTypesTab
-          shiftTypes={shiftTypes}
-          onCreate={createShiftType}
-          onUpdate={updateShiftType}
-          onDelete={deleteShiftType}
-        />
-      )}
+      <div className="flex gap-4 lg:gap-6 items-start mt-4">
+        <AdminSidebar activeTab={activeTab} onChangeTab={onTabChange} counts={counts} />
 
-      {activeTab === 'positions' && (
-        <PositionsTab
-          employees={employees}
-          positions={positions}
-          onCreate={createPosition}
-          onUpdate={updatePosition}
-          onDelete={deletePosition}
-          onUpdateEmployee={updateEmployee}
-        />
-      )}
+        <div className="flex-1 min-w-0">
+          {activeTab === 'employees' && (
+            <EmployeesTab
+              employees={employees}
+              positions={positions}
+              positionGroups={positionGroups}
+              search={employeeSearch}
+              onSearchChange={onEmployeeSearchChange}
+              onOpenWeeklyOff={onOpenWeeklyOff}
+              onDeleteEmployee={onDeleteEmployee}
+              createEmployee={createEmployee}
+            />
+          )}
 
-      {activeTab === 'groups' && (
-        <PositionGroupManager
-          groups={positionGroupsForManager}
-          employees={employees}
-          createGroup={createPositionGroup}
-          updateGroup={updatePositionGroup}
-          deleteGroup={deletePositionGroup}
-          updateEmployee={updateEmployee}
-        />
-      )}
+          {activeTab === 'shifts' && (
+            <ShiftTypesTab
+              shiftTypes={shiftTypes}
+              onCreate={createShiftType}
+              onUpdate={updateShiftType}
+              onDelete={deleteShiftType}
+            />
+          )}
 
-      {activeTab === 'settings' && (
-        <SettingsTab
-          settings={settings}
-          onSave={updateSettings}
-          onEnableNotifications={onEnableNotifications}
-          isSubscribing={isSubscribing}
-        />
-      )}
+          {activeTab === 'positions' && (
+            <PositionsTab
+              employees={employees}
+              positions={positions}
+              onCreate={createPosition}
+              onUpdate={updatePosition}
+              onDelete={deletePosition}
+              onUpdateEmployee={updateEmployee}
+            />
+          )}
+
+          {activeTab === 'groups' && (
+            <PositionGroupManager
+              groups={positionGroupsForManager}
+              employees={employees}
+              createGroup={createPositionGroup}
+              updateGroup={updatePositionGroup}
+              deleteGroup={deletePositionGroup}
+              updateEmployee={updateEmployee}
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsTab
+              settings={settings}
+              onSave={updateSettings}
+              onEnableNotifications={onEnableNotifications}
+              isSubscribing={isSubscribing}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
