@@ -17,6 +17,7 @@ type ScheduleRow = {
   shift_type_id: string;
   status: ScheduleEntry['status'];
   request_type: ScheduleEntry['requestType'];
+  created_by: string | null;
   employee_note: string | null;
   manager_remark: string | null;
   swap_with_id: string | null;
@@ -32,6 +33,7 @@ function mapScheduleRow(row: ScheduleRow): ScheduleEntry {
     shiftTypeId: row.shift_type_id,
     status: row.status,
     requestType: row.request_type,
+    createdBy: (row.created_by as ScheduleEntry['createdBy']) || undefined,
     employeeNote: row.employee_note || undefined,
     managerRemark: row.manager_remark || undefined,
     swapWithId: row.swap_with_id || undefined,
@@ -307,6 +309,7 @@ export function useData() {
           shift_type_id: entry.shiftTypeId,
           status: entry.status,
           request_type: entry.requestType,
+          created_by: entry.createdBy || null,
           employee_note: entry.employeeNote || null,
           manager_remark: entry.managerRemark || null,
           swap_with_id: entry.swapWithId || null,

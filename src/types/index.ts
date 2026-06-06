@@ -44,6 +44,7 @@ export type Employee = {
 
 export type ScheduleStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'pending';
 export type RequestType = 'leave' | 'swap' | 'shift_change' | 'late_scan' | 'off_request';
+export type CreatedBy = 'employee' | 'manager' | 'system';
 
 export type ScheduleEntry = {
   id: string;
@@ -52,6 +53,7 @@ export type ScheduleEntry = {
   shiftTypeId: string;
   status: ScheduleStatus;
   requestType: RequestType;
+  createdBy?: CreatedBy;
   employeeNote?: string;
   managerRemark?: string;
   swapWithId?: string;

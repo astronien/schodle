@@ -102,6 +102,7 @@ export function EmployeeDashboard({
         shiftTypeId: shiftId,
         status: needsManager ? 'pending' : 'approved',
         requestType: isLateScan ? 'late_scan' : 'shift_change',
+        createdBy: 'employee',
         employeeNote: reason || '',
         evidenceUrl,
         revertShiftTypeId:
@@ -134,6 +135,8 @@ export function EmployeeDashboard({
         ...existing,
         status: 'pending',
         swapWithId: targetEmployeeId,
+        createdBy: 'employee',
+        requestType: 'swap',
         employeeNote: `ขอสลับกะกับ ${targetEmp?.fullName}`,
       });
       setSelectedDate(null);

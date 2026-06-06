@@ -123,6 +123,7 @@ export function generateSmartSchedule({
         date: dateStr,
         status: 'approved',
         requestType: 'shift_change',
+        createdBy: 'system',
       });
       assignedThisDay.add(emp.id);
     }
@@ -206,6 +207,7 @@ export function generateSmartSchedule({
           date: dateStr,
           status: 'approved',
           requestType: 'shift_change',
+          createdBy: 'system',
         });
         assignedThisDay.add(employee.id);
         remainingByType.set(shiftTypeId, (remainingByType.get(shiftTypeId) || 0) - 1);

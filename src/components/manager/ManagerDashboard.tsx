@@ -172,7 +172,7 @@ export function ManagerDashboard({
     try {
       const existing = schedules.find((s) => s.employeeId === employeeId && s.date === date);
       if (existing) {
-        await updateSchedule({ ...existing, shiftTypeId, status: 'approved' });
+        await updateSchedule({ ...existing, shiftTypeId, status: 'approved', createdBy: 'manager' });
       } else {
         await updateSchedule({
           id: crypto.randomUUID(),
@@ -181,6 +181,7 @@ export function ManagerDashboard({
           shiftTypeId,
           status: 'approved',
           requestType: 'shift_change',
+          createdBy: 'manager',
         });
       }
       setEditingCell(null);
@@ -235,7 +236,7 @@ export function ManagerDashboard({
           const existing = schedules.find((s) => s.employeeId === emp.id && s.date === date);
           if (existing) {
             if (existing.shiftTypeId !== xShift.id) {
-              await updateSchedule({ ...existing, shiftTypeId: xShift.id, status: 'approved' });
+              await updateSchedule({ ...existing, shiftTypeId: xShift.id, status: 'approved', createdBy: 'manager' });
             }
           } else {
             await updateSchedule({
@@ -245,6 +246,7 @@ export function ManagerDashboard({
               shiftTypeId: xShift.id,
               status: 'approved',
               requestType: 'shift_change',
+              createdBy: 'manager',
             });
           }
         }

@@ -254,15 +254,33 @@ function AppShell() {
                       <p className="text-xs text-text-tertiary">ติดตามสถานะคำขอลาและวันหยุดของคุณ</p>
                     </div>
 
-                    {schedules.filter((s) => s.employeeId === currentUser?.id).length > 0 ? (
-                      <div className="space-y-3 px-4">
-                        {schedules
-                          .filter((s) => s.employeeId === currentUser?.id)
-                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                          .map((s) => {
+                    {(() => {
+                      const myRequests = schedules
+                        .filter(
+                          (s) =>
+                            s.employeeId === currentUser?.id &&
+                            s.createdBy === 'employee' &&
+                            (s.status === 'approved' || s.status === 'pending'),
+                        )
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                      if (myRequests.length === 0) {
+                        return (
+                          <div className="card p-10 text-center mx-4">
+                            <div className="w-16 h-16 bg-bg-surface rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
+                              <Clock className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-lg font-medium text-text-primary mb-1">ยังไม่มีรายการ</h3>
+                            <p className="text-sm text-text-tertiary">คุณยังไม่ได้ส่งคำขอลาหรือวันหยุดในขณะนี้</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-3 px-4">
+                          {myRequests.map((s) => {
                             const sType = shiftTypes.find((t) => t.id === s.shiftTypeId);
                             const isApproved = s.status === 'approved';
-                            const isRejected = s.status === 'rejected';
 
                             return (
                               <div
@@ -270,10 +288,8 @@ function AppShell() {
                                 className={cn(
                                   'p-4 rounded-2xl border transition-all duration-200 animate-fade-in',
                                   isApproved
-                                    ? 'bg-success/5 border-success/20 shadow-[0_0_15px_rgba(34,197,94,0.05)]'
-                                    : isRejected
-                                    ? 'bg-error/5 border-error/20'
-                                    : 'bg-warn/5 border-warn/20'
+                                    ? 'bg-success/10 border-success/30'
+                                    : 'bg-warn/10 border-warn/30',
                                 )}
                               >
                                 <div className="flex justify-between items-start mb-3">
@@ -281,7 +297,7 @@ function AppShell() {
                                     <div
                                       className={cn(
                                         'w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm',
-                                        isApproved ? 'bg-success' : isRejected ? 'bg-error' : 'bg-warn'
+                                        isApproved ? 'bg-success' : 'bg-warn',
                                       )}
                                     >
                                       {sType?.code || '??'}
@@ -296,10 +312,10 @@ function AppShell() {
                                   <div
                                     className={cn(
                                       'text-[10px] font-bold px-2 py-1 rounded-lg',
-                                      isApproved ? 'bg-success/20 text-success' : isRejected ? 'bg-error/20 text-error' : 'bg-warn/20 text-warn'
+                                      isApproved ? 'bg-success/20 text-success' : 'bg-warn/20 text-warn',
                                     )}
                                   >
-                                    {isApproved ? 'อนุมัติแล้ว' : isRejected ? 'ปฏิเสธ' : 'รออนุมัติ'}
+                                    {isApproved ? 'อนุมัติแล้ว' : 'รออนุมัติ'}
                                   </div>
                                 </div>
 
@@ -322,16 +338,9 @@ function AppShell() {
                               </div>
                             );
                           })}
-                      </div>
-                    ) : (
-                      <div className="card p-10 text-center mx-4">
-                        <div className="w-16 h-16 bg-bg-surface rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
-                          <Clock className="w-8 h-8" />
                         </div>
-                        <h3 className="text-lg font-medium text-text-primary mb-1">ยังไม่มีรายการ</h3>
-                        <p className="text-sm text-text-tertiary">คุณยังไม่ได้ส่งคำขอลาหรือวันหยุดในขณะนี้</p>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
                 {activeMobileTab === 'settings' && (

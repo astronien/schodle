@@ -251,3 +251,47 @@ grant insert, update, delete on public.shift_types to service_role;
 grant insert, update, delete on public.positions to service_role;
 
 grant execute on function public.swap_schedule_shifts(uuid, uuid) to service_role;
+
+-- ===== 013_add_created_by.sql =====
+-- Adds a 'created_by' column to schedules so we can distinguish
+-- entries the employee submitted (ShiftEditor / late scan / swap
+-- request) from those the manager assigned or the AI generator
+-- auto-filled. The employee-facing "ระบบขอลา" tab will only
+-- surface entries where created_by = 'employee'.
+
+alter table public.schedules
+  add column if not exists created_by text
+    check (created_by in ('employee', 'manager', 'system'));
+
+-- Backfill existing rows with a conservative best-effort value:
+--   * status = 'pending' is only ever produced by an employee
+--     submission (the editor only writes pending when the shift
+--     requires manager approval).
+--   * request_type 'late_scan', 'leave', 'off_request', 'swap' are
+--     employee-initiated.
+--   * 'shift_change' is ambiguous (used by both editor and
+--     manager/AI), so we default those to 'manager' to keep
+--     the employee tab clean.
+update public.schedules
+set created_by = case
+  when status = 'pending' then 'employee'
+  when request_type in ('late_scan', 'leave', 'off_request', 'swap') then 'employee'
+  else 'manager'
+end
+where created_by is null;
+
+-- Add an index for fast employee-tab lookups
+create index if not exists schedules_employee_created_by_idx
+  on public.schedules (employee_id, created_by, status, date);
+
+-- Drop the existing "Allow employee" all-access policy from
+-- migration 010 and replace it with a tighter version that also
+-- lets employees update their own pending requests through the
+-- normal client path (not the Edge Function).
+drop policy if exists "Allow employees to update own pending" on public.schedules;
+create policy "Allow employees to update own pending"
+  on public.schedules
+  for update
+  to authenticated
+  using (employee_id = (select id from public.employees where id = auth.uid()))
+  with check (employee_id = (select id from public.employees where id = auth.uid()));
