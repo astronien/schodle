@@ -225,7 +225,7 @@ async function invokeSendPush(body: Record<string, unknown>): Promise<PushResult
       { body, headers: { Authorization: `Bearer ${token}` } },
     );
     if (error) {
-      const serverMsg = (data as { error?: string } | null)?.error;
+      const serverMsg = await extractServerError(error);
       return {
         success: false,
         error: serverMsg
@@ -242,6 +242,17 @@ async function invokeSendPush(body: Record<string, unknown>): Promise<PushResult
       success: false,
       error: `เรียก Edge Function ไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`,
     };
+  }
+}
+
+async function extractServerError(error: { context?: Response; message?: string }): Promise<string | null> {
+  const ctx = error.context;
+  if (!ctx || typeof ctx.json !== 'function') return null;
+  try {
+    const body = (await ctx.json()) as { error?: string } | null;
+    return body?.error ?? null;
+  } catch {
+    return null;
   }
 }
 
