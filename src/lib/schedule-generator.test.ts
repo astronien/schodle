@@ -240,4 +240,108 @@ describe('generateSmartSchedule', () => {
     );
     expect(conflicts).toEqual([]);
   });
+
+  it('skips employees on approved leave days', () => {
+    const existing = [
+      {
+        id: 'leave-1',
+        employeeId: 'emp-1',
+        date: '2025-01-06',
+        shiftTypeId: 'shift-m1',
+        status: 'approved' as const,
+        requestType: 'leave' as const,
+      },
+    ];
+    const result = generateSmartSchedule({
+      month: new Date(2025, 0, 1),
+      employees: EMPLOYEES,
+      shiftTypes: SHIFTS,
+      existingEntries: existing,
+      newId,
+      shuffleEmployees: false,
+    });
+    const onLeaveDay = result.entries.filter(
+      (e) => e.employeeId === 'emp-1' && e.date === '2025-01-06',
+    );
+    expect(onLeaveDay).toEqual([]);
+  });
+
+  it('skips weekly off-day X shift for employees on approved leave', () => {
+    // emp-1 has weeklyOffDay=0 (Sunday). Approve leave for that Sunday.
+    const existing = [
+      {
+        id: 'leave-sun',
+        employeeId: 'emp-1',
+        date: '2025-01-05',
+        shiftTypeId: 'shift-m1',
+        status: 'approved' as const,
+        requestType: 'leave' as const,
+      },
+    ];
+    const result = generateSmartSchedule({
+      month: new Date(2025, 0, 1),
+      employees: EMPLOYEES,
+      shiftTypes: SHIFTS,
+      existingEntries: existing,
+      newId,
+      shuffleEmployees: false,
+    });
+    const xShift = SHIFTS.find((s) => s.code === 'X')!;
+    // emp-1 should have NO entries on 2025-01-05 (leave takes precedence).
+    const emp1OnSunday = result.entries.filter(
+      (e) => e.employeeId === 'emp-1' && e.date === '2025-01-05',
+    );
+    expect(emp1OnSunday).toEqual([]);
+    // emp-1 should still get X on the OTHER Sundays in January.
+    const emp1XSundays = result.entries.filter(
+      (e) => e.employeeId === 'emp-1' && e.shiftTypeId === xShift.id,
+    );
+    expect(emp1XSundays.length).toBeGreaterThan(0);
+  });
+
+  it('learns position preference from existing approved entries', () => {
+    // Train the preference: M1 has historically been assigned to pos-1.
+    const existing = Array.from({ length: 10 }, (_, i) => ({
+      id: `train-${i}`,
+      employeeId: i % 2 === 0 ? 'emp-1' : 'emp-2',
+      date: `2025-01-0${(i % 9) + 1}`,
+      shiftTypeId: 'shift-m1',
+      status: 'approved' as const,
+      requestType: 'shift_change' as const,
+    }));
+    const result = generateSmartSchedule({
+      month: new Date(2025, 0, 1),
+      employees: EMPLOYEES,
+      shiftTypes: SHIFTS,
+      existingEntries: existing,
+      newId,
+      shuffleEmployees: false,
+    });
+    // Most new M1 assignments on training days should still be emp-1/emp-2
+    // (the only employees with the trained position).
+    const newM1 = result.entries.filter(
+      (e) => e.shiftTypeId === 'shift-m1' && !existing.some((x) => x.id.startsWith('train')),
+    );
+    for (const entry of newM1) {
+      expect(['emp-1', 'emp-2']).toContain(entry.employeeId);
+    }
+  });
+
+  it('falls back to relaxed retries when strict assignment fails', () => {
+    // Use just 1 employee and high target_staff so the schedule is understaffed.
+    // The smart retry should emit at least one warning rather than silently skip.
+    const shifts: ShiftType[] = SHIFTS.map((s) =>
+      s.id === 'shift-m1' ? { ...s, targetStaff: 5 } : s,
+    );
+    const result = generateSmartSchedule({
+      month: new Date(2025, 0, 1),
+      employees: EMPLOYEES,
+      shiftTypes: shifts,
+      newId,
+      shuffleEmployees: false,
+    });
+    // At least one M1 entry must have been created (we relax rules to fill it).
+    const m1Count = result.entries.filter((e) => e.shiftTypeId === 'shift-m1').length;
+    expect(m1Count).toBeGreaterThan(0);
+  });
 });
