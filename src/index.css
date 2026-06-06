@@ -4,9 +4,9 @@
 @theme {
   /* Background — warm cream with light tints (visible through glass) */
   --color-bg-primary: #ede4d3;
-  --color-bg-panel: rgba(255, 255, 255, 0.65);
-  --color-bg-surface: rgba(255, 255, 255, 0.45);
-  --color-bg-elevated: rgba(250, 247, 241, 0.55);
+  --color-bg-panel: rgba(255, 255, 255, 0.85);
+  --color-bg-surface: rgba(255, 255, 255, 0.65);
+  --color-bg-elevated: rgba(250, 247, 241, 0.75);
 
   /* Text */
   --color-text-primary: #1a1a1a;
@@ -27,8 +27,8 @@
   --color-danger: #dc2626;
 
   /* Solid borders — softer, glass-like */
-  --color-border-solid: rgba(255, 255, 255, 0.55);
-  --color-border-solid-light: rgba(255, 255, 255, 0.85);
+  --color-border-solid: rgba(120, 100, 70, 0.14);
+  --color-border-solid-light: rgba(120, 100, 70, 0.22);
 
   /* Radius — softer, more organic */
   --radius-sm: 6px;
@@ -122,7 +122,7 @@
   }
 
   .card:hover {
-    background: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.92);
     border-color: var(--color-border-solid-light);
   }
 
@@ -133,11 +133,11 @@
 
   /* Glass nav — strong frosted */
   .glass-nav {
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.72);
     -webkit-backdrop-filter: blur(30px) saturate(200%);
     backdrop-filter: blur(30px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    box-shadow: 0 -8px 32px -8px rgba(120, 100, 70, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 -8px 32px -8px rgba(120, 100, 70, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   }
 
   /* Buttons */
@@ -185,7 +185,7 @@
   }
 
   .btn-ghost {
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.75);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     color: var(--color-text-secondary);
@@ -194,7 +194,7 @@
   }
 
   .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.92);
     color: var(--color-text-primary);
     border-color: var(--color-border-solid-light);
   }
@@ -216,7 +216,7 @@
     padding: 12px 16px;
     border: 1px solid var(--color-border-solid);
     border-radius: var(--radius-pill);
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.85);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     font-size: 0.9375rem;
@@ -258,7 +258,7 @@
   }
 
   .badge-light {
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.80);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     color: var(--color-text-secondary);
@@ -273,7 +273,7 @@
     font-size: 12px;
     font-weight: 500;
     border: 1px solid var(--color-border-solid);
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.78);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     color: var(--color-text-secondary);
@@ -288,18 +288,18 @@
     width: 56px;
     height: 72px;
     border-radius: var(--radius-2xl);
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.80);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border: 1px solid var(--color-border-solid);
     color: var(--color-text-secondary);
     transition: all 0.2s ease;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(120, 100, 70, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 8px rgba(120, 100, 70, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   }
 
   .day-pill:hover {
-    background: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.92);
   }
 
   .day-pill[data-active="true"] {
@@ -312,15 +312,15 @@
 
   /* Calendar cell — glass */
   .glass-cell {
-    background: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.75);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     border: 1px solid var(--color-border-solid);
-    box-shadow: 0 1px 2px rgba(120, 100, 70, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    box-shadow: 0 1px 2px rgba(120, 100, 70, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   }
 
   .glass-cell:hover {
-    background: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.92);
     border-color: var(--color-border-solid-light);
   }
 

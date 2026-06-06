@@ -31,7 +31,7 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/40 bg-white/55 backdrop-blur-2xl saturate-200 safe-top">
+    <header className="sticky top-0 z-30 border-b border-white/50 bg-white/72 backdrop-blur-2xl saturate-200 safe-top">
 
       <div className="w-full px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -68,7 +68,7 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
             {isManager && (
               <button
                 onClick={onToggleRole}
-                className="w-9 h-9 bg-white/55 hover:bg-white/80 rounded-full flex items-center justify-center transition-all duration-200 border border-white/60 backdrop-blur-md"
+                className="w-9 h-9 bg-white/75 hover:bg-white/90 rounded-full flex items-center justify-center transition-all duration-200 border border-white/70 backdrop-blur-md"
                 title="สลับบทบาท"
               >
                 <Users className="w-4 h-4 text-text-secondary" />
@@ -77,7 +77,7 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
 
             <button
               onClick={onLogout}
-              className="w-9 h-9 bg-white/55 hover:bg-danger/15 hover:border-danger/30 rounded-full flex items-center justify-center transition-all duration-200 border border-white/60 backdrop-blur-md"
+              className="w-9 h-9 bg-white/75 hover:bg-danger/15 hover:border-danger/30 rounded-full flex items-center justify-center transition-all duration-200 border border-white/70 backdrop-blur-md"
               title="ออกจากระบบ"
             >
               <LogOut className="w-4 h-4 text-text-secondary" />
