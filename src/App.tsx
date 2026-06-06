@@ -235,23 +235,6 @@ function AppShell() {
           <Suspense fallback={<DashboardFallback />}>
             {effectiveRole === 'employee' ? (
               <>
-                <div className="sm:hidden mb-4 rounded-2xl border border-border-solid bg-bg-surface/80 backdrop-blur px-3 py-2">
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <div>
-                      <p className="text-text-quaternary uppercase tracking-[0.16em] font-semibold">มุมมองปัจจุบัน</p>
-                      <p className="text-text-primary font-medium mt-0.5">
-                        {activeMobileTab === 'schedule' ? 'ตารางงาน' : activeMobileTab === 'requests' ? 'คำขอลา' : 'ตั้งค่า'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setActiveMobileTab('schedule')}
-                      className="px-3 py-1.5 rounded-full bg-brand/10 text-brand-accent font-medium"
-                    >
-                      กลับสู่ตาราง
-                    </button>
-                  </div>
-                </div>
-
                 {activeMobileTab === 'schedule' && (
                   <EmployeeDashboard
                     currentUser={currentUser}
