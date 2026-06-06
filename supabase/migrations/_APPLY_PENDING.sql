@@ -94,6 +94,54 @@ create policy "attachments_update" on storage.objects
 create policy "attachments_insert_auth" on storage.objects
   for insert to authenticated with check (bucket_id = 'attachments');
 
+-- ===== 009_unify_schedules_table.sql =====
+alter table public.schedules
+  add column if not exists request_type text
+    not null default 'shift_change'
+    check (request_type in ('leave', 'swap', 'shift_change', 'late_scan', 'off_request'));
+
+alter table public.schedules
+  add column if not exists revert_shift_type_id uuid
+    references public.shift_types(id);
+
+create index if not exists idx_schedules_status
+  on public.schedules(status);
+
+-- Migrate pre-existing schedule_requests rows (only if the table still exists).
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'schedule_requests'
+  ) then
+    insert into public.schedules (
+      id, employee_id, date, shift_type_id, status,
+      employee_note, manager_remark, swap_with_id, evidence_url,
+      request_type, revert_shift_type_id, created_at, updated_at
+    )
+    select
+      r.id, r.employee_id, r.date, r.shift_type_id, r.status,
+      r.employee_note, r.manager_remark, r.swap_with_id, r.evidence_url,
+      coalesce(r.request_type, 'shift_change') as request_type,
+      r.revert_shift_type_id, r.created_at, r.updated_at
+    from public.schedule_requests r
+    on conflict (employee_id, date) do update
+    set
+      shift_type_id = excluded.shift_type_id,
+      status = excluded.status,
+      employee_note = excluded.employee_note,
+      manager_remark = excluded.manager_remark,
+      swap_with_id = excluded.swap_with_id,
+      evidence_url = excluded.evidence_url,
+      request_type = excluded.request_type,
+      revert_shift_type_id = excluded.revert_shift_type_id,
+      updated_at = now();
+
+    drop trigger if exists trg_schedule_requests_updated_at on public.schedule_requests;
+    drop table if exists public.schedule_requests;
+  end if;
+end $$;
+
 -- ===== 010_security_rls.sql =====
 alter table public.employees
   add column if not exists must_change_password boolean not null default false;
