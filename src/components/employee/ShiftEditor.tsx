@@ -96,9 +96,9 @@ export function ShiftEditor({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onClick={handleClose}></div>
+      <div className="absolute inset-0 bg-black/65 backdrop-blur-md transition-opacity" onClick={handleClose}></div>
 
-      <div className="relative w-full sm:max-w-md bg-bg-surface rounded-t-2xl sm:rounded-lg shadow-overlay overflow-hidden animate-slide-up border border-border-solid flex flex-col max-h-[88vh]">
+      <div className="relative w-full sm:max-w-md bg-bg-panel rounded-t-2xl sm:rounded-2xl shadow-overlay overflow-hidden animate-slide-up border border-border-solid flex flex-col max-h-[88vh]">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 sm:hidden"></div>
 
         <div className="p-5 flex flex-col min-h-0">
@@ -113,7 +113,7 @@ export function ShiftEditor({
             </div>
             <button
               onClick={handleClose}
-              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-bg-surface transition-colors"
+              className="w-9 h-9 bg-bg-surface rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-elevated transition-colors border border-border-solid"
             >
               <XCircle className="w-5 h-5" />
             </button>
@@ -155,9 +155,9 @@ export function ShiftEditor({
                       className={cn(
                         'flex items-center justify-between p-3.5 rounded-lg border transition-all duration-200 active:scale-[0.98]',
                         isSelected
-                          ? 'border-brand bg-brand/10 ring-1 ring-brand/20'
+                          ? 'border-brand bg-brand/15 ring-1 ring-brand/25'
                           : isFull
-                          ? 'border-border-solid bg-white/[0.02] opacity-50 cursor-not-allowed'
+                          ? 'border-border-solid bg-bg-surface opacity-50 cursor-not-allowed'
                           : 'border-border-solid hover:border-border-solid-light bg-bg-surface'
                       )}
                     >
@@ -201,30 +201,30 @@ export function ShiftEditor({
             {getDaySchedule(selectedDate) && !isSwapping && (
               <button
                 onClick={() => setIsSwapping(true)}
-                className="mt-3 w-full p-3.5 bg-brand/10 border border-brand/20 rounded-lg flex items-center justify-between group hover:bg-brand/15 transition-colors"
+                className="mt-3 w-full p-3.5 bg-brand/15 border border-brand/30 rounded-lg flex items-center justify-between group hover:bg-brand/20 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-brand text-white rounded-md group-hover:scale-110 transition-transform">
                     <Users className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <p className="text-xs font-medium text-text-primary uppercase tracking-wide">ขอสลับกะงาน</p>
-                    <p className="text-[10px] text-brand-accent font-medium">แลกกะกับเพื่อนร่วมงานในวันนี้</p>
+                    <p className="text-xs font-semibold text-text-primary uppercase tracking-wide">ขอสลับกะงาน</p>
+                    <p className="text-[10px] text-brand-accent font-semibold">แลกกะกับเพื่อนร่วมงานในวันนี้</p>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-text-quaternary" />
+                <ChevronRight className="w-5 h-5 text-text-tertiary" />
               </button>
             )}
 
             {isSwapping && (
-              <div className="mt-3 p-4 bg-brand/10 rounded-lg border border-brand/20 animate-fade-in">
+              <div className="mt-3 p-4 bg-brand/15 rounded-lg border border-brand/30 animate-fade-in">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-text-primary uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-text-primary uppercase tracking-wide">
                     เลือกเพื่อนที่จะสลับกะด้วย
                   </span>
                   <button
                     onClick={() => setIsSwapping(false)}
-                    className="text-xs font-medium text-text-quaternary hover:text-text-primary"
+                    className="text-xs font-semibold text-text-secondary hover:text-text-primary px-2 py-1 rounded-md hover:bg-bg-surface"
                   >
                     ยกเลิก
                   </button>
@@ -245,8 +245,8 @@ export function ShiftEditor({
                           className={cn(
                             'w-full p-3 rounded-md border flex items-center justify-between transition-all',
                             targetSwapId === emp.id
-                              ? 'bg-bg-surface border-brand shadow-raised'
-                              : 'bg-white/[0.03] border-border-solid hover:border-border-solid-light'
+                              ? 'bg-bg-elevated border-brand shadow-raised'
+                              : 'bg-bg-surface border-border-solid hover:border-border-solid-light'
                           )}
                         >
                           <div className="flex items-center gap-3">
@@ -254,8 +254,8 @@ export function ShiftEditor({
                               <img src={getDiceBearAvatar(emp.fullName)} alt="" className="w-full h-full" />
                             </div>
                             <div className="text-left">
-                              <p className="text-xs font-medium text-text-primary">{emp.fullName}</p>
-                              <p className="text-[10px] font-medium text-text-quaternary">
+                              <p className="text-xs font-semibold text-text-primary">{emp.fullName}</p>
+                              <p className="text-[10px] font-semibold text-text-tertiary">
                                 {empShiftType?.name} ({empShiftType?.startTime})
                               </p>
                             </div>
@@ -268,7 +268,7 @@ export function ShiftEditor({
                 {targetSwapId && (
                   <button
                     onClick={handleSwapConfirm}
-                    className="mt-3 w-full py-3 bg-brand text-white rounded-lg text-sm font-medium shadow-raised hover:bg-brand-hover transition-colors"
+                    className="mt-3 w-full py-3 bg-brand text-white rounded-lg text-sm font-semibold shadow-raised hover:bg-brand-hover transition-colors"
                   >
                     ยืนยันการขอสลับกะ
                   </button>
@@ -280,7 +280,7 @@ export function ShiftEditor({
               {shiftType && (
                 <>
                   {shiftType.requiresEvidence && (
-                    <div className="p-4 bg-brand/10 border border-dashed border-brand/20 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
+                    <div className="p-4 bg-brand/15 border border-dashed border-brand/30 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
                       <input
                         type="file"
                         id="evidence"
@@ -291,7 +291,7 @@ export function ShiftEditor({
                         <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-border-solid">
                           <Plus className="w-5 h-5" />
                         </div>
-                        <span className="text-xs font-medium text-brand-accent uppercase tracking-wide">
+                        <span className="text-xs font-semibold text-brand-accent uppercase tracking-wide">
                           {attachment ? attachment.name : 'แนบหลักฐานรูปภาพ'}
                         </span>
                       </label>
@@ -299,8 +299,8 @@ export function ShiftEditor({
                   )}
 
                   {shiftType.requiresReason && (
-                    <div className="p-4 bg-white/[0.02] rounded-lg border border-border-solid animate-fade-in">
-                      <label className="block text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">
+                    <div className="p-4 bg-bg-surface rounded-lg border border-border-solid animate-fade-in">
+                      <label className="block text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">
                         ระบุเหตุผลความจำเป็น
                       </label>
                       <textarea
@@ -315,18 +315,18 @@ export function ShiftEditor({
                 </>
               )}
 
-              <div className="flex items-center justify-between p-3.5 bg-white/[0.02] rounded-lg border border-border-solid">
+              <div className="flex items-center justify-between p-3.5 bg-bg-surface rounded-lg border border-border-solid">
                 <div className="flex items-center gap-3">
                   <div
                     className={cn(
                       'p-2 rounded-md transition-colors',
-                      isLateScan ? 'bg-warn/15 text-warn' : 'bg-bg-surface text-text-quaternary'
+                      isLateScan ? 'bg-warn/20 text-warn' : 'bg-bg-elevated text-text-tertiary border border-border-solid'
                     )}
                   >
                     <AlertCircle className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-text-primary">มาสาย / ลืมแสกนนิ้ว</p>
+                    <p className="text-xs font-semibold text-text-primary">มาสาย / ลืมแสกนนิ้ว</p>
                     <p className="text-[10px] text-text-tertiary">ต้องแนบหลักฐานเพื่อยืนยัน</p>
                   </div>
                 </div>
@@ -334,12 +334,12 @@ export function ShiftEditor({
                   onClick={() => setIsLateScan(!isLateScan)}
                   className={cn(
                     'w-11 h-6 rounded-full transition-colors relative',
-                    isLateScan ? 'bg-warn' : 'bg-white/[0.1]'
+                    isLateScan ? 'bg-warn' : 'bg-bg-elevated'
                   )}
                 >
                   <div
                     className={cn(
-                      'absolute top-1 w-4 h-4 bg-bg-surface rounded-full shadow-sm transition-all',
+                      'absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all',
                       isLateScan ? 'right-1' : 'left-1'
                     )}
                   ></div>
