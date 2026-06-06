@@ -49,6 +49,7 @@ create policy "Public read evidence"
 
 -- ===== 004_fix_schedules_rls.sql =====
 drop policy if exists "Allow all" on public.schedules;
+drop policy if exists "Allow anon" on public.schedules;
 create policy "Allow all" on public.schedules
   for all
   to authenticated
@@ -62,20 +63,25 @@ create policy "Allow anon" on public.schedules
 
 -- ===== 005_fix_storage_rls.sql =====
 drop policy if exists "attachments_insert" on storage.objects;
+drop policy if exists "attachments_select" on storage.objects;
+drop policy if exists "attachments_select_anon" on storage.objects;
+drop policy if exists "attachments_update" on storage.objects;
 create policy "attachments_insert" on storage.objects
   for insert to authenticated with check (bucket_id = 'attachments');
-drop policy if exists "attachments_select" on storage.objects;
 create policy "attachments_select" on storage.objects
   for select to authenticated using (bucket_id = 'attachments');
-drop policy if exists "attachments_select_anon" on storage.objects;
 create policy "attachments_select_anon" on storage.objects
   for select to anon using (bucket_id = 'attachments');
-drop policy if exists "attachments_update" on storage.objects;
 create policy "attachments_update" on storage.objects
   for update to authenticated using (bucket_id = 'attachments')
   with check (bucket_id = 'attachments');
 
 -- ===== 006_fix_storage_anon.sql =====
+drop policy if exists "attachments_insert" on storage.objects;
+drop policy if exists "attachments_select_anon" on storage.objects;
+drop policy if exists "attachments_select" on storage.objects;
+drop policy if exists "attachments_update" on storage.objects;
+drop policy if exists "attachments_insert_auth" on storage.objects;
 create policy "attachments_insert" on storage.objects
   for insert with check (bucket_id = 'attachments');
 create policy "attachments_select_anon" on storage.objects
@@ -99,10 +105,14 @@ grant select (
 ) on public.employees to anon, authenticated;
 
 drop policy if exists "Allow all" on public.settings;
+drop policy if exists "settings read only" on public.settings;
 create policy "settings read only" on public.settings
   for select to anon, authenticated using (true);
 
 drop policy if exists "Allow all" on public.push_subscriptions;
+drop policy if exists "push_subscriptions self read" on public.push_subscriptions;
+drop policy if exists "push_subscriptions self insert" on public.push_subscriptions;
+drop policy if exists "push_subscriptions self delete" on public.push_subscriptions;
 create policy "push_subscriptions self read" on public.push_subscriptions
   for select to anon, authenticated using (true);
 create policy "push_subscriptions self insert" on public.push_subscriptions
