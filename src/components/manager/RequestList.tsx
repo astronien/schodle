@@ -92,41 +92,35 @@ export function RequestList({
                   </div>
                 </div>
 
-                {request.requestType && (
-                  <div className="p-3 bg-brand/15 rounded-lg border border-brand/20 animate-fade-in">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-bold text-brand uppercase tracking-wide">
-                        {getRequestTypeLabel(request)}
-                      </span>
-                      <Users className="w-4 h-4 text-text-primary" />
-                    </div>
-                    {(() => {
-                      const targetEmp = employees.find((e) => e.id === request.swapWithId);
-                      const targetShift = shiftTypes.find(
-                        (t) => t.id === employees.find((e) => e.id === request.swapWithId)?.positionId
-                      );
-                      return (
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg overflow-hidden bg-bg-surface border border-brand/20 shadow-sm">
-                            <img
-                              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${targetEmp?.fullName}`}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-text-primary leading-none mb-0.5">
-                              {targetEmp?.fullName}
-                            </p>
-                            <p className="text-[10px] font-semibold text-brand-accent">
-                              เข้ากะ {targetShift?.name || 'วันหยุด'} อยู่
-                            </p>
-                          </div>
+                    {request.requestType && (
+                      <div className="p-3 bg-brand/15 rounded-lg border border-brand/20 animate-fade-in">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-brand uppercase tracking-wide">
+                            {getRequestTypeLabel(request)}
+                          </span>
+                          {request.requestType === 'swap' && <Users className="w-4 h-4 text-text-primary" />}
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                        {request.requestType === 'swap' && (() => {
+                          const targetEmp = employees.find((e) => e.id === request.swapWithId);
+                          return (
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-lg overflow-hidden bg-bg-surface border border-brand/20 shadow-sm">
+                                <img
+                                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${targetEmp?.fullName}`}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-text-primary leading-none mb-0.5">
+                                  {targetEmp?.fullName}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
 
                 {request.employeeNote && (
                   <div className="p-3 bg-warn/10 rounded-lg border border-warn/30">

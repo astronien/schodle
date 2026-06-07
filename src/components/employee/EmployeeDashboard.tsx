@@ -87,7 +87,7 @@ export function EmployeeDashboard({
       }
     }
 
-    const needsManager = shiftType?.requiresApproval || false;
+    const needsManager = shiftType?.requiresApproval || isLateScan || false;
     setIsUpdating(true);
     try {
       if (shiftId === null) {
