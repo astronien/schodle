@@ -94,6 +94,7 @@ export function ManagerDashboard({
   const [selectedWeeklyOffDay, setSelectedWeeklyOffDay] = useState<number | null>(null);
   const [isSavingWeeklyOffDay, setIsSavingWeeklyOffDay] = useState(false);
   const [requestSearch, setRequestSearch] = useState('');
+  const [requestViewMode, setRequestViewMode] = useState<'pending' | 'history'>('pending');
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [isSubscribing, setIsSubscribing] = useState(false);
   const prevPendingIds = useRef<Set<string>>(new Set(schedules.filter((s) => s.status === 'pending').map((s) => s.id)));
@@ -296,7 +297,10 @@ export function ManagerDashboard({
   };
 
   const pendingRequests = filterPendingRequests(schedules);
-  const filteredRequests = pendingRequests.filter((request) => {
+  const resolvedRequests = schedules.filter(
+    (s) => (s.status === 'approved' || s.status === 'rejected') && s.requestType && s.requestType !== 'shift_change'
+  );
+  const filteredRequests = (requestViewMode === 'pending' ? pendingRequests : resolvedRequests).filter((request) => {
     const employee = employees.find((e) => e.id === request.employeeId);
     const shiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
     const haystack = [
@@ -440,16 +444,43 @@ export function ManagerDashboard({
       )}
 
       {activeTab === 'requests' && (
-        <RequestList
-          requests={filteredRequests}
-          employees={employees}
-          shiftTypes={shiftTypes}
-          positions={positions}
-          search={requestSearch}
-          onSearchChange={setRequestSearch}
-          onApprove={(id) => handleUpdateShiftStatus(id, 'approved')}
-          onReject={(id) => handleUpdateShiftStatus(id, 'rejected')}
-        />
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 border-b border-border-solid pb-3">
+            <button
+              onClick={() => { setRequestViewMode('pending'); setRequestSearch(''); }}
+              className={cn(
+                'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+                requestViewMode === 'pending'
+                  ? 'bg-brand text-white shadow-md'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-bg-surface'
+              )}
+            >
+              รออนุมัติ ({pendingRequests.length})
+            </button>
+            <button
+              onClick={() => { setRequestViewMode('history'); setRequestSearch(''); }}
+              className={cn(
+                'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+                requestViewMode === 'history'
+                  ? 'bg-brand text-white shadow-md'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-bg-surface'
+              )}
+            >
+              ประวัติ
+            </button>
+          </div>
+          <RequestList
+            requests={filteredRequests}
+            employees={employees}
+            shiftTypes={shiftTypes}
+            positions={positions}
+            search={requestSearch}
+            onSearchChange={setRequestSearch}
+            onApprove={(id) => handleUpdateShiftStatus(id, 'approved')}
+            onReject={(id) => handleUpdateShiftStatus(id, 'rejected')}
+            readOnly={requestViewMode === 'history'}
+          />
+        </div>
       )}
 
       {activeTab === 'report' && (

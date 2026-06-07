@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { Users, LayoutGrid, Check } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { getRequestTypeLabel } from '../../lib/schedule-utils';
 import type { Employee, Position, ScheduleRequest, ShiftType } from '../../types';
 
@@ -12,8 +13,10 @@ interface RequestListProps {
   positions: Position[];
   search: string;
   onSearchChange: (value: string) => void;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
+  readOnly?: boolean;
+  emptyMessage?: string;
 }
 
 export function RequestList({
@@ -25,6 +28,8 @@ export function RequestList({
   onSearchChange,
   onApprove,
   onReject,
+  readOnly,
+  emptyMessage,
 }: RequestListProps) {
   const [remarks, setRemarks] = useState<Record<string, string>>({});
 
@@ -32,9 +37,9 @@ export function RequestList({
     <div className="space-y-5">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-1.5 h-6 bg-warn rounded-full"></div>
+          <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: readOnly ? '#3B82F6' : '#F59E0B' }}></div>
           <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight">
-            คำขอที่รอการพิจารณา
+            {readOnly ? 'ประวัติคำขอ' : 'คำขอที่รอการพิจารณา'}
           </h2>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -167,17 +172,39 @@ export function RequestList({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => onReject(request.id)} className="btn btn-ghost py-2.5 text-xs font-semibold">
-                  ปฏิเสธ
-                </button>
-                <button
-                  onClick={() => onApprove(request.id)}
-                  className="btn btn-primary py-2.5 text-xs font-semibold shadow-lg shadow-raised"
-                >
-                  อนุมัติ
-                </button>
-              </div>
+              {readOnly ? (
+                <div className="pt-2">
+                  <div className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold',
+                    request.status === 'approved'
+                      ? 'bg-success/15 text-success'
+                      : 'bg-danger/15 text-danger'
+                  )}>
+                    <span className={cn(
+                      'w-1.5 h-1.5 rounded-full',
+                      request.status === 'approved' ? 'bg-success' : 'bg-danger'
+                    )} />
+                    {request.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'}
+                  </div>
+                  {request.managerRemark && (
+                    <p className="text-xs text-text-tertiary mt-2">
+                      หมายเหตุหัวหน้า: {request.managerRemark}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => onReject?.(request.id)} className="btn btn-ghost py-2.5 text-xs font-semibold">
+                    ปฏิเสธ
+                  </button>
+                  <button
+                    onClick={() => onApprove?.(request.id)}
+                    className="btn btn-primary py-2.5 text-xs font-semibold shadow-lg shadow-raised"
+                  >
+                    อนุมัติ
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
@@ -188,9 +215,14 @@ export function RequestList({
           <div className="w-14 h-14 bg-bg-panel rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
             <Check className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-bold text-text-primary mb-1">ไม่มีคำขอรออนุมัติ</h3>
+          <h3 className="text-base font-bold text-text-primary mb-1">
+            {readOnly ? 'ไม่มีประวัติคำขอ' : 'ไม่มีคำขอรออนุมัติ'}
+          </h3>
           <p className="text-sm font-medium text-text-quaternary">
-            เมื่อมีพนักงานขอเปลี่ยนหรือลงกะงานพิเศษ จะปรากฏที่นี่
+            {emptyMessage || (readOnly
+              ? 'เมื่อมีคำขอที่ผ่านการอนุมัติหรือปฏิเสธแล้ว จะปรากฏที่นี่'
+              : 'เมื่อมีพนักงานขอเปลี่ยนหรือลงกะงานพิเศษ จะปรากฏที่นี่'
+            )}
           </p>
         </div>
       )}

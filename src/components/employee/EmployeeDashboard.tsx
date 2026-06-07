@@ -259,6 +259,12 @@ export function EmployeeDashboard({
                         <p className="text-xs text-text-tertiary truncate">
                           {shift.name}
                         </p>
+                        {daySchedule?.requestType === 'late_scan' && (
+                          <p className="text-[10px] font-bold text-danger mt-0.5 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-danger" />
+                            มาสาย/ลืมแสกน
+                          </p>
+                        )}
                       </div>
                     </div>
                     {shift.startTime && (
