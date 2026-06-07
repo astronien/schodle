@@ -284,8 +284,21 @@ export function useData() {
       )
       .subscribe();
 
+    const pollId = setInterval(() => {
+      refreshSchedulesThrottled();
+    }, 15000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSchedulesThrottled();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollId);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [refreshSchedulesThrottled, sendPush]);
 
