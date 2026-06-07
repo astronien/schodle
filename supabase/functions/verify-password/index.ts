@@ -141,11 +141,12 @@ serve(async (req) => {
   }
 
   const issuedAt = Math.floor(Date.now() / 1000);
+  const effectiveRole = deriveRole(employee.role, position?.code);
   const session = await signSession(
     {
       sub: employee.id,
       code: employee.employee_code,
-      role: employee.role,
+      role: effectiveRole,
       pos: position?.code,
       iat: issuedAt,
       exp: issuedAt + ttlSeconds,
@@ -160,10 +161,22 @@ serve(async (req) => {
       employeeCode: employee.employee_code,
       fullName: employee.full_name,
       positionId: employee.position_id,
-      role: employee.role,
+      role: effectiveRole,
       mustChangePassword: !!employee.must_change_password,
       position: position ?? null,
     },
     expiresAt: issuedAt + ttlSeconds,
   });
 });
+
+const MANAGER_POSITION_CODES = new Set(["BSM", "ABSM"]);
+
+function deriveRole(
+  dbRole: string | null | undefined,
+  positionCode: string | null | undefined,
+): "employee" | "manager" | "admin" {
+  if (dbRole === "admin") return "admin";
+  if (positionCode && MANAGER_POSITION_CODES.has(positionCode)) return "manager";
+  if (dbRole === "manager") return "manager";
+  return "employee";
+}
