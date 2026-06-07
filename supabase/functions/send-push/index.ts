@@ -152,20 +152,21 @@ serve(async (req) => {
   const isSelfTest = body.self_test === true;
   const isNotifyRole = !isSelfTest && !body.employee_id && !!body.role;
   const isManagerTarget = isNotifyRole && (body.role === "manager" || body.role === "admin");
+  const isPushToSelf = !!body.employee_id && body.employee_id === session.sub;
 
   if (isSelfTest) {
-    if (body.employee_id && body.employee_id !== session.sub) {
+    if (body.employee_id && !isPushToSelf) {
       return json(
         { error: "self_test ใช้ได้เฉพาะ employee_id ของผู้ส่งเท่านั้น", v: "self-test-403" },
         403,
       );
     }
-  } else if (!isManagerTarget && !isManagerOrAdmin(session)) {
+  } else if (!isManagerTarget && !isPushToSelf && !isManagerOrAdmin(session)) {
     return json(
       {
         error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน",
         v: "auth-denied",
-        hint: "Send to role=manager is allowed for all authenticated users",
+        hint: "Send to role=manager is allowed for all authenticated users; send to self is allowed for any user",
       },
       403,
     );
