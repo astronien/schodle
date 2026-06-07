@@ -150,6 +150,8 @@ serve(async (req) => {
   }
 
   const isSelfTest = body.self_test === true;
+  const isNotifyRole = !isSelfTest && !body.employee_id && !!body.role;
+  const isManagerTarget = isNotifyRole && (body.role === "manager" || body.role === "admin");
 
   if (isSelfTest) {
     if (body.employee_id && body.employee_id !== session.sub) {
@@ -158,17 +160,15 @@ serve(async (req) => {
         403,
       );
     }
-  } else {
-    if (!isManagerOrAdmin(session)) {
-      return json(
-        {
-          error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน",
-          v: "self-test-not-deployed",
-          hint: "Deploy send-push commit 3d9ca60+ to enable self_test flag, or set employee.role='manager' in DB",
-        },
-        403,
-      );
-    }
+  } else if (!isManagerTarget && !isManagerOrAdmin(session)) {
+    return json(
+      {
+        error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน",
+        v: "auth-denied",
+        hint: "Send to role=manager is allowed for all authenticated users",
+      },
+      403,
+    );
   }
 
   const title = (body.title ?? "").trim();
@@ -193,12 +193,25 @@ serve(async (req) => {
   } else if (body.employee_id) {
     targetIds = [body.employee_id];
   } else if (body.role) {
-    const { data, error: empErr } = await supabase
-      .from("employees")
-      .select("id")
-      .eq("role", body.role);
-    if (empErr) return json({ error: "ไม่สามารถค้นหาพนักงานตาม role ได้" }, 500);
-    targetIds = (data ?? []).map((r) => r.id);
+    const codes = Array.from(MANAGER_POSITION_CODES);
+    const [byRole, posResult] = await Promise.all([
+      supabase.from("employees").select("id").eq("role", body.role),
+      supabase.from("positions").select("id").in("code", codes),
+    ]);
+    if (byRole.error) {
+      return json({ error: "ไม่สามารถค้นหาพนักงานตาม role ได้" }, 500);
+    }
+    const posIds = (posResult.data ?? []).map((p) => p.id);
+    targetIds = (byRole.data ?? []).map((r) => r.id);
+    if (posIds.length > 0) {
+      const { data: byPos } = await supabase
+        .from("employees")
+        .select("id")
+        .in("position_id", posIds);
+      const idSet = new Set(targetIds);
+      (byPos ?? []).forEach((r) => idSet.add(r.id));
+      targetIds = [...idSet];
+    }
   } else {
     return json({ error: "ต้องระบุ employee_id หรือ role" }, 400);
   }

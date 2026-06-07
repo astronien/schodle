@@ -1,5 +1,9 @@
 export const SESSION_TOKEN_KEY = 'schodle_session_token';
 
+// Debug helper: in DevTools console, run:
+//   import('./lib/session').then(m => m.getSessionToken())
+// Or paste: sessionStorage.getItem('schodle_session_token')
+
 export function getSessionToken(): string | null {
   try {
     return sessionStorage.getItem(SESSION_TOKEN_KEY);
