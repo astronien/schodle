@@ -153,11 +153,21 @@ serve(async (req) => {
 
   if (isSelfTest) {
     if (body.employee_id && body.employee_id !== session.sub) {
-      return json({ error: "self_test ใช้ได้เฉพาะ employee_id ของผู้ส่งเท่านั้น" }, 403);
+      return json(
+        { error: "self_test ใช้ได้เฉพาะ employee_id ของผู้ส่งเท่านั้น", v: "self-test-403" },
+        403,
+      );
     }
   } else {
     if (!isManagerOrAdmin(session)) {
-      return json({ error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน" }, 403);
+      return json(
+        {
+          error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน",
+          v: "self-test-not-deployed",
+          hint: "Deploy send-push commit 3d9ca60+ to enable self_test flag, or set employee.role='manager' in DB",
+        },
+        403,
+      );
     }
   }
 
