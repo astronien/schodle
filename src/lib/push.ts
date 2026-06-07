@@ -274,9 +274,9 @@ export async function sendPushToRole(
   return invokeSendPush({ role, title, body, url });
 }
 
-export async function sendTestPushToSelf(employeeId: string): Promise<PushResult> {
+export async function sendTestPushToSelf(_employeeId: string): Promise<PushResult> {
   return invokeSendPush({
-    employee_id: employeeId,
+    self_test: true,
     title: 'ทดสอบการแจ้งเตือน',
     body: 'ถ้าคุณเห็นข้อความนี้ แสดงว่าระบบทำงานสมบูรณ์',
     url: '/',

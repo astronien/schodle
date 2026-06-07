@@ -86,6 +86,7 @@ interface PushBody {
   title?: string;
   body?: string;
   url?: string;
+  self_test?: boolean;
 }
 
 interface SubscriptionRow {
@@ -140,15 +141,24 @@ serve(async (req) => {
   if (!match) return json({ error: "Missing session token" }, 401);
   const session = await verifySession(match[1], secret);
   if (!session) return json({ error: "Invalid or expired session" }, 401);
-  if (!isManagerOrAdmin(session)) {
-    return json({ error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน" }, 403);
-  }
 
   let body: PushBody;
   try {
     body = (await req.json()) as PushBody;
   } catch {
     return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const isSelfTest = body.self_test === true;
+
+  if (isSelfTest) {
+    if (body.employee_id && body.employee_id !== session.sub) {
+      return json({ error: "self_test ใช้ได้เฉพาะ employee_id ของผู้ส่งเท่านั้น" }, 403);
+    }
+  } else {
+    if (!isManagerOrAdmin(session)) {
+      return json({ error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน" }, 403);
+    }
   }
 
   const title = (body.title ?? "").trim();
@@ -168,7 +178,9 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
   let targetIds: string[];
-  if (body.employee_id) {
+  if (isSelfTest) {
+    targetIds = [session.sub];
+  } else if (body.employee_id) {
     targetIds = [body.employee_id];
   } else if (body.role) {
     const { data, error: empErr } = await supabase
