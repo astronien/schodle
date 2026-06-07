@@ -72,6 +72,14 @@ const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_CONCURRENCY = 5;
 const RETRY_DELAY_MS = 1000;
 
+const MANAGER_POSITION_CODES = new Set(["BSM", "ABSM"]);
+
+function isManagerOrAdmin(session: { role?: string; pos?: string }): boolean {
+  if (session.role === "manager" || session.role === "admin") return true;
+  if (session.pos && MANAGER_POSITION_CODES.has(session.pos)) return true;
+  return false;
+}
+
 interface PushBody {
   employee_id?: string;
   role?: string;
@@ -132,7 +140,7 @@ serve(async (req) => {
   if (!match) return json({ error: "Missing session token" }, 401);
   const session = await verifySession(match[1], secret);
   if (!session) return json({ error: "Invalid or expired session" }, 401);
-  if (session.role !== "manager" && session.role !== "admin") {
+  if (!isManagerOrAdmin(session)) {
     return json({ error: "ต้องใช้สิทธิ์ผู้จัดการหรือแอดมิน" }, 403);
   }
 
