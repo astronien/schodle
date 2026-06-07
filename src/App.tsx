@@ -260,7 +260,7 @@ function AppShell() {
                           (s) =>
                             s.employeeId === currentUser?.id &&
                             s.createdBy === 'employee' &&
-                            (s.status === 'approved' || s.status === 'pending'),
+                            (s.status === 'approved' || s.status === 'pending' || s.status === 'rejected'),
                         )
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -297,13 +297,20 @@ function AppShell() {
                                     <div
                                       className={cn(
                                         'w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm',
-                                        isApproved ? 'bg-success' : 'bg-warn',
+                                        isApproved ? 'bg-success' : s.status === 'rejected' ? 'bg-danger' : 'bg-warn',
                                       )}
                                     >
                                       {sType?.code || '??'}
                                     </div>
                                     <div>
-                                      <div className="text-sm font-bold text-text-primary">{sType?.name || 'ไม่ทราบประเภท'}</div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-text-primary">{sType?.name || 'ไม่ทราบประเภท'}</span>
+                                        {s.requestType === 'late_scan' && (
+                                          <span className="text-[10px] font-bold text-danger bg-danger/10 px-2 py-0.5 rounded-full">
+                                            มาสาย/ลืมแสกน
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="text-[10px] text-text-tertiary font-medium">
                                         {format(new Date(s.date), 'eeee d MMMM yyyy', { locale: th })}
                                       </div>
@@ -312,10 +319,10 @@ function AppShell() {
                                   <div
                                     className={cn(
                                       'text-[10px] font-bold px-2 py-1 rounded-lg',
-                                      isApproved ? 'bg-success/20 text-success' : 'bg-warn/20 text-warn',
+                                      isApproved ? 'bg-success/20 text-success' : s.status === 'rejected' ? 'bg-danger/20 text-danger' : 'bg-warn/20 text-warn',
                                     )}
                                   >
-                                    {isApproved ? 'อนุมัติแล้ว' : 'รออนุมัติ'}
+                                    {isApproved ? 'อนุมัติแล้ว' : s.status === 'rejected' ? 'ปฏิเสธ' : 'รออนุมัติ'}
                                   </div>
                                 </div>
 
