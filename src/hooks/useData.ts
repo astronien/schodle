@@ -700,7 +700,17 @@ export function useData() {
         },
       );
       if (fnError) {
-        throw new Error((data as { error?: string } | null)?.error ?? fnError.message);
+        const body = (fnError as { context?: Response }).context;
+        let serverMsg: string | null = null;
+        if (body && typeof body.json === 'function') {
+          try {
+            const parsed = (await body.json()) as { error?: string };
+            serverMsg = parsed?.error ?? null;
+          } catch {
+            // ignore parse errors
+          }
+        }
+        throw new Error(serverMsg ?? (data as { error?: string } | null)?.error ?? fnError.message);
       }
       if (data && data.error) {
         throw new Error(data.error);
