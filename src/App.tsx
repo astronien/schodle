@@ -1,8 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 
-import { Clock, Settings } from 'lucide-react';
-import { format } from 'date-fns';
+import { Clock, Settings, Calendar, Briefcase, ChevronRight } from 'lucide-react';
+import { format, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import type { UserRole, Employee } from './types/index';
 
 
@@ -18,6 +18,8 @@ import { ToastProvider, useToast } from './lib/toast';
 import { th } from 'date-fns/locale';
 import { cn } from './lib/utils';
 import { generateSmartSchedule as runSmartSchedule } from './lib/schedule-generator';
+import { WeeklyOffDayEditor, WEEKLY_OFF_DAYS } from './components/manager/Modals/WeeklyOffDayEditor';
+import { getEmployeeMonthlyStats } from './lib/schedule-utils';
 
 const EmployeeDashboard = lazy(() =>
   import('./components/employee/EmployeeDashboard').then((m) => ({ default: m.EmployeeDashboard }))
@@ -57,6 +59,9 @@ function AppShell() {
   const effectiveRole = !isManager && role === 'manager' ? 'employee' : role;
   const [activeMobileTab, setActiveMobileTab] = useState<'schedule' | 'requests' | 'settings'>('schedule');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [editingWeeklyOffDay, setEditingWeeklyOffDay] = useState(false);
+  const [selectedWeeklyOffDay, setSelectedWeeklyOffDay] = useState<number | null>(null);
+  const [isSavingWeeklyOffDay, setIsSavingWeeklyOffDay] = useState(false);
 
   const {
     employees,
@@ -164,6 +169,49 @@ function AppShell() {
       );
     }
   };
+
+  const handleSaveWeeklyOffDay = useCallback(async () => {
+    if (!currentUser) return;
+    setIsSavingWeeklyOffDay(true);
+    try {
+      await updateEmployee({
+        ...currentUser,
+        weeklyOffDay: typeof selectedWeeklyOffDay === 'number' ? selectedWeeklyOffDay : undefined,
+      });
+      if (typeof selectedWeeklyOffDay === 'number') {
+        const xShift = shiftTypes.find((t) => t.code === 'X');
+        if (xShift) {
+          const daysInMonth = eachDayOfInterval({
+            start: startOfMonth(currentMonth),
+            end: endOfMonth(currentMonth),
+          });
+          const offDates = daysInMonth
+            .filter((d) => d.getDay() === selectedWeeklyOffDay)
+            .map((d) => format(d, 'yyyy-MM-dd'));
+          for (const date of offDates) {
+            const existing = schedules.find((s) => s.employeeId === currentUser.id && s.date === date);
+            if (existing) {
+              if (existing.shiftTypeId !== xShift.id) {
+                await updateSchedule({ ...existing, shiftTypeId: xShift.id, status: 'approved', createdBy: 'employee' });
+              }
+            } else {
+              await updateSchedule({
+                id: crypto.randomUUID(), employeeId: currentUser.id, date,
+                shiftTypeId: xShift.id, status: 'approved',
+                requestType: 'shift_change', createdBy: 'employee',
+              });
+            }
+          }
+        }
+      }
+      setEditingWeeklyOffDay(false);
+      toast.success('ตั้งวันหยุดประจำสัปดาห์เรียบร้อย');
+    } catch (err: unknown) {
+      toast.error('บันทึกไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+    } finally {
+      setIsSavingWeeklyOffDay(false);
+    }
+  }, [currentUser, selectedWeeklyOffDay, updateEmployee, updateSchedule, shiftTypes, currentMonth, schedules]);
 
   if (authLoading) {
     return (
@@ -350,15 +398,102 @@ function AppShell() {
                     })()}
                   </div>
                 )}
-                {activeMobileTab === 'settings' && (
-                  <div className="card p-10 text-center">
-                    <div className="w-16 h-16 bg-bg-surface rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
-                      <Settings className="w-8 h-8" />
+                {activeMobileTab === 'settings' && (() => {
+                  const stats = getEmployeeMonthlyStats(
+                    currentUser?.id || '',
+                    schedules.filter((s) => {
+                      const d = new Date(s.date);
+                      return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+                    }),
+                    shiftTypes,
+                  );
+                  const weeklyOffLabel = typeof currentUser?.weeklyOffDay === 'number'
+                    ? WEEKLY_OFF_DAYS.find((d) => d.value === currentUser.weeklyOffDay)?.label || 'ไม่ระบุ'
+                    : 'ยังไม่ได้ตั้ง';
+                  const totalLeaveDays = Object.values(stats.counts).reduce((a, b) => a + b, 0);
+                  const vacationDays = stats.counts['V'] || 0;
+                  const sickDays = stats.counts['ป่วย'] || 0;
+                  const position = positions.find((p) => p.id === currentUser?.positionId);
+
+                  return (
+                    <div className="space-y-4 pb-24">
+                      {/* Profile */}
+                      <div className="card p-5 rounded-2xl">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 rounded-full bg-brand/15 flex items-center justify-center text-brand font-bold text-lg">
+                            {currentUser?.fullName?.charAt(0) || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-base font-bold text-text-primary truncate">{currentUser?.fullName}</p>
+                            <p className="text-xs text-text-tertiary">{currentUser?.employeeCode} · {position?.name || ''}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Weekly Off Day */}
+                      <div className="card p-5 rounded-2xl">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-brand" />
+                            <h3 className="text-sm font-bold text-text-primary">วันหยุดประจำสัปดาห์</h3>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedWeeklyOffDay(typeof currentUser?.weeklyOffDay === 'number' ? currentUser.weeklyOffDay : null);
+                              setEditingWeeklyOffDay(true);
+                            }}
+                            className="text-xs font-semibold text-brand hover:text-brand-hover transition-colors flex items-center gap-1"
+                          >
+                            แก้ไข <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className={cn(
+                          'p-3 rounded-xl border',
+                          typeof currentUser?.weeklyOffDay === 'number'
+                            ? 'bg-success/10 border-success/20'
+                            : 'bg-bg-surface border-border-solid',
+                        )}>
+                          <p className={cn(
+                            'text-sm font-bold',
+                            typeof currentUser?.weeklyOffDay === 'number' ? 'text-success' : 'text-text-tertiary',
+                          )}>
+                            {typeof currentUser?.weeklyOffDay === 'number'
+                              ? 'หยุดทุกวัน' + weeklyOffLabel
+                              : 'ยังไม่ได้ตั้งวันหยุด'}
+                          </p>
+                          <p className="text-[10px] text-text-quaternary mt-1">กะงาน X จะถูกจัดให้อัตโนมัติทุกสัปดาห์</p>
+                        </div>
+                      </div>
+
+                      {/* Leave Stats */}
+                      <div className="card p-5 rounded-2xl">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Briefcase className="w-4 h-4 text-brand" />
+                          <h3 className="text-sm font-bold text-text-primary">
+                            สรุปวันลา เดือน{format(currentMonth, 'MMMM', { locale: th })}
+                          </h3>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="p-3 bg-bg-surface rounded-xl text-center">
+                            <p className="text-xl font-bold text-text-primary">{totalLeaveDays}</p>
+                            <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">ลาทั้งหมด</p>
+                          </div>
+                          <div className="p-3 bg-success/10 rounded-xl text-center">
+                            <p className="text-xl font-bold text-success">{vacationDays}</p>
+                            <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">ลากิจ</p>
+                          </div>
+                          <div className="p-3 bg-warn/10 rounded-xl text-center">
+                            <p className="text-xl font-bold text-warn">{sickDays}</p>
+                            <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">ลาป่วย</p>
+                          </div>
+                        </div>
+                        {totalLeaveDays === 0 && (
+                          <p className="text-[10px] text-text-quaternary text-center mt-3">เดือนนี้ยังไม่มีวันลา</p>
+                        )}
+                      </div>
                     </div>
-                    <h3 className="text-lg font-medium text-text-primary mb-1">ตั้งค่า</h3>
-                    <p className="text-sm text-text-tertiary">ส่วนการตั้งค่ากำลังอยู่ระหว่างการพัฒนา</p>
-                  </div>
-                )}
+                  );
+                })()}
               </>
             ) : isManager ? (
               <ManagerDashboard
@@ -416,6 +551,18 @@ function AppShell() {
           await refreshProfile();
         }}
       />
+
+      {effectiveRole === 'employee' && (
+        <WeeklyOffDayEditor
+          open={editingWeeklyOffDay}
+          employee={currentUser}
+          selectedDay={selectedWeeklyOffDay}
+          isSaving={isSavingWeeklyOffDay}
+          onSelectDay={setSelectedWeeklyOffDay}
+          onClose={() => setEditingWeeklyOffDay(false)}
+          onSave={handleSaveWeeklyOffDay}
+        />
+      )}
     </div>
   );
 }
