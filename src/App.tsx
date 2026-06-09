@@ -74,6 +74,8 @@ function AppShell() {
     refresh,
     updateSchedule,
     deleteSchedule,
+    deleteSchedulesByMonth,
+    deleteSchedulesBeforeDate,
     swapScheduleShifts,
     createEmployee,
     updateEmployee,
@@ -529,6 +531,8 @@ function AppShell() {
                 applyRecurringSchedules={applyRecurringSchedules}
                 updateSchedule={updateSchedule}
                 deleteSchedule={deleteSchedule}
+                deleteSchedulesByMonth={deleteSchedulesByMonth}
+                deleteSchedulesBeforeDate={deleteSchedulesBeforeDate}
                 swapScheduleShifts={swapScheduleShifts}
                 currentMonth={currentMonth}
                 setCurrentMonth={setCurrentMonth}

@@ -7,6 +7,7 @@ import { validateAllConflicts } from '../../lib/conflict-validator';
 import { subscribeToNotifications, sendTestPushToSelf } from '../../lib/push';
 import { useToast } from '../../lib/toast';
 import { WeeklyOffDayEditor } from './Modals/WeeklyOffDayEditor';
+import { ConfirmModal } from '../ConfirmModal';
 import { CoverageGrid } from './CoverageGrid';
 import { RequestList } from './RequestList';
 import { ReportPanel } from './ReportPanel';
@@ -49,6 +50,8 @@ interface ManagerDashboardProps {
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
   swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  deleteSchedulesByMonth: (month: Date) => Promise<void>;
+  deleteSchedulesBeforeDate: (beforeDate: string) => Promise<void>;
   currentMonth: Date;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   generateSmartSchedule: () => void;
@@ -84,6 +87,8 @@ export function ManagerDashboard({
   applyRecurringSchedules,
   updateSchedule,
   deleteSchedule,
+  deleteSchedulesByMonth,
+  deleteSchedulesBeforeDate,
   swapScheduleShifts,
   currentMonth,
   setCurrentMonth,
@@ -102,6 +107,7 @@ export function ManagerDashboard({
   const [requestViewMode, setRequestViewMode] = useState<'pending' | 'history'>('pending');
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const prevPendingIds = useRef<Set<string>>(new Set(schedules.filter((s) => s.status === 'pending').map((s) => s.id)));
 
   useEffect(() => {
@@ -327,6 +333,23 @@ export function ManagerDashboard({
     return haystack.includes(requestSearch.toLowerCase());
   });
 
+  const currentMonthSchedules = useMemo(
+    () => schedules.filter((s) => {
+      const d = new Date(s.date);
+      return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear() && s.status === 'approved';
+    }),
+    [schedules, currentMonth],
+  );
+
+  const handleClearMonth = async () => {
+    const count = currentMonthSchedules.length;
+    if (count === 0) {
+      toast.info('เดือนนี้ไม่มีตารางงานให้ล้าง');
+      return;
+    }
+    setShowClearConfirm(true);
+  };
+
   const today = format(new Date(), 'yyyy-MM-dd');
   const stats = [
     { label: 'รออนุมัติ', value: pendingRequests.length, tone: 'warn' as const },
@@ -421,7 +444,7 @@ export function ManagerDashboard({
 
       {/* Desktop: sidebar + content */}
       <div className="flex gap-5 items-start">
-        <ManagerSidebarNav activeTab={activeTab} onTabChange={setActiveTab} onGenerateAI={generateSmartSchedule} conflicts={allConflicts} />
+        <ManagerSidebarNav activeTab={activeTab} onTabChange={setActiveTab} onGenerateAI={generateSmartSchedule} onClearMonth={handleClearMonth} scheduleCount={currentMonthSchedules.length} conflicts={allConflicts} />
 
         <div className="flex-1 min-w-0">
           {/* Desktop month nav */}
@@ -554,6 +577,7 @@ export function ManagerDashboard({
               isSubscribing={isSubscribing}
               onEnableNotifications={handleEnableNotifications}
               onSendTestPush={handleSendTestPush}
+              onDeleteSchedulesBeforeDate={deleteSchedulesBeforeDate}
               currentMonth={currentMonth}
             />
           )}
@@ -566,6 +590,19 @@ export function ManagerDashboard({
             onSelectDay={setSelectedWeeklyOffDay}
             onClose={() => setEditingWeeklyOffEmployeeId(null)}
             onSave={handleSaveWeeklyOffDay}
+          />
+
+          <ConfirmModal
+            open={showClearConfirm}
+            title="ล้างตารางทั้งเดือน"
+            message={`คุณต้องการลบตารางงานทั้งหมด ${currentMonthSchedules.length} รายการของเดือน ${format(currentMonth, 'MMMM yyyy', { locale: th })} ใช่หรือไม่?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+            confirmLabel="ลบทั้งหมด"
+            variant="danger"
+            onConfirm={async () => {
+              await deleteSchedulesByMonth(currentMonth);
+              toast.success('ล้างตารางเดือนนี้เรียบร้อย');
+            }}
+            onCancel={() => setShowClearConfirm(false)}
           />
         </div>
       </div>

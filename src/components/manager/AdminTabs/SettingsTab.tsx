@@ -13,10 +13,13 @@ import {
   Smartphone,
   Activity,
   Share,
+  Trash2,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useToast } from '../../../lib/toast';
 import { AdminPageHeader } from '../AdminSidebar';
+import { ConfirmModal } from '../../ConfirmModal';
 import {
   getPushDiagnostic,
   type PushDiagnostic,
@@ -29,6 +32,7 @@ interface SettingsTabProps {
   onEnableNotifications: () => Promise<void>;
   isSubscribing: boolean;
   onSendTestPush: () => Promise<{ success: boolean; sent?: number; error?: string }>;
+  onDeleteSchedulesBeforeDate: (beforeDate: string) => Promise<void>;
 }
 
 export function SettingsTab({
@@ -37,10 +41,17 @@ export function SettingsTab({
   onEnableNotifications,
   isSubscribing,
   onSendTestPush,
+  onDeleteSchedulesBeforeDate,
 }: SettingsTabProps) {
   const [diag, setDiag] = useState<PushDiagnostic | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [historyCutoff, setHistoryCutoff] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().slice(0, 10);
+  });
+  const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const toast = useToast();
   const [local, setLocal] = useState<AppSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
@@ -420,6 +431,64 @@ export function SettingsTab({
           </div>
         </section>
       </div>
+
+      {/* Card 4: History management */}
+      <section className="glass-cell rounded-2xl p-4 sm:p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-danger/15 flex items-center justify-center">
+            <Trash2 className="w-4 h-4 text-danger" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-text-primary">จัดการประวัติ</h4>
+            <p className="text-[10px] text-text-tertiary">
+              ลบตารางงานที่เก่ากว่าวันที่กำหนด
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+          <div className="w-full sm:max-w-[220px]">
+            <label className="block text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-1.5">
+              ลบก่อนวันที่
+            </label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-quaternary pointer-events-none" />
+              <input
+                type="date"
+                value={historyCutoff}
+                onChange={(e) => setHistoryCutoff(e.target.value)}
+                className="input-field w-full pl-9"
+                max={new Date().toISOString().slice(0, 10)}
+              />
+            </div>
+          </div>
+          <button
+            onClick={() => setShowClearHistoryConfirm(true)}
+            disabled={!historyCutoff}
+            className="btn btn-danger text-xs px-5 py-2.5 whitespace-nowrap shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            ลบประวัติ
+          </button>
+        </div>
+        <p className="text-[10px] text-text-quaternary leading-relaxed">
+          คำเตือน: การลบจะไม่สามารถกู้คืนได้ แนะนำให้ตั้งค่าเก็บประวัติอย่างน้อย 1-3 เดือน
+        </p>
+      </section>
+
+      <ConfirmModal
+        open={showClearHistoryConfirm}
+        title="ลบประวัติตารางงาน"
+        message={`คุณต้องการลบตารางงานทั้งหมดก่อนวันที่ ${historyCutoff} ใช่หรือไม่?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+        confirmLabel="ลบประวัติ"
+        variant="danger"
+        onConfirm={async () => {
+          if (!historyCutoff) return;
+          await onDeleteSchedulesBeforeDate(historyCutoff);
+          toast.success(`ลบตารางงานก่อนวันที่ ${historyCutoff} เรียบร้อย`);
+        }}
+        onCancel={() => setShowClearHistoryConfirm(false)}
+      />
 
       {/* Sticky save bar */}
       {isDirty && (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PlusCircle, LayoutGrid, Bell, Download, Check, ChevronsLeft, ChevronsRight, AlertCircle, AlertTriangle } from 'lucide-react';
+import { PlusCircle, LayoutGrid, Bell, Download, Check, ChevronsLeft, ChevronsRight, AlertCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { TabId } from './ManagerDashboard';
 import type { Conflict } from '../../lib/conflict-validator';
@@ -15,10 +15,12 @@ interface ManagerSidebarNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   onGenerateAI: () => void;
+  onClearMonth: () => void;
+  scheduleCount: number;
   conflicts?: Conflict[];
 }
 
-export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI, conflicts }: ManagerSidebarNavProps) {
+export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI, onClearMonth, scheduleCount, conflicts }: ManagerSidebarNavProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [conflictsOpen, setConflictsOpen] = useState(false);
 
@@ -149,6 +151,32 @@ export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI, confli
         >
           {totalConflicts}
         </div>
+      )}
+
+      {/* Clear month */}
+      {!collapsed && scheduleCount > 0 && (
+        <>
+          <div className="h-px bg-border-solid mx-2" />
+          <button
+            onClick={onClearMonth}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-danger/10 border border-danger/20 text-danger hover:bg-danger/20 transition-colors text-sm font-semibold w-full"
+            title="ลบตารางเดือนนี้ทั้งหมด"
+          >
+            <Trash2 className="w-4 h-4 shrink-0" />
+            <span>ล้างตารางเดือนนี้</span>
+            <span className="ml-auto text-[10px] opacity-60">{scheduleCount} รายการ</span>
+          </button>
+        </>
+      )}
+
+      {collapsed && scheduleCount > 0 && (
+        <button
+          onClick={onClearMonth}
+          className="flex items-center justify-center w-10 h-10 rounded-xl bg-danger/10 text-danger mx-auto"
+          title="ล้างตารางเดือนนี้"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       )}
     </nav>
   );

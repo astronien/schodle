@@ -401,6 +401,34 @@ export function useData() {
     [fetchAll],
   );
 
+  const deleteSchedulesByMonth = useCallback(
+    async (month: Date) => {
+      const { format, startOfMonth, endOfMonth } = await import('date-fns');
+      const monthStart = format(startOfMonth(month), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd');
+      const { error: delErr } = await supabase
+        .from('schedules')
+        .delete()
+        .gte('date', monthStart)
+        .lte('date', monthEnd);
+      if (delErr) throw delErr;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
+  const deleteSchedulesBeforeDate = useCallback(
+    async (beforeDate: string) => {
+      const { error: delErr } = await supabase
+        .from('schedules')
+        .delete()
+        .lt('date', beforeDate);
+      if (delErr) throw delErr;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
   const compressImage = (file: File, maxDim = 1200, quality = 0.7): Promise<File> => {
     return new Promise((resolve) => {
       if (!file.type.startsWith('image/')) {
@@ -894,6 +922,8 @@ export function useData() {
     refresh: fetchAll,
     updateSchedule,
     deleteSchedule,
+    deleteSchedulesByMonth,
+    deleteSchedulesBeforeDate,
     sendPush,
     sendPushRole,
     settings,

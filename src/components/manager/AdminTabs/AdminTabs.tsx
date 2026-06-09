@@ -55,6 +55,7 @@ interface AdminTabsProps {
   isSubscribing: boolean;
   onEnableNotifications: () => Promise<void>;
   onSendTestPush: () => Promise<{ success: boolean; sent?: number; error?: string }>;
+  onDeleteSchedulesBeforeDate: (beforeDate: string) => Promise<void>;
   currentMonth?: Date;
 }
 
@@ -91,6 +92,7 @@ export function AdminTabs({
   isSubscribing,
   onEnableNotifications,
   onSendTestPush,
+  onDeleteSchedulesBeforeDate,
   currentMonth,
 }: AdminTabsProps) {
   const applyMonth = currentMonth || new Date();
@@ -186,6 +188,7 @@ export function AdminTabs({
               onEnableNotifications={onEnableNotifications}
               isSubscribing={isSubscribing}
               onSendTestPush={onSendTestPush}
+              onDeleteSchedulesBeforeDate={onDeleteSchedulesBeforeDate}
             />
           )}
         </div>
