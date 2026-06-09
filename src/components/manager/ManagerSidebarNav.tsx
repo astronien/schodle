@@ -1,4 +1,5 @@
-import { PlusCircle, LayoutGrid, Bell, Download, Check } from 'lucide-react';
+import { useState } from 'react';
+import { PlusCircle, LayoutGrid, Bell, Download, Check, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { TabId } from './ManagerDashboard';
 
@@ -16,18 +17,42 @@ interface ManagerSidebarNavProps {
 }
 
 export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI }: ManagerSidebarNavProps) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <nav className="hidden lg:flex flex-col w-56 flex-shrink-0 gap-2 p-3 glass-cell rounded-2xl h-fit sticky top-20">
+    <nav
+      className={cn(
+        'hidden lg:flex flex-col flex-shrink-0 gap-2 p-3 glass-cell rounded-2xl h-fit sticky top-20 transition-all duration-200',
+        collapsed ? 'w-[68px]' : 'w-56',
+      )}
+    >
+      {/* Toggle */}
       <button
-        onClick={onGenerateAI}
-        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand text-white shadow-md hover:bg-brand-hover transition-colors text-sm font-bold w-full"
+        onClick={() => setCollapsed(!collapsed)}
+        className="flex items-center justify-center w-full py-2 rounded-xl text-text-tertiary hover:text-text-secondary hover:bg-white/60 transition-colors"
+        title={collapsed ? 'ขยาย' : 'ย่อ'}
       >
-        <PlusCircle className="w-5 h-5" />
-        จัดตาราง AI
+        {collapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
       </button>
 
-      <div className="h-px bg-border-solid mx-2 my-1" />
+      <div className="h-px bg-border-solid mx-2" />
 
+      {/* AI Button */}
+      <button
+        onClick={onGenerateAI}
+        className={cn(
+          'flex items-center gap-3 rounded-xl bg-brand text-white shadow-md hover:bg-brand-hover transition-colors text-sm font-bold w-full',
+          collapsed ? 'justify-center px-0 py-3' : 'px-4 py-3',
+        )}
+        title="จัดตาราง AI"
+      >
+        <PlusCircle className="w-5 h-5 shrink-0" />
+        {!collapsed && <span>จัดตาราง AI</span>}
+      </button>
+
+      <div className="h-px bg-border-solid mx-2" />
+
+      {/* Tabs */}
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
@@ -36,11 +61,13 @@ export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI }: Mana
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              'flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-150 w-full text-sm font-semibold',
+              'flex items-center gap-3 rounded-xl text-left transition-all duration-150 w-full text-sm font-semibold',
+              collapsed ? 'justify-center px-0 py-3' : 'px-4 py-3',
               isActive
                 ? 'bg-brand text-white shadow-md'
                 : 'text-text-secondary hover:bg-white/60',
             )}
+            title={tab.label}
           >
             <div
               className={cn(
@@ -50,7 +77,7 @@ export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI }: Mana
             >
               <Icon className={cn('w-4 h-4', isActive ? 'text-white' : 'text-text-tertiary')} />
             </div>
-            <span>{tab.label}</span>
+            {!collapsed && <span>{tab.label}</span>}
           </button>
         );
       })}
