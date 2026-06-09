@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { PlusCircle, LayoutGrid, Bell, Download, Check, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { PlusCircle, LayoutGrid, Bell, Download, Check, ChevronsLeft, ChevronsRight, AlertCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { TabId } from './ManagerDashboard';
+import type { Conflict } from '../../lib/conflict-validator';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Bell }> = [
   { id: 'coverage', label: 'ตารางรวม', icon: LayoutGrid },
@@ -14,10 +15,16 @@ interface ManagerSidebarNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   onGenerateAI: () => void;
+  conflicts?: Conflict[];
 }
 
-export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI }: ManagerSidebarNavProps) {
+export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI, conflicts }: ManagerSidebarNavProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [conflictsOpen, setConflictsOpen] = useState(false);
+
+  const errorCount = conflicts?.filter((c) => c.severity === 'error').length ?? 0;
+  const warningCount = conflicts?.filter((c) => c.severity === 'warning').length ?? 0;
+  const totalConflicts = errorCount + warningCount;
 
   return (
     <nav
@@ -81,6 +88,68 @@ export function ManagerSidebarNav({ activeTab, onTabChange, onGenerateAI }: Mana
           </button>
         );
       })}
+
+      {/* Conflicts */}
+      {totalConflicts > 0 && !collapsed && (
+        <>
+          <div className="h-px bg-border-solid mx-2" />
+          <button
+            onClick={() => setConflictsOpen(!conflictsOpen)}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-danger/10 border border-danger/20 hover:bg-danger/15 transition-colors w-full"
+          >
+            <div className="flex items-center gap-1.5">
+              {errorCount > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] font-bold text-danger">
+                  <AlertCircle className="w-3 h-3" />
+                  {errorCount}
+                </span>
+              )}
+              {warningCount > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] font-bold text-warn">
+                  <AlertTriangle className="w-3 h-3" />
+                  {warningCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-bold text-danger">รายการ</span>
+          </button>
+
+          {conflictsOpen && (
+            <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-2 -mt-1">
+              {conflicts!.slice(0, 30).map((c, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'p-2 rounded-lg border text-[10px] leading-tight',
+                    c.severity === 'error'
+                      ? 'bg-danger/5 border-danger/15 text-danger'
+                      : 'bg-warn/5 border-warn/15 text-warn',
+                  )}
+                >
+                  <span className="font-bold">{c.date}</span>
+                  <span className="mx-1">·</span>
+                  {c.message}
+                </div>
+              ))}
+              {conflicts!.length > 30 && (
+                <p className="text-[9px] text-text-quaternary text-center py-1">
+                  ...และอีก {conflicts!.length - 30} รายการ
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Collapsed conflict badge */}
+      {totalConflicts > 0 && collapsed && (
+        <div
+          className="flex items-center justify-center w-10 h-10 rounded-xl bg-danger/15 text-danger text-xs font-bold mx-auto"
+          title={`${errorCount} ข้อผิดพลาด, ${warningCount} คำเตือน`}
+        >
+          {totalConflicts}
+        </div>
+      )}
     </nav>
   );
 }

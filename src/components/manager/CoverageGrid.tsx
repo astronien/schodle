@@ -1,14 +1,12 @@
-import { useRef, useMemo } from 'react';
+import { useRef } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { AlertTriangle, Download, Printer } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
-import { validateAllConflicts } from '../../lib/conflict-validator';
 import { exportCSV, printSchedule } from '../../lib/export-utils';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
-import { ConflictPanel } from './ConflictPanel';
 
 interface CoverageGridProps {
   currentMonth: Date;
@@ -54,22 +52,12 @@ export function CoverageGrid({
     return Math.abs(morningCount - afternoonCount) > 1;
   });
 
-  const allConflicts = useMemo(
-    () => validateAllConflicts(schedules, employees, shiftTypes),
-    [schedules, employees, shiftTypes],
-  );
-
   const editingEmployee = editingCell
     ? employees.find((e) => e.id === editingCell.employeeId) ?? null
     : null;
 
   return (
     <div className="card rounded-none sm:rounded-xl flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
-      {allConflicts.length > 0 && (
-        <div className="px-4 sm:px-6 pt-4 shrink-0">
-          <ConflictPanel conflicts={allConflicts} />
-        </div>
-      )}
       <div className="p-4 sm:p-6 border-b border-success/20 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-3 mb-1">

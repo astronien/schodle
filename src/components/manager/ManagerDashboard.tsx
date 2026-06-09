@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { addMonths, eachDayOfInterval, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
 import { filterPendingRequests } from '../../lib/schedule-utils';
+import { validateAllConflicts } from '../../lib/conflict-validator';
 import { subscribeToNotifications, sendTestPushToSelf } from '../../lib/push';
 import { useToast } from '../../lib/toast';
 import { WeeklyOffDayEditor } from './Modals/WeeklyOffDayEditor';
@@ -304,6 +305,12 @@ export function ManagerDashboard({
   const resolvedRequests = schedules.filter(
     (s) => (s.status === 'approved' || s.status === 'rejected') && s.requestType && s.requestType !== 'shift_change'
   );
+
+  const allConflicts = useMemo(
+    () => validateAllConflicts(schedules, employees, shiftTypes),
+    [schedules, employees, shiftTypes],
+  );
+
   const filteredRequests = (requestViewMode === 'pending' ? pendingRequests : resolvedRequests).filter((request) => {
     const employee = employees.find((e) => e.id === request.employeeId);
     const shiftType = shiftTypes.find((t) => t.id === request.shiftTypeId);
@@ -414,7 +421,7 @@ export function ManagerDashboard({
 
       {/* Desktop: sidebar + content */}
       <div className="flex gap-5 items-start">
-        <ManagerSidebarNav activeTab={activeTab} onTabChange={setActiveTab} onGenerateAI={generateSmartSchedule} />
+        <ManagerSidebarNav activeTab={activeTab} onTabChange={setActiveTab} onGenerateAI={generateSmartSchedule} conflicts={allConflicts} />
 
         <div className="flex-1 min-w-0">
           {/* Desktop month nav */}
