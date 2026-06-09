@@ -1,11 +1,14 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Download, Printer } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
+import { validateAllConflicts } from '../../lib/conflict-validator';
+import { exportCSV, printSchedule } from '../../lib/export-utils';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
+import { ConflictPanel } from './ConflictPanel';
 
 interface CoverageGridProps {
   currentMonth: Date;
@@ -23,6 +26,7 @@ interface CoverageGridProps {
     targetEmployeeId: string,
     targetDate: string
   ) => Promise<void>;
+  storeName?: string;
 }
 
 const SALES_POSITION_IDS = new Set(['3', '5']);
@@ -39,6 +43,7 @@ export function CoverageGrid({
   onClearShift,
   onCloseCell,
   onDropShift,
+  storeName,
 }: CoverageGridProps) {
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
@@ -49,12 +54,22 @@ export function CoverageGrid({
     return Math.abs(morningCount - afternoonCount) > 1;
   });
 
+  const allConflicts = useMemo(
+    () => validateAllConflicts(schedules, employees, shiftTypes),
+    [schedules, employees, shiftTypes],
+  );
+
   const editingEmployee = editingCell
     ? employees.find((e) => e.id === editingCell.employeeId) ?? null
     : null;
 
   return (
     <div className="card rounded-none sm:rounded-xl flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
+      {allConflicts.length > 0 && (
+        <div className="px-4 sm:px-6 pt-4 shrink-0">
+          <ConflictPanel conflicts={allConflicts} />
+        </div>
+      )}
       <div className="p-4 sm:p-6 border-b border-success/20 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -82,6 +97,25 @@ export function CoverageGrid({
               </div>
             </div>
           )}
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportCSV(currentMonth, employees, schedules, shiftTypes, positions)}
+              className="btn btn-ghost text-xs px-3 py-2"
+              title="Export CSV"
+            >
+              <Download className="w-4 h-4" />
+              CSV
+            </button>
+            <button
+              onClick={() => printSchedule(currentMonth, employees, schedules, shiftTypes, positions, storeName || 'Store')}
+              className="btn btn-ghost text-xs px-3 py-2"
+              title="พิมพ์ตาราง"
+            >
+              <Printer className="w-4 h-4" />
+              พิมพ์
+            </button>
+          </div>
 
           <div className="flex gap-2 p-1.5 bg-bg-panel rounded-xl border border-success/20">
             {shiftTypes
@@ -302,6 +336,8 @@ export function CoverageGrid({
         date={editingCell?.date ?? ''}
         currentShiftId={editingCell?.currentShiftId}
         shiftTypes={shiftTypes}
+        schedules={schedules}
+        employees={employees}
         onAssign={onAssignShift}
         onClear={onClearShift}
         onClose={onCloseCell}

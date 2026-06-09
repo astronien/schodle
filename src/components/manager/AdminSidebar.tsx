@@ -1,8 +1,8 @@
-import { Users, Clock, Briefcase, Tag, Settings as SettingsIcon } from 'lucide-react';
+import { Users, Clock, Briefcase, Tag, Repeat, Settings as SettingsIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ReactNode } from 'react';
 
-export type AdminTabId = 'employees' | 'shifts' | 'positions' | 'groups' | 'settings';
+export type AdminTabId = 'employees' | 'shifts' | 'positions' | 'groups' | 'recurring' | 'settings';
 
 interface AdminSidebarProps {
   activeTab: AdminTabId;
@@ -22,6 +22,7 @@ const TABS: TabMeta[] = [
   { id: 'shifts', label: 'กะงาน', description: 'ประเภทกะ', icon: Clock },
   { id: 'positions', label: 'ตำแหน่ง', description: 'จัดตำแหน่งงาน', icon: Briefcase },
   { id: 'groups', label: 'กลุ่ม', description: 'กลุ่มตำแหน่ง', icon: Tag },
+  { id: 'recurring', label: 'ตารางซ้ำ', description: 'กะประจำสัปดาห์', icon: Repeat },
   { id: 'settings', label: 'ตั้งค่าแอป', description: 'ตั้งค่าทั่วไป', icon: SettingsIcon },
 ];
 

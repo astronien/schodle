@@ -16,6 +16,7 @@ import type {
   Employee,
   Position,
   PositionGroup,
+  RecurringSchedule,
   ScheduleEntry,
   ShiftType,
 } from '../../types';
@@ -39,6 +40,11 @@ interface ManagerDashboardProps {
   createPositionGroup: (group: Omit<PositionGroup, 'id'>) => Promise<void>;
   updatePositionGroup: (group: PositionGroup) => Promise<void>;
   deletePositionGroup: (id: string) => Promise<void>;
+  recurringSchedules: RecurringSchedule[];
+  createRecurringSchedule: (recurring: Omit<RecurringSchedule, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateRecurringSchedule: (recurring: RecurringSchedule) => Promise<void>;
+  deleteRecurringSchedule: (id: string) => Promise<void>;
+  applyRecurringSchedules: (month: Date, employeeIds?: string[]) => Promise<{ count: number; message: string }>;
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
   swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
@@ -77,6 +83,11 @@ export function ManagerDashboard({
   createPositionGroup,
   updatePositionGroup,
   deletePositionGroup,
+  recurringSchedules,
+  createRecurringSchedule,
+  updateRecurringSchedule,
+  deleteRecurringSchedule,
+  applyRecurringSchedules,
   updateSchedule,
   deleteSchedule,
   swapScheduleShifts,
@@ -440,6 +451,7 @@ export function ManagerDashboard({
           onClearShift={handleClearShift}
           onCloseCell={() => setEditingCell(null)}
           onDropShift={handleDropShift}
+          storeName={settings.storeName}
         />
       )}
 
@@ -517,11 +529,17 @@ export function ManagerDashboard({
           createPositionGroup={createPositionGroup}
           updatePositionGroup={updatePositionGroup}
           deletePositionGroup={deletePositionGroup}
+          recurringSchedules={recurringSchedules}
+          onCreateRecurring={createRecurringSchedule}
+          onUpdateRecurring={updateRecurringSchedule}
+          onDeleteRecurring={deleteRecurringSchedule}
+          onApplyRecurring={applyRecurringSchedules}
           settings={settings}
           updateSettings={updateSettings}
           isSubscribing={isSubscribing}
           onEnableNotifications={handleEnableNotifications}
           onSendTestPush={handleSendTestPush}
+          currentMonth={currentMonth}
         />
       )}
 

@@ -1,8 +1,10 @@
-import { X, CheckCircle2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { X, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../../lib/utils';
-import type { Employee, ShiftType } from '../../../types';
+import { validateAssignShift } from '../../../lib/conflict-validator';
+import type { Employee, ScheduleEntry, ShiftType } from '../../../types';
 
 interface CellEditorProps {
   open: boolean;
@@ -10,6 +12,8 @@ interface CellEditorProps {
   date: string;
   currentShiftId?: string;
   shiftTypes: ShiftType[];
+  schedules: ScheduleEntry[];
+  employees: Employee[];
   onAssign: (shiftTypeId: string) => void;
   onClear: () => void;
   onClose: () => void;
@@ -21,15 +25,31 @@ export function CellEditor({
   date,
   currentShiftId,
   shiftTypes,
+  schedules,
+  employees,
   onAssign,
   onClear,
   onClose,
 }: CellEditorProps) {
+  const [selectedTmp, setSelectedTmp] = useState<string | null>(null);
+
+  const selectedId = selectedTmp || currentShiftId || null;
+
+  const warnings = useMemo(() => {
+    if (!selectedId || !employee) return [];
+    return validateAssignShift(employee.id, date, selectedId, schedules, employees, shiftTypes);
+  }, [selectedId, employee, date, schedules, employees, shiftTypes]);
+
   if (!open) return null;
 
   const isOffDay =
     typeof employee?.weeklyOffDay === 'number' &&
     new Date(`${date}T00:00:00`).getDay() === employee.weeklyOffDay;
+
+  const handleAssign = (shiftTypeId: string) => {
+    setSelectedTmp(shiftTypeId);
+    onAssign(shiftTypeId);
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
@@ -57,6 +77,29 @@ export function CellEditor({
             </button>
           </div>
 
+          {warnings.length > 0 && (
+            <div className="mb-4 space-y-1.5">
+              {warnings.map((w, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'flex items-start gap-2 p-2.5 rounded-xl border text-xs',
+                    w.severity === 'error'
+                      ? 'text-danger bg-danger/10 border-danger/20'
+                      : 'text-warn bg-warn/10 border-warn/20',
+                  )}
+                >
+                  {w.severity === 'error' ? (
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  )}
+                  <span className="font-medium">{w.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-2 overflow-y-auto custom-scrollbar pr-1 -mr-1 flex-1">
             {shiftTypes
               .filter((t) => t.isVisible)
@@ -67,7 +110,7 @@ export function CellEditor({
                   <button
                     key={type.id}
                     disabled={isDisabled}
-                    onClick={() => onAssign(type.id)}
+                    onClick={() => handleAssign(type.id)}
                     className={cn(
                       'flex items-center justify-between p-3 rounded-xl border transition-all active:scale-[0.98]',
                       isSelected

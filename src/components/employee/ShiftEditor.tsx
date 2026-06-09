@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertCircle, XCircle, CheckCircle2, ChevronRight, Plus, Check, Users } from 'lucide-react';
+import { AlertCircle, AlertTriangle, XCircle, CheckCircle2, ChevronRight, Plus, Check, Users } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getDiceBearAvatar } from '../../lib/validators';
+import { validateAssignShift } from '../../lib/conflict-validator';
 import { useToast } from '../../lib/toast';
 import type { AppSettings, Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 
@@ -59,6 +60,12 @@ export function ShiftEditor({
   const isOffDay =
     typeof currentUser.weeklyOffDay === 'number' &&
     selectedDate.getDay() === currentUser.weeklyOffDay;
+
+  const conflictWarnings = useMemo(() => {
+    if (!currentShiftId || !selectedDate) return [];
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    return validateAssignShift(currentUser.id, dateStr, currentShiftId, schedules, employees, shiftTypes);
+  }, [currentShiftId, selectedDate, currentUser.id, schedules, employees, shiftTypes]);
 
   const reset = () => {
     setSelectedShiftId(null);
@@ -123,6 +130,29 @@ export function ShiftEditor({
             <div className="mb-5 p-3.5 bg-danger/10 border border-danger/20 rounded-lg flex items-start gap-3 animate-fade-in">
               <AlertCircle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
               <p className="text-sm font-medium text-danger">{validationError}</p>
+            </div>
+          )}
+
+          {conflictWarnings.length > 0 && (
+            <div className="mb-4 space-y-1.5">
+              {conflictWarnings.map((w, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'flex items-start gap-2 p-2.5 rounded-xl border text-xs',
+                    w.severity === 'error'
+                      ? 'text-danger bg-danger/10 border-danger/20'
+                      : 'text-warn bg-warn/10 border-warn/20',
+                  )}
+                >
+                  {w.severity === 'error' ? (
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  )}
+                  <span className="font-medium">{w.message}</span>
+                </div>
+              ))}
             </div>
           )}
 

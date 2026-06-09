@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { getSessionToken } from '../lib/session';
 import { sendPushToEmployee, sendPushToRole } from '../lib/push';
-import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup } from '../types';
+import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, RecurringSchedule } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
 
 const RECENT_NOTIFICATION_WINDOW_MS = 7000;
@@ -48,6 +48,7 @@ export function useData() {
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [positionGroups, setPositionGroups] = useState<PositionGroup[]>([]);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
     storeName: 'Central Plaza Rama 9',
     appName: 'ShiftFlow',
@@ -125,12 +126,13 @@ export function useData() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const [posRes, empRes, shiftRes, groupRes, schedRes, settingsRes] = await Promise.all([
+      const [posRes, empRes, shiftRes, groupRes, schedRes, recurringRes, settingsRes] = await Promise.all([
         supabase.from('positions').select('*').order('code'),
         supabase.from('employees').select('id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at').order('full_name'),
         supabase.from('shift_types').select('*').order('code'),
         supabase.from('position_groups').select('*').order('name'),
         supabase.from('schedules').select('*').order('date'),
+        supabase.from('recurring_schedules').select('*').order('created_at'),
         supabase.from('settings').select('*'),
       ]);
 
@@ -139,6 +141,7 @@ export function useData() {
       if (shiftRes.error) throw shiftRes.error;
       if (groupRes.error) throw groupRes.error;
       if (schedRes.error) throw schedRes.error;
+      if (recurringRes.error) throw recurringRes.error;
 
       setPositions(
         (posRes.data || []).map((p) => ({
@@ -186,6 +189,22 @@ export function useData() {
           isLeave: s.is_leave ?? false,
           targetStaff: s.target_staff || undefined,
           category: (s.category as ShiftType['category']) || undefined,
+        })),
+      );
+
+      setRecurringSchedules(
+        (recurringRes.data || []).map((r) => ({
+          id: r.id,
+          employeeId: r.employee_id,
+          shiftTypeId: r.shift_type_id,
+          daysOfWeek: r.days_of_week,
+          startDate: r.start_date,
+          endDate: r.end_date || undefined,
+          isActive: r.is_active,
+          note: r.note || undefined,
+          createdBy: r.created_by || undefined,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
         })),
       );
 
@@ -672,6 +691,149 @@ export function useData() {
     [fetchAll],
   );
 
+  const createRecurringSchedule = useCallback(
+    async (recurring: Omit<RecurringSchedule, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const { error: insErr } = await supabase.from('recurring_schedules').insert({
+        employee_id: recurring.employeeId,
+        shift_type_id: recurring.shiftTypeId,
+        days_of_week: recurring.daysOfWeek,
+        start_date: recurring.startDate,
+        end_date: recurring.endDate || null,
+        is_active: recurring.isActive,
+        note: recurring.note || null,
+        created_by: recurring.createdBy || null,
+      });
+      if (insErr) {
+        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase insert failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
+  const updateRecurringSchedule = useCallback(
+    async (recurring: RecurringSchedule) => {
+      const { error: updErr } = await supabase
+        .from('recurring_schedules')
+        .update({
+          employee_id: recurring.employeeId,
+          shift_type_id: recurring.shiftTypeId,
+          days_of_week: recurring.daysOfWeek,
+          start_date: recurring.startDate,
+          end_date: recurring.endDate || null,
+          is_active: recurring.isActive,
+          note: recurring.note || null,
+          created_by: recurring.createdBy || null,
+        })
+        .eq('id', recurring.id);
+      if (updErr) {
+        const msg = [updErr.message, updErr.details, updErr.hint, `code: ${updErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase update failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
+  const deleteRecurringSchedule = useCallback(
+    async (id: string) => {
+      const { error: delErr } = await supabase.from('recurring_schedules').delete().eq('id', id);
+      if (delErr) {
+        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
+          .filter(Boolean)
+          .join(' | ');
+        throw new Error(msg || 'Supabase delete failed');
+      }
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
+  const applyRecurringSchedules = useCallback(
+    async (month: Date, employeeIds?: string[]) => {
+      const { format, startOfMonth, endOfMonth, eachDayOfInterval } = await import('date-fns');
+      const activeRecurring = recurringSchedules.filter((r) => r.isActive);
+      const targetEmployees = employeeIds ? activeRecurring.filter((r) => employeeIds.includes(r.employeeId)) : activeRecurring;
+      
+      const monthStart = startOfMonth(month);
+      const monthEnd = endOfMonth(month);
+      const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+      const newEntries: ScheduleEntry[] = [];
+      const xShift = shiftTypes.find((t) => t.code === 'X');
+
+      for (const recurring of targetEmployees) {
+        const shiftType = shiftTypes.find((t) => t.id === recurring.shiftTypeId);
+        if (!shiftType) continue;
+
+        for (const day of days) {
+          const dayOfWeek = day.getDay();
+          if (!recurring.daysOfWeek.includes(dayOfWeek)) continue;
+
+          const dateStr = format(day, 'yyyy-MM-dd');
+          
+          // Check if recurring schedule applies to this date
+          const startDate = new Date(`${recurring.startDate}T00:00:00`);
+          const endDate = recurring.endDate ? new Date(`${recurring.endDate}T23:59:59`) : null;
+          if (day < startDate) continue;
+          if (endDate && day > endDate) continue;
+
+          // Check if already has schedule
+          const existing = schedules.find((s) => s.employeeId === recurring.employeeId && s.date === dateStr);
+          if (existing) continue;
+
+          // Skip if it's weekly off day and shift is not X
+          const emp = employees.find((e) => e.id === recurring.employeeId);
+          if (typeof emp?.weeklyOffDay === 'number' && dayOfWeek === emp.weeklyOffDay) {
+            if (shiftType.code !== 'X' && xShift) {
+              // Could auto-assign X shift here if needed
+              continue;
+            }
+          }
+
+          newEntries.push({
+            id: crypto.randomUUID(),
+            employeeId: recurring.employeeId,
+            date: dateStr,
+            shiftTypeId: recurring.shiftTypeId,
+            status: 'approved',
+            requestType: 'shift_change',
+            createdBy: 'system',
+            employeeNote: recurring.note || 'จากตารางซ้ำ',
+          });
+        }
+      }
+
+      if (newEntries.length === 0) {
+        return { count: 0, message: 'ไม่มีรายการใหม่ที่ต้องเพิ่ม' };
+      }
+
+      // Bulk insert
+      const { error: bulkErr } = await supabase.from('schedules').insert(
+        newEntries.map((e) => ({
+          id: e.id,
+          employee_id: e.employeeId,
+          date: e.date,
+          shift_type_id: e.shiftTypeId,
+          status: e.status,
+          request_type: e.requestType,
+          created_by: e.createdBy,
+          employee_note: e.employeeNote,
+        }))
+      );
+
+      if (bulkErr) throw bulkErr;
+      await fetchAll(true);
+      return { count: newEntries.length, message: `เพิ่มตารางจากตารางซ้ำ ${newEntries.length} รายการ` };
+    },
+    [recurringSchedules, shiftTypes, employees, schedules, fetchAll],
+  );
+
   const updateSettings = useCallback(
     async (newSettings: AppSettings) => {
       const results = await Promise.all([
@@ -726,6 +888,7 @@ export function useData() {
     shiftTypes,
     positionGroups,
     schedules,
+    recurringSchedules,
     loading,
     error,
     refresh: fetchAll,
@@ -746,6 +909,10 @@ export function useData() {
     createShiftType,
     updateShiftType,
     deleteShiftType,
+    createRecurringSchedule,
+    updateRecurringSchedule,
+    deleteRecurringSchedule,
+    applyRecurringSchedules,
     updateSettings,
     uploadFile,
     swapScheduleShifts,

@@ -167,6 +167,47 @@ export interface Database {
           updated_at?: string;
         };
       };
+      recurring_schedules: {
+        Row: {
+          id: string;
+          employee_id: string;
+          shift_type_id: string;
+          days_of_week: number[];
+          start_date: string;
+          end_date: string | null;
+          is_active: boolean;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          employee_id: string;
+          shift_type_id: string;
+          days_of_week: number[];
+          start_date: string;
+          end_date?: string | null;
+          is_active?: boolean;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          employee_id?: string;
+          shift_type_id?: string;
+          days_of_week?: number[];
+          start_date?: string;
+          end_date?: string | null;
+          is_active?: boolean;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

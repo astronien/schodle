@@ -1,5 +1,6 @@
 import { PositionGroupManager } from '../PositionGroupManager';
-import type { AppSettings, Employee, Position, PositionGroup, ShiftType } from '../../../types';
+import { RecurringSchedulesTab } from '../RecurringSchedulesTab';
+import type { AppSettings, Employee, Position, PositionGroup, RecurringSchedule, ShiftType } from '../../../types';
 import { AdminSidebar, AdminMobileSubTabs } from '../AdminSidebar';
 import type { AdminTabId } from '../AdminSidebar';
 import { EmployeesTab } from './EmployeesTab';
@@ -41,12 +42,20 @@ interface AdminTabsProps {
   updatePositionGroup: (group: PositionGroup) => Promise<void>;
   deletePositionGroup: (id: string) => Promise<void>;
 
+  // Recurring
+  recurringSchedules: RecurringSchedule[];
+  onCreateRecurring: (recurring: Omit<RecurringSchedule, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onUpdateRecurring: (recurring: RecurringSchedule) => Promise<void>;
+  onDeleteRecurring: (id: string) => Promise<void>;
+  onApplyRecurring: (month: Date, employeeIds?: string[]) => Promise<{ count: number; message: string }>;
+
   // Settings
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => Promise<void>;
   isSubscribing: boolean;
   onEnableNotifications: () => Promise<void>;
   onSendTestPush: () => Promise<{ success: boolean; sent?: number; error?: string }>;
+  currentMonth?: Date;
 }
 
 export function AdminTabs({
@@ -72,17 +81,25 @@ export function AdminTabs({
   createPositionGroup,
   updatePositionGroup,
   deletePositionGroup,
+  recurringSchedules,
+  onCreateRecurring,
+  onUpdateRecurring,
+  onDeleteRecurring,
+  onApplyRecurring,
   settings,
   updateSettings,
   isSubscribing,
   onEnableNotifications,
   onSendTestPush,
+  currentMonth,
 }: AdminTabsProps) {
+  const applyMonth = currentMonth || new Date();
   const counts: Partial<Record<AdminTabId, number>> = {
     employees: employees.length,
     shifts: shiftTypes.length,
     positions: positions.length,
     groups: positionGroupsForManager.length,
+    recurring: recurringSchedules.filter((r) => r.isActive).length,
   };
 
   return (
@@ -146,6 +163,19 @@ export function AdminTabs({
               updateGroup={updatePositionGroup}
               deleteGroup={deletePositionGroup}
               updateEmployee={updateEmployee}
+            />
+          )}
+
+          {activeTab === 'recurring' && (
+            <RecurringSchedulesTab
+              recurringSchedules={recurringSchedules}
+              employees={employees}
+              shiftTypes={shiftTypes}
+              onCreate={onCreateRecurring}
+              onUpdate={onUpdateRecurring}
+              onDelete={onDeleteRecurring}
+              onApplyToMonth={onApplyRecurring}
+              currentMonth={applyMonth}
             />
           )}
 

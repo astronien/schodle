@@ -71,6 +71,22 @@ export type MonthlyCoverage = {
   counts: Record<string, number>; // shiftCode -> count
   isShortage: boolean;
 };
+export type RecurringSchedule = {
+  id: string;
+  employeeId: string;
+  shiftTypeId: string;
+  daysOfWeek: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startDate: string; // ISO YYYY-MM-DD
+  endDate?: string; // ISO YYYY-MM-DD
+  isActive: boolean;
+  note?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RecurringScheduleInput = Omit<RecurringSchedule, 'id' | 'createdAt' | 'updatedAt'>;
+
 export type AppSettings = {
   storeName: string;
   appName: string;

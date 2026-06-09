@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 
-import { Clock, Settings, Calendar, Briefcase, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, Briefcase, ChevronRight } from 'lucide-react';
 import { format, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import type { UserRole, Employee } from './types/index';
 
@@ -87,6 +87,11 @@ function AppShell() {
     createPositionGroup,
     updatePositionGroup,
     deletePositionGroup,
+    recurringSchedules,
+    createRecurringSchedule,
+    updateRecurringSchedule,
+    deleteRecurringSchedule,
+    applyRecurringSchedules,
     settings,
     updateSettings,
     uploadFile,
@@ -171,11 +176,11 @@ function AppShell() {
   };
 
   const handleSaveWeeklyOffDay = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentEmployee) return;
     setIsSavingWeeklyOffDay(true);
     try {
       await updateEmployee({
-        ...currentUser,
+        ...currentEmployee,
         weeklyOffDay: typeof selectedWeeklyOffDay === 'number' ? selectedWeeklyOffDay : undefined,
       });
       if (typeof selectedWeeklyOffDay === 'number') {
@@ -189,14 +194,14 @@ function AppShell() {
             .filter((d) => d.getDay() === selectedWeeklyOffDay)
             .map((d) => format(d, 'yyyy-MM-dd'));
           for (const date of offDates) {
-            const existing = schedules.find((s) => s.employeeId === currentUser.id && s.date === date);
+            const existing = schedules.find((s) => s.employeeId === currentEmployee.id && s.date === date);
             if (existing) {
               if (existing.shiftTypeId !== xShift.id) {
                 await updateSchedule({ ...existing, shiftTypeId: xShift.id, status: 'approved', createdBy: 'employee' });
               }
             } else {
               await updateSchedule({
-                id: crypto.randomUUID(), employeeId: currentUser.id, date,
+                id: crypto.randomUUID(), employeeId: currentEmployee.id, date,
                 shiftTypeId: xShift.id, status: 'approved',
                 requestType: 'shift_change', createdBy: 'employee',
               });
@@ -211,7 +216,7 @@ function AppShell() {
     } finally {
       setIsSavingWeeklyOffDay(false);
     }
-  }, [currentUser, selectedWeeklyOffDay, updateEmployee, updateSchedule, shiftTypes, currentMonth, schedules]);
+  }, [currentEmployee, selectedWeeklyOffDay, updateEmployee, updateSchedule, shiftTypes, currentMonth, schedules]);
 
   if (authLoading) {
     return (
@@ -514,6 +519,11 @@ function AppShell() {
                 createPositionGroup={createPositionGroup}
                 updatePositionGroup={updatePositionGroup}
                 deletePositionGroup={deletePositionGroup}
+                recurringSchedules={recurringSchedules}
+                createRecurringSchedule={createRecurringSchedule}
+                updateRecurringSchedule={updateRecurringSchedule}
+                deleteRecurringSchedule={deleteRecurringSchedule}
+                applyRecurringSchedules={applyRecurringSchedules}
                 updateSchedule={updateSchedule}
                 deleteSchedule={deleteSchedule}
                 swapScheduleShifts={swapScheduleShifts}
@@ -522,7 +532,7 @@ function AppShell() {
                 generateSmartSchedule={generateSmartSchedule}
                 settings={settings}
                 updateSettings={updateSettings}
-                currentUser={currentUser!}
+                currentUser={currentUser}
               />
             ) : (
               <EmployeeDashboard
