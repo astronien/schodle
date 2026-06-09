@@ -70,7 +70,7 @@ export function printSchedule(
     return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth);
   });
 
-  const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+  const dayShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
   let tableRows = employees
     .map((emp) => {
@@ -87,28 +87,21 @@ export function printSchedule(
       return `<tr>
         <td class="emp-name">${emp.fullName}</td>
         <td class="emp-code">${emp.employeeCode}</td>
-        <td class="emp-pos">${pos?.name || ''}</td>
+        <td class="emp-pos">${pos?.code || ''}</td>
         ${dayCells}
       </tr>`;
     })
     .join('');
 
-  // Summary row
   const headerCells = days
-    .map((d) => {
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const dailyCount = new Set(
-        monthSchedules.filter((s) => s.date === dateStr).map((s) => s.employeeId),
-      ).size;
-      return `<th>${format(d, 'd')}<br><small>${dayNames[d.getDay()]}</small><br><small>${dailyCount} คน</small></th>`;
-    })
+    .map((d) => `<th>${format(d, 'd')}<br><small>${dayShort[d.getDay()]}</small></th>`)
     .join('');
 
   const shiftLegend = shiftTypes
     .filter((t) => t.isVisible)
-    .map((st) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px;">
-    <span style="width:10px;height:10px;border-radius:3px;background:${st.color};display:inline-block"></span>
-    ${st.name} (${st.code} ${st.startTime}-${st.endTime})
+    .map((st) => `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:10px;font-size:10px;">
+    <span style="width:8px;height:8px;border-radius:2px;background:${st.color};display:inline-block"></span>
+    ${st.code} ${st.startTime}-${st.endTime}
   </span>`)
     .join('');
 
@@ -118,24 +111,24 @@ export function printSchedule(
   <meta charset="UTF-8">
   <title>ตารางกะงาน - ${storeName}</title>
   <style>
-    @page { size: landscape; margin: 15mm; }
+    @page { size: A3 landscape; margin: 8mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Sarabun','Sarabun PSK','Noto Sans Thai','Tahoma',sans-serif; padding: 20px; color: #1a1a2e; }
-    .header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px double #1a1a2e; }
-    .header h1 { font-size: 22px; margin-bottom: 4px; }
-    .header p { font-size: 13px; color: #666; }
-    .legend { margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    th, td { border: 1px solid #ccc; padding: 4px 3px; text-align: center; white-space: nowrap; }
-    th { background: #1a1a2e; color: #fff; font-size: 10px; position: sticky; top: 0; }
+    body { font-family: 'Sarabun','Sarabun PSK','Noto Sans Thai','Tahoma',sans-serif; padding: 10px; color: #1a1a2e; }
+    .header { text-align: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px double #1a1a2e; }
+    .header h1 { font-size: 16px; margin-bottom: 2px; }
+    .header p { font-size: 10px; color: #666; }
+    .legend { margin-bottom: 8px; padding: 5px 8px; background: #f5f5f5; border-radius: 4px; line-height: 1.8; }
+    table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+    th, td { border: 1px solid #d0d0d0; padding: 2px 1px; text-align: center; white-space: nowrap; overflow: hidden; }
+    th { background: #1a1a2e; color: #fff; font-size: 8px; }
     th small { font-weight: normal; opacity: 0.8; }
-    .emp-name { text-align: left; font-weight: 600; min-width: 130px; background: #fafafa; position: sticky; left: 0; }
-    .emp-code { text-align: center; font-size: 10px; color: #666; min-width: 60px; }
-    .emp-pos { text-align: center; font-size: 10px; color: #666; min-width: 70px; }
-    td.shift { font-weight: 700; font-size: 10px; border-radius: 2px; }
+    .emp-name { text-align: left; font-weight: 600; min-width: 100px; width: 120px; background: #fafafa; position: sticky; left: 0; font-size: 9px; padding-left: 4px; }
+    .emp-code { text-align: center; font-size: 8px; color: #666; width: 38px; }
+    .emp-pos { text-align: center; font-size: 8px; color: #666; width: 42px; }
+    td.shift { font-weight: 700; font-size: 8px; border-radius: 2px; }
     td.empty { background: #fafafa; }
     tr:nth-child(even) { background: #fafafa; }
-    .footer { margin-top: 20px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+    .footer { margin-top: 8px; text-align: center; font-size: 9px; color: #999; }
     @media print {
       body { padding: 0; }
       .no-print { display: none; }
@@ -145,32 +138,27 @@ export function printSchedule(
 <body>
   <div class="header">
     <h1>${storeName}</h1>
-    <p>ตารางกะงาน ประจำเดือน ${monthStr}</p>
-    <p>พิมพ์เมื่อ ${format(new Date(), 'd MMMM yyyy HH:mm')}</p>
+    <p>ตารางกะงาน ประจำเดือน ${monthStr} · พิมพ์เมื่อ ${format(new Date(), 'd MMM yyyy HH:mm')}</p>
   </div>
   <div class="legend">${shiftLegend}</div>
-  <div style="overflow-x:auto">
-    <table>
-      <thead>
-        <tr>
-          <th style="text-align:left;min-width:130px">ชื่อพนักงาน</th>
-          <th style="min-width:60px">รหัส</th>
-          <th style="min-width:70px">ตำแหน่ง</th>
-          ${headerCells}
-        </tr>
-      </thead>
-      <tbody>
-        ${tableRows}
-      </tbody>
-    </table>
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:left">ชื่อพนักงาน</th>
+        <th>รหัส</th>
+        <th>ต่ำแหน่ง</th>
+        ${headerCells}
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+  <div class="footer">Schodle</div>
+  <div class="no-print" style="text-align:center;margin-top:12px">
+    <button onclick="window.print()" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#1a1a2e;color:#fff;border:none;border-radius:6px;">🖨 พิมพ์ตาราง</button>
   </div>
-  <div class="footer">
-    <p>Schodle · สร้างโดยระบบจัดกะอัตโนมัติ</p>
-  </div>
-  <div class="no-print" style="text-align:center;margin-top:20px">
-    <button onclick="window.print()" style="padding:10px 30px;font-size:16px;cursor:pointer;background:#1a1a2e;color:#fff;border:none;border-radius:8px;">🖨 พิมพ์ตาราง</button>
-  </div>
-  <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
+  <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };</script>
 </body>
 </html>`;
 
