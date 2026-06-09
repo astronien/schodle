@@ -58,6 +58,7 @@ function AppShell() {
   const [role, setRole] = useState<UserRole>('employee');
   const effectiveRole = !isManager && role === 'manager' ? 'employee' : role;
   const [activeMobileTab, setActiveMobileTab] = useState<'schedule' | 'requests' | 'settings'>('schedule');
+  const [activeView, setActiveView] = useState<'calendar' | 'coverage'>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editingWeeklyOffDay, setEditingWeeklyOffDay] = useState(false);
   const [selectedWeeklyOffDay, setSelectedWeeklyOffDay] = useState<number | null>(null);
@@ -298,6 +299,8 @@ function AppShell() {
                     positions={positions}
                     uploadFile={uploadFile}
                     settings={settings}
+                    activeView={activeView}
+                    onActiveViewChange={setActiveView}
                   />
                 )}
                 {activeMobileTab === 'requests' && (
@@ -544,13 +547,15 @@ function AppShell() {
                 positions={positions}
                 uploadFile={uploadFile}
                 settings={settings}
+                activeView={activeView}
+                onActiveViewChange={setActiveView}
               />
             )}
           </Suspense>
         </ErrorBoundary>
       </main>
 
-      <MobileNav activeTab={activeMobileTab} onChangeTab={setActiveMobileTab} />
+      <MobileNav activeTab={activeMobileTab} onChangeTab={setActiveMobileTab} activeView={activeView} onChangeView={setActiveView} />
       <UpdatePrompt />
 
       <ChangePasswordModal

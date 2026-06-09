@@ -28,6 +28,8 @@ interface EmployeeDashboardProps {
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
   uploadFile: (file: File) => Promise<string>;
   settings: AppSettings;
+  activeView?: 'calendar' | 'coverage';
+  onActiveViewChange?: (view: 'calendar' | 'coverage') => void;
 }
 
 type View = 'calendar' | 'coverage';
@@ -41,10 +43,17 @@ export function EmployeeDashboard({
   positions,
   uploadFile,
   settings,
+  activeView: activeViewProp,
+  onActiveViewChange,
 }: EmployeeDashboardProps) {
   const toast = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [activeView, setActiveView] = useState<View>('calendar');
+  const [activeViewInner, setActiveViewInner] = useState<View>('calendar');
+  const activeView = activeViewProp ?? activeViewInner;
+  const setActiveView = (v: View) => {
+    setActiveViewInner(v);
+    onActiveViewChange?.(v);
+  };
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -380,30 +389,6 @@ export function EmployeeDashboard({
           />
         </div>
       )}
-
-      {/* Mobile view switcher (fixed bottom) */}
-      <div className="sm:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-        <div className="flex glass-nav rounded-full p-1">
-          <button
-            onClick={() => setActiveView('calendar')}
-            className={cn(
-              'px-4 py-2 rounded-full text-xs font-semibold transition-all',
-              activeView === 'calendar' ? 'bg-brand text-white' : 'text-text-tertiary',
-            )}
-          >
-            ของฉัน
-          </button>
-          <button
-            onClick={() => setActiveView('coverage')}
-            className={cn(
-              'px-4 py-2 rounded-full text-xs font-semibold transition-all',
-              activeView === 'coverage' ? 'bg-brand text-white' : 'text-text-tertiary',
-            )}
-          >
-            ทั้งทีม
-          </button>
-        </div>
-      </div>
 
       <ShiftEditor
         open={editorOpen}
