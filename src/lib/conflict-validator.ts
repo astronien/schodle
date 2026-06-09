@@ -71,7 +71,6 @@ function checkWeeklyOffConflicts(
   shiftTypes: ShiftType[],
 ): Conflict[] {
   const conflicts: Conflict[] = [];
-  const xShift = shiftTypes.find((t) => t.code === 'X');
 
   for (const entry of schedules) {
     if (entry.status !== 'approved') continue;
@@ -102,7 +101,6 @@ function checkWeeklyOffConflicts(
  */
 function checkStaffingConflicts(
   schedules: ScheduleEntry[],
-  employees: Employee[],
   shiftTypes: ShiftType[],
 ): Conflict[] {
   const conflicts: Conflict[] = [];
@@ -173,7 +171,7 @@ export function validateAllConflicts(
   return [
     ...checkLateToEarlyConflicts(schedules, employees, shiftTypes, lateCodes, earlyCodes),
     ...checkWeeklyOffConflicts(schedules, employees, shiftTypes),
-    ...checkStaffingConflicts(schedules, employees, shiftTypes),
+    ...checkStaffingConflicts(schedules, shiftTypes),
   ].sort((a, b) => a.date.localeCompare(b.date));
 }
 

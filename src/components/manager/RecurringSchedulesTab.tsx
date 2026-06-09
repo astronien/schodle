@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
 import { Repeat, Plus, Trash2, Clock, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../lib/toast';
