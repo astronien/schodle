@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { addMonths, eachDayOfInterval, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { PlusCircle, Bell, LayoutGrid, Download, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { filterPendingRequests } from '../../lib/schedule-utils';
 import { subscribeToNotifications, sendTestPushToSelf } from '../../lib/push';
@@ -11,6 +10,7 @@ import { CoverageGrid } from './CoverageGrid';
 import { RequestList } from './RequestList';
 import { ReportPanel } from './ReportPanel';
 import { AdminTabs, type AdminTabId } from './AdminTabs/AdminTabs';
+import { ManagerSidebarNav, ManagerMobileTabs } from './ManagerSidebarNav';
 import type {
   AppSettings,
   Employee,
@@ -55,14 +55,7 @@ interface ManagerDashboardProps {
   updateSettings: (settings: AppSettings) => Promise<void>;
 }
 
-type TabId = 'coverage' | 'requests' | 'report' | 'admin';
-
-const TABS: Array<{ id: TabId; label: string; icon: typeof Bell }> = [
-  { id: 'coverage', label: 'ตารางรวม', icon: LayoutGrid },
-  { id: 'requests', label: 'คำขอ', icon: Bell },
-  { id: 'report', label: 'รายงาน', icon: Download },
-  { id: 'admin', label: 'จัดการ', icon: Check },
-];
+export type TabId = 'coverage' | 'requests' | 'report' | 'admin';
 
 export function ManagerDashboard({
   currentUser,
@@ -344,8 +337,9 @@ export function ManagerDashboard({
   ];
 
   return (
-    <div className="w-full space-y-5 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="w-full">
+      {/* Header + Stats (mobile & desktop) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 sm:mb-6">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <h2 className="text-lg sm:text-xl font-bold text-text-primary">Manager Control</h2>
@@ -384,31 +378,11 @@ export function ManagerDashboard({
         </div>
       </div>
 
-      <div className="sticky top-[calc(3.5rem+1px)] z-20 rounded-2xl border border-border-solid bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4">
+      {/* Mobile: horizontal tabs + month nav */}
+      <div className="lg:hidden sticky top-[calc(3.5rem+1px)] z-20 rounded-2xl border border-border-solid bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4 mb-4">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
-            <button
-              onClick={generateSmartSchedule}
-              className="btn btn-primary text-xs shadow-raised whitespace-nowrap"
-            >
-              <PlusCircle className="w-4 h-4" />
-              จัดตาราง AI
-            </button>
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="btn btn-ghost text-xs whitespace-nowrap"
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar pb-1">
+          <ManagerMobileTabs activeTab={activeTab} onTabChange={setActiveTab} onGenerateAI={generateSmartSchedule} />
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
@@ -438,120 +412,156 @@ export function ManagerDashboard({
         </div>
       </div>
 
-      {activeTab === 'coverage' && (
-        <CoverageGrid
-          currentMonth={currentMonth}
-          employees={employees}
-          schedules={schedules}
-          shiftTypes={shiftTypes}
-          positions={positions}
-          editingCell={editingCell}
-          onOpenCell={handleOpenEditCell}
-          onAssignShift={handleAssignShift}
-          onClearShift={handleClearShift}
-          onCloseCell={() => setEditingCell(null)}
-          onDropShift={handleDropShift}
-          storeName={settings.storeName}
-        />
-      )}
+      {/* Desktop: sidebar + content */}
+      <div className="flex gap-5 items-start">
+        <ManagerSidebarNav activeTab={activeTab} onTabChange={setActiveTab} onGenerateAI={generateSmartSchedule} />
 
-      {activeTab === 'requests' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-border-solid pb-3">
+        <div className="flex-1 min-w-0">
+          {/* Desktop month nav */}
+          <div className="hidden lg:flex items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                className="px-3 py-2 rounded-lg bg-bg-surface hover:bg-bg-surface text-text-tertiary hover:text-text-primary transition-colors"
+                title="เดือนก่อนหน้า"
+              >
+                ‹
+              </button>
+              <button
+                onClick={() => setCurrentMonth(new Date())}
+                className="px-3 py-2 rounded-lg bg-brand/10 text-brand-accent hover:bg-brand/15 transition-colors text-xs font-semibold whitespace-nowrap"
+              >
+                วันนี้
+              </button>
+            </div>
+            <div className="px-3 py-2 rounded-lg bg-bg-surface border border-white/[0.06] text-sm font-semibold text-text-primary min-w-[130px] text-center">
+              {format(currentMonth, 'MMMM yyyy', { locale: th })}
+            </div>
             <button
-              onClick={() => { setRequestViewMode('pending'); setRequestSearch(''); }}
-              className={cn(
-                'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
-                requestViewMode === 'pending'
-                  ? 'bg-brand text-white shadow-md'
-                  : 'text-text-tertiary hover:text-text-primary hover:bg-bg-surface'
-              )}
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              className="px-3 py-2 rounded-lg bg-bg-surface hover:bg-bg-surface text-text-tertiary hover:text-text-primary transition-colors"
+              title="เดือนถัดไป"
             >
-              รออนุมัติ ({pendingRequests.length})
-            </button>
-            <button
-              onClick={() => { setRequestViewMode('history'); setRequestSearch(''); }}
-              className={cn(
-                'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
-                requestViewMode === 'history'
-                  ? 'bg-brand text-white shadow-md'
-                  : 'text-text-tertiary hover:text-text-primary hover:bg-bg-surface'
-              )}
-            >
-              ประวัติ
+              ›
             </button>
           </div>
-          <RequestList
-            requests={filteredRequests}
-            employees={employees}
-            shiftTypes={shiftTypes}
-            positions={positions}
-            search={requestSearch}
-            onSearchChange={setRequestSearch}
-            onApprove={(id) => handleUpdateShiftStatus(id, 'approved')}
-            onReject={(id) => handleUpdateShiftStatus(id, 'rejected')}
-            readOnly={requestViewMode === 'history'}
+
+          {activeTab === 'coverage' && (
+            <CoverageGrid
+              currentMonth={currentMonth}
+              employees={employees}
+              schedules={schedules}
+              shiftTypes={shiftTypes}
+              positions={positions}
+              editingCell={editingCell}
+              onOpenCell={handleOpenEditCell}
+              onAssignShift={handleAssignShift}
+              onClearShift={handleClearShift}
+              onCloseCell={() => setEditingCell(null)}
+              onDropShift={handleDropShift}
+              storeName={settings.storeName}
+            />
+          )}
+
+          {activeTab === 'requests' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-border-solid pb-3">
+                <button
+                  onClick={() => { setRequestViewMode('pending'); setRequestSearch(''); }}
+                  className={cn(
+                    'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+                    requestViewMode === 'pending'
+                      ? 'bg-brand text-white shadow-md'
+                      : 'text-text-tertiary hover:text-text-primary hover:bg-bg-surface'
+                  )}
+                >
+                  รออนุมัติ ({pendingRequests.length})
+                </button>
+                <button
+                  onClick={() => { setRequestViewMode('history'); setRequestSearch(''); }}
+                  className={cn(
+                    'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+                    requestViewMode === 'history'
+                      ? 'bg-brand text-white shadow-md'
+                      : 'text-text-tertiary hover:text-text-primary hover:bg-bg-surface'
+                  )}
+                >
+                  ประวัติ
+                </button>
+              </div>
+              <RequestList
+                requests={filteredRequests}
+                employees={employees}
+                shiftTypes={shiftTypes}
+                positions={positions}
+                search={requestSearch}
+                onSearchChange={setRequestSearch}
+                onApprove={(id) => handleUpdateShiftStatus(id, 'approved')}
+                onReject={(id) => handleUpdateShiftStatus(id, 'rejected')}
+                readOnly={requestViewMode === 'history'}
+              />
+            </div>
+          )}
+
+          {activeTab === 'report' && (
+            <ReportPanel
+              currentMonth={currentMonth}
+              schedules={schedules}
+              employees={employees}
+              shiftTypes={shiftTypes}
+              positions={positions}
+            />
+          )}
+
+          {activeTab === 'admin' && (
+            <AdminTabs
+              activeTab={activeAdminTab}
+              onTabChange={setActiveAdminTab}
+              employees={employees}
+              positions={positions}
+              positionGroups={positionGroups}
+              employeeSearch={employeeSearch}
+              onEmployeeSearchChange={setEmployeeSearch}
+              onOpenWeeklyOff={handleOpenWeeklyOffDay}
+              onDeleteEmployee={deleteEmployee}
+              createEmployee={createEmployee}
+              shiftTypes={shiftTypes}
+              createShiftType={createShiftType}
+              updateShiftType={updateShiftType}
+              deleteShiftType={deleteShiftType}
+              createPosition={createPosition}
+              updatePosition={updatePosition}
+              deletePosition={deletePosition}
+              updateEmployee={updateEmployee}
+              positionGroupsForManager={positionGroups}
+              createPositionGroup={createPositionGroup}
+              updatePositionGroup={updatePositionGroup}
+              deletePositionGroup={deletePositionGroup}
+              recurringSchedules={recurringSchedules}
+              onCreateRecurring={createRecurringSchedule}
+              onUpdateRecurring={updateRecurringSchedule}
+              onDeleteRecurring={deleteRecurringSchedule}
+              onApplyRecurring={applyRecurringSchedules}
+              settings={settings}
+              updateSettings={updateSettings}
+              isSubscribing={isSubscribing}
+              onEnableNotifications={handleEnableNotifications}
+              onSendTestPush={handleSendTestPush}
+              currentMonth={currentMonth}
+            />
+          )}
+
+          <WeeklyOffDayEditor
+            open={Boolean(editingWeeklyOffEmployeeId)}
+            employee={employees.find((e) => e.id === editingWeeklyOffEmployeeId) ?? null}
+            selectedDay={selectedWeeklyOffDay}
+            isSaving={isSavingWeeklyOffDay}
+            onSelectDay={setSelectedWeeklyOffDay}
+            onClose={() => setEditingWeeklyOffEmployeeId(null)}
+            onSave={handleSaveWeeklyOffDay}
           />
         </div>
-      )}
-
-      {activeTab === 'report' && (
-        <ReportPanel
-          currentMonth={currentMonth}
-          schedules={schedules}
-          employees={employees}
-          shiftTypes={shiftTypes}
-          positions={positions}
-        />
-      )}
-
-      {activeTab === 'admin' && (
-        <AdminTabs
-          activeTab={activeAdminTab}
-          onTabChange={setActiveAdminTab}
-          employees={employees}
-          positions={positions}
-          positionGroups={positionGroups}
-          employeeSearch={employeeSearch}
-          onEmployeeSearchChange={setEmployeeSearch}
-          onOpenWeeklyOff={handleOpenWeeklyOffDay}
-          onDeleteEmployee={deleteEmployee}
-          createEmployee={createEmployee}
-          shiftTypes={shiftTypes}
-          createShiftType={createShiftType}
-          updateShiftType={updateShiftType}
-          deleteShiftType={deleteShiftType}
-          createPosition={createPosition}
-          updatePosition={updatePosition}
-          deletePosition={deletePosition}
-          updateEmployee={updateEmployee}
-          positionGroupsForManager={positionGroups}
-          createPositionGroup={createPositionGroup}
-          updatePositionGroup={updatePositionGroup}
-          deletePositionGroup={deletePositionGroup}
-          recurringSchedules={recurringSchedules}
-          onCreateRecurring={createRecurringSchedule}
-          onUpdateRecurring={updateRecurringSchedule}
-          onDeleteRecurring={deleteRecurringSchedule}
-          onApplyRecurring={applyRecurringSchedules}
-          settings={settings}
-          updateSettings={updateSettings}
-          isSubscribing={isSubscribing}
-          onEnableNotifications={handleEnableNotifications}
-          onSendTestPush={handleSendTestPush}
-          currentMonth={currentMonth}
-        />
-      )}
-
-      <WeeklyOffDayEditor
-        open={Boolean(editingWeeklyOffEmployeeId)}
-        employee={employees.find((e) => e.id === editingWeeklyOffEmployeeId) ?? null}
-        selectedDay={selectedWeeklyOffDay}
-        isSaving={isSavingWeeklyOffDay}
-        onSelectDay={setSelectedWeeklyOffDay}
-        onClose={() => setEditingWeeklyOffEmployeeId(null)}
-        onSave={handleSaveWeeklyOffDay}
-      />
+      </div>
     </div>
   );
 }
