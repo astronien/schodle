@@ -53,19 +53,19 @@ export function ShiftEditor({
 
   const toast = useToast();
 
-  if (!open || !selectedDate) return null;
-
-  const currentShiftId = selectedShiftId || getDaySchedule(selectedDate)?.shiftTypeId || null;
-  const shiftType = shiftTypes.find((t) => t.id === currentShiftId);
+  const currentShiftId = selectedShiftId || (selectedDate ? getDaySchedule(selectedDate)?.shiftTypeId : null) || null;
+  const shiftType = selectedDate ? shiftTypes.find((t) => t.id === currentShiftId) : null;
   const isOffDay =
     typeof currentUser.weeklyOffDay === 'number' &&
-    selectedDate.getDay() === currentUser.weeklyOffDay;
+    (selectedDate ? selectedDate.getDay() === currentUser.weeklyOffDay : false);
 
   const conflictWarnings = useMemo(() => {
     if (!currentShiftId || !selectedDate) return [];
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     return validateAssignShift(currentUser.id, dateStr, currentShiftId, schedules, employees, shiftTypes);
   }, [currentShiftId, selectedDate, currentUser.id, schedules, employees, shiftTypes]);
+
+  if (!open || !selectedDate) return null;
 
   const reset = () => {
     setSelectedShiftId(null);
