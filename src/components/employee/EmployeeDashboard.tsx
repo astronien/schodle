@@ -170,9 +170,11 @@ export function EmployeeDashboard({
       {/* Header */}
       <div className="flex items-end justify-between gap-3 px-1">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary leading-tight">My Shifts</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary leading-tight">
+            สวัสดี {currentUser.fullName}
+          </h1>
           <p className="text-text-tertiary text-sm mt-0.5">
-            {format(currentMonth, 'MMMM yyyy', { locale: th })}
+            ขอให้เป็นวันที่สดใส · {format(currentMonth, 'MMMM yyyy', { locale: th })}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
