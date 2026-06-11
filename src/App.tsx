@@ -21,6 +21,7 @@ import { cn } from './lib/utils';
 import { generateSmartSchedule as runSmartSchedule } from './lib/schedule-generator';
 import { WeeklyOffDayEditor, WEEKLY_OFF_DAYS } from './components/manager/Modals/WeeklyOffDayEditor';
 import { getEmployeeMonthlyStats } from './lib/schedule-utils';
+import { SW_UPDATE_INTERVAL_MS, AUTH_EXPIRED_EVENT } from './config/constants';
 
 const EmployeeDashboard = lazy(() =>
   import('./components/employee/EmployeeDashboard').then((m) => ({ default: m.EmployeeDashboard }))
@@ -65,8 +66,8 @@ function AppShell() {
       localStorage.removeItem('schodle_session_token');
       logout();
     };
-    window.addEventListener('schodle:auth-expired', handler);
-    return () => window.removeEventListener('schodle:auth-expired', handler);
+      window.addEventListener(AUTH_EXPIRED_EVENT, handler);
+      return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
   }, [logout]);
 
   const [role, setRole] = useState<UserRole>('employee');
@@ -121,7 +122,7 @@ function AppShell() {
         navigator.serviceWorker.ready.then((registration) => {
           registration.update();
         });
-      }, 60000);
+      }, SW_UPDATE_INTERVAL_MS);
       return () => clearInterval(interval);
     }
   }, []);
@@ -260,7 +261,12 @@ function AppShell() {
 
   if (loading && employees.length === 0) {
     return (
-      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
+      <div
+        className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+      >
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-text-tertiary">กำลังโหลดข้อมูล...</p>

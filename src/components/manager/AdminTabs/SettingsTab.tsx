@@ -61,6 +61,11 @@ export function SettingsTab({
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
+  // Sync local state when parent settings change (e.g., after fetchAll)
+  useEffect(() => {
+    if (!isDirty) setLocal(settings);
+  }, [settings, isDirty]);
+
   const update = (patch: Partial<AppSettings>) => {
     setLocal((prev) => ({ ...prev, ...patch }));
     setIsDirty(true);

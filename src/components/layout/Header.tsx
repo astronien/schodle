@@ -141,7 +141,7 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
                 {currentUser.fullName}
               </p>
               <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-wider mt-0.5">
-                {role === 'employee' ? 'พนักงาน' : 'ผู้จัดการ'}
+                {role === 'admin' ? 'แอดมิน' : role === 'manager' ? 'ผู้จัดการ' : 'พนักงาน'}
               </p>
             </div>
 

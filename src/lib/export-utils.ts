@@ -1,5 +1,6 @@
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../types';
+import { DAY_NAMES_SHORT } from '../config/constants';
 
 /**
  * Export schedules as CSV
@@ -76,7 +77,7 @@ export function printSchedule(
     return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth);
   });
 
-  const dayShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  const dayShort = [...DAY_NAMES_SHORT];
   const safe = (str: string) =>
     str
       .replace(/&/g, '&amp;')

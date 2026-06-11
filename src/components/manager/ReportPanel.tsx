@@ -38,9 +38,7 @@ export function ReportPanel({
     const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
     return st?.name?.includes('ป่วย') || st?.code === 'SICK';
   }).length;
-  const allLate = monthSchedules.filter(
-    (s) => s.employeeNote?.includes('มาสาย') || s.employeeNote?.includes('ลืมแสกน')
-  ).length;
+  const allLate = monthSchedules.filter((s) => s.requestType === 'late_scan').length;
   const allPending = monthSchedules.filter((s) => s.status === 'pending').length;
 
   const handleExportCSV = () => {
@@ -199,13 +197,13 @@ export function ReportPanel({
                               สลับกับ {employees.find((e) => e.id === s.swapWithId)?.fullName || '?'}
                             </span>
                           )}
-                          {(s?.employeeNote?.includes('มาสาย') || s?.employeeNote?.includes('ลืมแสกน')) && (
+                          {s?.requestType === 'late_scan' && (
                             <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-0.5 rounded-md flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               มาสาย
                             </span>
                           )}
-                          {s?.employeeNote && !s.employeeNote.includes('มาสาย') && !s.employeeNote.includes('ลืมแสกน') && !s.employeeNote.includes('สลับกะ') && (
+                          {s?.employeeNote && s.requestType !== 'late_scan' && !s.employeeNote.includes('สลับกะ') && (
                             <span className="text-[10px] text-text-tertiary">{s.employeeNote}</span>
                           )}
                           {s?.evidenceUrl && (

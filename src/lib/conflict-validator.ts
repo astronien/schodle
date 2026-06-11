@@ -1,5 +1,6 @@
 import { addDays, format } from 'date-fns';
 import type { Employee, ScheduleEntry, ShiftType } from '../types';
+import { DEFAULT_LATE_SHIFT_CODES, DEFAULT_EARLY_SHIFT_CODES, OVERSTAFFED_THRESHOLD_MULTIPLIER } from '../config/constants';
 
 export type ConflictSeverity = 'error' | 'warning' | 'info';
 
@@ -11,10 +12,6 @@ export type Conflict = {
   employeeId?: string;
   employeeName?: string;
 };
-
-function getShiftTypeByEntry(entry: ScheduleEntry, shiftTypes: ShiftType[]): ShiftType | undefined {
-  return shiftTypes.find((t) => t.id === entry.shiftTypeId);
-}
 
 /**
  * ตรวจสอบว่ากะ昨天 (late) → วันนี้ (early) ขัดแย้งกันไหม
@@ -28,26 +25,29 @@ function checkLateToEarlyConflicts(
 ): Conflict[] {
   const conflicts: Conflict[] = [];
   const approved = schedules.filter((s) => s.status === 'approved');
+  if (approved.length === 0) return conflicts;
+
+  // Pre-build maps for O(1) lookups instead of O(n²)
+  const empMap = new Map(employees.map((e) => [e.id, e]));
+  const shiftTypeMap = new Map(shiftTypes.map((t) => [t.id, t]));
+  const byEmployeeDate = new Map<string, ScheduleEntry>();
+  for (const entry of approved) {
+    byEmployeeDate.set(`${entry.employeeId}:${entry.date}`, entry);
+  }
 
   for (const entry of approved) {
-    const shiftType = getShiftTypeByEntry(entry, shiftTypes);
+    const shiftType = shiftTypeMap.get(entry.shiftTypeId);
     if (!shiftType) continue;
 
-    const date = new Date(`${entry.date}T00:00:00`);
-    const yesterday = format(addDays(date, -1), 'yyyy-MM-dd');
-    const prevEntry = approved.find(
-      (s) => s.employeeId === entry.employeeId && s.date === yesterday,
-    );
+    const yesterday = format(addDays(new Date(`${entry.date}T00:00:00`), -1), 'yyyy-MM-dd');
+    const prevEntry = byEmployeeDate.get(`${entry.employeeId}:${yesterday}`);
     if (!prevEntry) continue;
 
-    const prevShift = getShiftTypeByEntry(prevEntry, shiftTypes);
+    const prevShift = shiftTypeMap.get(prevEntry.shiftTypeId);
     if (!prevShift) continue;
 
-    const emp = employees.find((e) => e.id === entry.employeeId);
-    if (
-      lateCodes.includes(prevShift.code) &&
-      earlyCodes.includes(shiftType.code)
-    ) {
+    const emp = empMap.get(entry.employeeId);
+    if (lateCodes.includes(prevShift.code) && earlyCodes.includes(shiftType.code)) {
       conflicts.push({
         type: 'late_to_early',
         severity: 'error',
@@ -71,15 +71,19 @@ function checkWeeklyOffConflicts(
   shiftTypes: ShiftType[],
 ): Conflict[] {
   const conflicts: Conflict[] = [];
+  if (schedules.length === 0) return conflicts;
+
+  const empMap = new Map(employees.map((e) => [e.id, e]));
+  const shiftTypeMap = new Map(shiftTypes.map((t) => [t.id, t]));
 
   for (const entry of schedules) {
     if (entry.status !== 'approved') continue;
-    const emp = employees.find((e) => e.id === entry.employeeId);
+    const emp = empMap.get(entry.employeeId);
     if (typeof emp?.weeklyOffDay !== 'number') continue;
 
     const dayOfWeek = new Date(`${entry.date}T00:00:00`).getDay();
     if (dayOfWeek === emp.weeklyOffDay) {
-      const shiftType = getShiftTypeByEntry(entry, shiftTypes);
+      const shiftType = shiftTypeMap.get(entry.shiftTypeId);
       if (shiftType && shiftType.code !== 'X') {
         conflicts.push({
           type: 'weekly_off',
@@ -105,10 +109,20 @@ function checkStaffingConflicts(
 ): Conflict[] {
   const conflicts: Conflict[] = [];
   const approved = schedules.filter((s) => s.status === 'approved');
-  const dates = [...new Set(approved.map((s) => s.date))].sort();
+  if (approved.length === 0) return conflicts;
+
+  const shiftTypeMap = new Map(shiftTypes.map((t) => [t.id, t]));
+  // Group approved schedules by date in a single pass
+  const byDate = new Map<string, ScheduleEntry[]>();
+  for (const entry of approved) {
+    const arr = byDate.get(entry.date);
+    if (arr) arr.push(entry);
+    else byDate.set(entry.date, [entry]);
+  }
+  const dates = Array.from(byDate.keys()).sort();
 
   for (const date of dates) {
-    const daily = approved.filter((s) => s.date === date);
+    const daily = byDate.get(date) || [];
 
     for (const st of shiftTypes) {
       if (!st.targetStaff || st.targetStaff <= 0) continue;
@@ -124,7 +138,7 @@ function checkStaffingConflicts(
           date,
           message: `วันที่ ${date} กะ ${st.code} (${st.name}) ขาด ${target - count} คน (มี ${count}/${target})`,
         });
-      } else if (count > target * 1.5) {
+      } else if (count > target * OVERSTAFFED_THRESHOLD_MULTIPLIER) {
         conflicts.push({
           type: 'staffing_over',
           severity: 'warning',
@@ -135,16 +149,17 @@ function checkStaffingConflicts(
     }
 
     // Check morning/afternoon imbalance
-    const morningCount = new Set(
-      daily
-        .filter((s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.category === 'morning')
-        .map((s) => s.employeeId),
-    ).size;
-    const afternoonCount = new Set(
-      daily
-        .filter((s) => shiftTypes.find((t) => t.id === s.shiftTypeId)?.category === 'afternoon')
-        .map((s) => s.employeeId),
-    ).size;
+    let morningCount = 0;
+    let afternoonCount = 0;
+    const morningSet = new Set<string>();
+    const afternoonSet = new Set<string>();
+    for (const s of daily) {
+      const cat = shiftTypeMap.get(s.shiftTypeId)?.category;
+      if (cat === 'morning') morningSet.add(s.employeeId);
+      else if (cat === 'afternoon') afternoonSet.add(s.employeeId);
+    }
+    morningCount = morningSet.size;
+    afternoonCount = afternoonSet.size;
     if (Math.abs(morningCount - afternoonCount) > 1) {
       conflicts.push({
         type: 'imbalance',
@@ -165,8 +180,8 @@ export function validateAllConflicts(
   schedules: ScheduleEntry[],
   employees: Employee[],
   shiftTypes: ShiftType[],
-  lateCodes: string[] = ['XC', 'EV', 'A2'],
-  earlyCodes: string[] = ['M1', 'M2'],
+  lateCodes: string[] = [...DEFAULT_LATE_SHIFT_CODES],
+  earlyCodes: string[] = [...DEFAULT_EARLY_SHIFT_CODES],
 ): Conflict[] {
   return [
     ...checkLateToEarlyConflicts(schedules, employees, shiftTypes, lateCodes, earlyCodes),

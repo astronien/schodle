@@ -78,7 +78,7 @@ export function getEmployeeMonthlyStats(
 
     if (schedule.status === 'pending') pendingCount += 1;
     if (schedule.swapWithId) swapCount += 1;
-    if (schedule.employeeNote?.includes('มาสาย') || schedule.employeeNote?.includes('ลืมแสกน')) lateCount += 1;
+    if (schedule.requestType === 'late_scan') lateCount += 1;
 
     if (['XC', 'V'].includes(code) || shiftType?.requiresReason || shiftType?.requiresEvidence) {
       counts[code] = (counts[code] || 0) + 1;

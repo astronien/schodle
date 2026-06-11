@@ -1,9 +1,7 @@
 import { addDays, differenceInCalendarWeeks, eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns';
 
 import type { Employee, ScheduleEntry, ShiftType } from '../types';
-
-const DEFAULT_LATE_CODES = ['XC', 'EV', 'A2'];
-const DEFAULT_EARLY_CODES = ['M1', 'M2'];
+import { DEFAULT_LATE_SHIFT_CODES, DEFAULT_EARLY_SHIFT_CODES } from '../config/constants';
 
 export type SmartScheduleDraft = Omit<ScheduleEntry, 'status' | 'requestType'> & {
   status: ScheduleEntry['status'];
@@ -39,8 +37,8 @@ export function generateSmartSchedule({
   month,
   employees,
   shiftTypes,
-  lateCodes = DEFAULT_LATE_CODES,
-  earlyCodes = DEFAULT_EARLY_CODES,
+  lateCodes = DEFAULT_LATE_SHIFT_CODES,
+  earlyCodes = DEFAULT_EARLY_SHIFT_CODES,
   existingEntries = [],
   newId,
   shuffleEmployees = true,

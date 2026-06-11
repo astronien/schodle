@@ -5,6 +5,7 @@ import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate 
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
+import { SALES_POSITION_IDS } from '../../config/constants';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
 import { TemplateManager } from './Modals/TemplateManager';
@@ -30,8 +31,6 @@ interface CoverageGridProps {
   onCopyFromPrevMonth?: () => void;
   onApplyTemplate?: (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => void;
 }
-
-const SALES_POSITION_IDS = new Set(['3', '5']);
 
 export function CoverageGrid({
   currentMonth,

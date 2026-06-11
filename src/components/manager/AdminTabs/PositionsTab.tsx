@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Trash2, Plus, Briefcase, Users, UserMinus, X, Check } from 'lucide-react';
 import { CreatePositionModal } from '../Modals/CreationModals';
-import { getDiceBearAvatar } from '../../../lib/validators';
 import { useToast } from '../../../lib/toast';
 import { AdminPageHeader } from '../AdminSidebar';
 import { ConfirmModal } from '../../ConfirmModal';
+import { SafeAvatar } from '../../../lib/safe-avatar';
 import { cn } from '../../../lib/utils';
 import type { Employee, Position } from '../../../types';
 
@@ -155,9 +155,9 @@ export function PositionsTab({
                     className="p-2.5 glass-cell rounded-xl flex items-center gap-2.5 cursor-grab active:cursor-grabbing hover:!bg-white/85 transition-colors"
                   >
                     <div className="w-8 h-8 rounded-lg overflow-hidden bg-bg-surface border border-border-solid shrink-0">
-                      <img
-                        src={emp.avatar || getDiceBearAvatar(emp.fullName)}
-                        alt=""
+                      <SafeAvatar
+                        src={emp.avatar}
+                        name={emp.fullName}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -222,7 +222,7 @@ export function PositionsTab({
                       {assigned.length > 0 && (
                         <button
                           onClick={() => setClearConfirm(pos)}
-                          className="p-1.5 text-text-tertiary hover:text-warn hover:bg-warn/10 rounded-lg transition-all"
+                          className="p-2 min-h-[36px] min-w-[36px] text-text-tertiary hover:text-warn hover:bg-warn/10 rounded-lg transition-all"
                           title="ล้างพนักงานทั้งหมด"
                           aria-label="ล้างพนักงาน"
                         >
@@ -231,7 +231,7 @@ export function PositionsTab({
                       )}
                       <button
                         onClick={() => setDeleteConfirm(pos)}
-                        className="p-1.5 text-danger bg-danger/10 hover:bg-danger/15 rounded-lg transition-colors"
+                        className="p-2 min-h-[36px] min-w-[36px] text-danger bg-danger/10 hover:bg-danger/15 rounded-lg transition-colors"
                         aria-label="ลบ"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -255,9 +255,9 @@ export function PositionsTab({
                           className="flex items-center gap-1.5 px-2 py-1 bg-bg-elevated rounded-md shadow-sm border border-border-solid cursor-grab active:cursor-grabbing hover:!bg-white/80 transition-colors"
                         >
                           <div className="w-4 h-4 rounded overflow-hidden bg-bg-surface shrink-0">
-                            <img
-                              src={emp.avatar || getDiceBearAvatar(emp.fullName)}
-                              alt=""
+                            <SafeAvatar
+                              src={emp.avatar}
+                              name={emp.fullName}
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -401,13 +401,13 @@ function MobileAssignModal({ position, employees, positions, onClose, onAssign }
                     'w-full flex items-center gap-3 p-3 glass-cell rounded-xl text-left hover:!bg-white/85 transition-colors',
                   )}
                 >
-                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-surface border border-border-solid shrink-0">
-                    <img
-                      src={emp.avatar || getDiceBearAvatar(emp.fullName)}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-surface border border-border-solid shrink-0">
+                      <SafeAvatar
+                        src={emp.avatar}
+                        name={emp.fullName}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-text-primary truncate">
                       {emp.fullName}

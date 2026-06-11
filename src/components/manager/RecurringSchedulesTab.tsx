@@ -3,9 +3,10 @@ import { format } from 'date-fns';
 import { Repeat, Plus, Trash2, Clock, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../lib/toast';
+import { DAY_NAMES_SHORT } from '../../config/constants';
 import type { Employee, RecurringSchedule, ShiftType } from '../../types';
 
-const DAY_LABELS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+const DAY_LABELS = DAY_NAMES_SHORT.map((d) => `${d}.`);
 
 interface RecurringSchedulesTabProps {
   recurringSchedules: RecurringSchedule[];
@@ -194,7 +195,14 @@ export function RecurringSchedulesTab({
             แก้ไข
           </button>
           <button
-            onClick={() => { onDelete(r.id); toast.success('ลบตารางซ้ำแล้ว'); }}
+            onClick={async () => {
+              try {
+                await onDelete(r.id);
+                toast.success('ลบตารางซ้ำแล้ว');
+              } catch (err: unknown) {
+                toast.error('ลบตารางซ้ำไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+              }
+            }}
             className="p-1.5 rounded-lg text-danger hover:bg-danger/10 transition-all"
           >
             <Trash2 className="w-4 h-4" />

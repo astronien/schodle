@@ -7,6 +7,7 @@ import { useToast } from '../../../lib/toast';
 import { AdminPageHeader } from '../AdminSidebar';
 import { ConfirmModal } from '../../ConfirmModal';
 import { Modal } from '../../Modal';
+import { SafeAvatar } from '../../../lib/safe-avatar';
 import { cn } from '../../../lib/utils';
 import type { Employee, Position, PositionGroup } from '../../../types';
 
@@ -310,9 +311,9 @@ export function EmployeesTab({
                     className="flex items-center gap-3 min-w-0"
                   >
                     <div className="w-9 h-9 rounded-lg overflow-hidden bg-bg-surface border border-border-solid shrink-0">
-                      <img
-                        src={emp.avatar || getDiceBearAvatar(emp.fullName)}
-                        alt=""
+                      <SafeAvatar
+                        src={emp.avatar}
+                        name={emp.fullName}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -337,7 +338,7 @@ export function EmployeesTab({
                       e.stopPropagation();
                       setMenuOpenId(menuOpenId === emp.id ? null : emp.id);
                     }}
-                    className="p-1.5 text-text-tertiary hover:text-text-primary hover:bg-white/60 rounded-lg transition-colors justify-self-end relative"
+                    className="p-2 min-h-[36px] min-w-[36px] text-text-tertiary hover:text-text-primary hover:bg-white/60 rounded-lg transition-colors justify-self-end relative"
                   >
                     <MoreVertical className="w-4 h-4" />
                     {menuOpenId === emp.id && (
@@ -411,9 +412,9 @@ export function EmployeesTab({
                     className="flex items-center gap-3 flex-1 min-w-0"
                   >
                     <div className="w-11 h-11 rounded-xl overflow-hidden bg-bg-surface border border-border-solid shrink-0">
-                      <img
-                        src={emp.avatar || getDiceBearAvatar(emp.fullName)}
-                        alt=""
+                      <SafeAvatar
+                        src={emp.avatar}
+                        name={emp.fullName}
                         className="w-full h-full object-cover"
                       />
                     </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Play, FileText } from 'lucide-react';
 import { useToast } from '../../../lib/toast';
 import { ConfirmModal } from '../../ConfirmModal';
+import { DAY_NAMES_SHORT } from '../../../config/constants';
 import {
   loadTemplates,
   saveTemplates,
@@ -131,7 +132,7 @@ export function TemplateManager({
             </div>
           ) : (
             templates.map((tpl) => {
-              const dayNames = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+              const dayNames = [...DAY_NAMES_SHORT];
               const patternSummary = tpl.patterns.length + ' คน';
               const shiftCodes = new Set<string>();
               tpl.patterns.forEach((p) => {

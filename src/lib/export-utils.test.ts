@@ -3,13 +3,10 @@ import { describe, expect, it } from 'vitest';
 describe('export-utils HTML escaping', () => {
   it('does not render raw HTML in employee names', async () => {
     const { printSchedule } = await import('./export-utils');
-    const maliciousName = '<img src=x onerror=alert(1)>';
-    const html = (printSchedule as unknown as { toString?: () => string });
 
     // Mock window.open to capture the HTML written
     let captured = '';
-    const original = globalThis.window.open;
-    globalThis.window.open = ((url?: string | URL, target?: string) => {
+    globalThis.window.open = (() => {
       const w = {
         document: {
           write: (s: string) => {
@@ -27,18 +24,18 @@ describe('export-utils HTML escaping', () => {
         {
           id: '1',
           employeeCode: '<script>',
-          fullName: maliciousName,
+          fullName: '<img src=x onerror=alert(1)>',
           positionId: 'p1',
           role: 'employee',
         },
       ],
       [],
-      [{ id: 'st1', code: 'M', name: 'เช้า', startTime: '08:00', endTime: '16:00', color: '#000', isVisible: true, isLeave: false }],
+      [{ id: 'st1', code: 'M', name: 'เช้า', startTime: '08:00', endTime: '16:00', color: '#000', isVisible: true, isLeave: false, requiresApproval: false, requiresReason: false, requiresEvidence: false }],
       [],
       '<b>Store</b>',
     );
 
-    globalThis.window.open = original;
+    globalThis.window.open = (() => null) as typeof window.open;
 
     // The raw HTML tags should be escaped in the output
     expect(captured).toContain('&lt;img src=x onerror=alert(1)&gt;');
@@ -47,6 +44,5 @@ describe('export-utils HTML escaping', () => {
     // But NOT contain unescaped tags
     expect(captured).not.toContain('<img src=x onerror=alert(1)>');
     expect(captured).not.toContain('<b>Store</b>');
-    void html; // silence unused
   });
 });

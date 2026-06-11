@@ -5,10 +5,16 @@ import { getSessionToken } from '../lib/session';
 import { sendPushToEmployee, sendPushToRole } from '../lib/push';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, RecurringSchedule } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
-
-const RECENT_NOTIFICATION_WINDOW_MS = 7000;
-const PUSH_DEDUP_WINDOW_MS = 30000;
-const REALTIME_THROTTLE_MS = 1500;
+import {
+  REALTIME_THROTTLE_MS,
+  RECENT_NOTIFICATION_WINDOW_MS,
+  PUSH_DEDUP_WINDOW_MS,
+  PUSH_DEDUP_MAP_MAX_SIZE,
+  POLL_INTERVAL_MS,
+  MAX_UPLOAD_SIZE,
+  ALLOWED_UPLOAD_TYPES,
+  AUTH_EXPIRED_EVENT,
+} from '../config/constants';
 
 type ScheduleRow = {
   id: string;
@@ -75,7 +81,7 @@ export function useData() {
     const last = recentPushKeys.current.get(key);
     if (last && now - last < PUSH_DEDUP_WINDOW_MS) return false;
     recentPushKeys.current.set(key, now);
-    if (recentPushKeys.current.size > 200) {
+    if (recentPushKeys.current.size > PUSH_DEDUP_MAP_MAX_SIZE) {
       for (const [k, t] of recentPushKeys.current) {
         if (now - t > PUSH_DEDUP_WINDOW_MS * 2) recentPushKeys.current.delete(k);
       }
@@ -229,7 +235,15 @@ export function useData() {
   }, []);
 
   useEffect(() => {
-    void fetchAll();
+    let cancelled = false;
+    const run = async () => {
+      await fetchAll();
+      if (cancelled) return;
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchAll]);
 
   // Targeted refreshers — only refetch the affected table after a mutation,
@@ -321,8 +335,21 @@ export function useData() {
   }, [fetchSchedulesOnly]);
 
   useEffect(() => {
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('realtime:schedules')
+      .on('system', { event: 'CHANNEL_ERROR' }, () => {
+        console.warn('[realtime] channel error — will refresh data and retry');
+        void fetchAll(true);
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(() => {
+          void fetchAll(true);
+        }, 5000);
+      })
+      .on('system', { event: 'TIMED_OUT' }, () => {
+        console.warn('[realtime] timed out — refreshing');
+        void fetchAll(true);
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'schedules' },
@@ -374,7 +401,7 @@ export function useData() {
 
     const pollId = setInterval(() => {
       refreshSchedulesThrottled();
-    }, 15000);
+    }, POLL_INTERVAL_MS);
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -387,8 +414,9 @@ export function useData() {
       supabase.removeChannel(channel);
       clearInterval(pollId);
       document.removeEventListener('visibilitychange', onVisibility);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
     };
-  }, [refreshSchedulesThrottled, sendPush]);
+  }, [refreshSchedulesThrottled, sendPush, fetchAll]);
 
   const updateSchedule = useCallback(
     async (entry: ScheduleEntry, forceNotify?: boolean) => {
@@ -578,12 +606,22 @@ export function useData() {
   };
 
   const uploadFile = useCallback(async (file: File) => {
+    if (file.size > MAX_UPLOAD_SIZE) {
+      throw new Error(`ไฟล์มีขนาดใหญ่เกินไป (สูงสุด ${Math.round(MAX_UPLOAD_SIZE / 1024 / 1024)}MB)`);
+    }
+    if (!ALLOWED_UPLOAD_TYPES.has(file.type) && !file.type.startsWith('image/')) {
+      throw new Error('ประเภทไฟล์ไม่รองรับ (อนุญาตเฉพาะรูปภาพ)');
+    }
+
     const compressed = await compressImage(file);
-    const fileExt = compressed.name.split('.').pop();
+    const fileExt = compressed.name.split('.').pop() || 'jpg';
     const fileName = `${crypto.randomUUID()}.${fileExt}`;
     const filePath = `evidence/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, compressed);
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, compressed, {
+      contentType: compressed.type || 'image/jpeg',
+      upsert: false,
+    });
     if (uploadError) throw uploadError;
 
     const { data } = supabase.storage.from('attachments').getPublicUrl(filePath);
@@ -639,7 +677,7 @@ export function useData() {
         const msg = serverMsg ?? (data as { error?: string } | null)?.error ?? fnError.message;
         // If 401, session expired — signal app to handle auth failure gracefully
         if (errBody?.status === 401 || msg.includes('401') || msg.includes('expired') || msg.includes('Invalid')) {
-          window.dispatchEvent(new CustomEvent('schodle:auth-expired'));
+          window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
           throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
         }
         throw new Error(msg);

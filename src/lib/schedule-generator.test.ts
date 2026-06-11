@@ -3,9 +3,9 @@ import { generateSmartSchedule } from './schedule-generator';
 import type { Employee, ShiftType } from '../types';
 
 const shiftTypes: ShiftType[] = [
-  { id: 'st-morning', code: 'M', name: 'เช้า', startTime: '08:00', endTime: '16:00', color: '#3b82f6', isVisible: true, isLeave: false, category: 'morning', targetStaff: 1 },
-  { id: 'st-afternoon', code: 'A', name: 'บ่าย', startTime: '16:00', endTime: '00:00', color: '#f59e0b', isVisible: true, isLeave: false, category: 'afternoon', targetStaff: 1 },
-  { id: 'st-x', code: 'X', name: 'หยุด', startTime: '-', endTime: '-', color: '#9ca3af', isVisible: true, isLeave: false, category: 'other' },
+  { id: 'st-morning', code: 'M', name: 'เช้า', startTime: '08:00', endTime: '16:00', color: '#3b82f6', isVisible: true, isLeave: false, requiresApproval: false, requiresReason: false, requiresEvidence: false, category: 'morning', targetStaff: 1 },
+  { id: 'st-afternoon', code: 'A', name: 'บ่าย', startTime: '16:00', endTime: '00:00', color: '#f59e0b', isVisible: true, isLeave: false, requiresApproval: false, requiresReason: false, requiresEvidence: false, category: 'afternoon', targetStaff: 1 },
+  { id: 'st-x', code: 'X', name: 'หยุด', startTime: '-', endTime: '-', color: '#9ca3af', isVisible: true, isLeave: false, requiresApproval: false, requiresReason: false, requiresEvidence: false, category: 'other' },
 ];
 
 const employees: Employee[] = [
