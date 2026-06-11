@@ -97,6 +97,20 @@ export function generateSmartSchedule({
 
   const entries: SmartScheduleDraft[] = [];
 
+  // Fairness: track total shifts assigned per employee in the month so we
+  // prefer employees with fewer assignments. This prevents one person from
+  // getting all the shifts while others sit idle.
+  const monthlyAssignedCount = new Map<string, number>();
+  for (const e of employees) monthlyAssignedCount.set(e.id, 0);
+  for (const entry of existingEntries) {
+    if (entry.status === 'approved') {
+      monthlyAssignedCount.set(
+        entry.employeeId,
+        (monthlyAssignedCount.get(entry.employeeId) || 0) + 1,
+      );
+    }
+  }
+
   for (let dayIdx = 0; dayIdx < days.length; dayIdx += 1) {
     const day = days[dayIdx];
     const dateStr = format(day, 'yyyy-MM-dd');
@@ -196,7 +210,14 @@ export function generateSmartSchedule({
       shiftTypeId: string,
       lateEarly: LateEarlyStrictness,
     ): boolean => {
-      for (const employee of candidates) {
+      // Sort by workload: employees with fewer assignments get priority.
+      // Tie-break with shuffled order for variety.
+      const sortedCandidates = [...candidates].sort((a, b) => {
+        const countA = monthlyAssignedCount.get(a.id) || 0;
+        const countB = monthlyAssignedCount.get(b.id) || 0;
+        return countA - countB;
+      });
+      for (const employee of sortedCandidates) {
         if (!canAssignEmployeeToShift(employee.id, shiftTypeId, lateEarly)) continue;
         const shiftType = shiftTypes.find((t) => t.id === shiftTypeId);
         if (!shiftType) return false;
@@ -210,6 +231,7 @@ export function generateSmartSchedule({
           createdBy: 'system',
         });
         assignedThisDay.add(employee.id);
+        monthlyAssignedCount.set(employee.id, (monthlyAssignedCount.get(employee.id) || 0) + 1);
         remainingByType.set(shiftTypeId, (remainingByType.get(shiftTypeId) || 0) - 1);
         if (shiftType.category === 'morning') assignedMorningSlots += 1;
         if (shiftType.category === 'afternoon') assignedAfternoonSlots += 1;
