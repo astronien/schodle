@@ -564,6 +564,16 @@ export function useData() {
 
   const deleteEmployee = useCallback(
     async (id: string) => {
+      // Delete related schedules first to avoid foreign key constraint
+      const { error: schedErr } = await supabase.from('schedules').delete().eq('employee_id', id);
+      if (schedErr) {
+        console.warn('[deleteEmployee] Failed to delete related schedules:', schedErr.message);
+      }
+      // Also delete recurring schedules
+      const { error: recErr } = await supabase.from('recurring_schedules').delete().eq('employee_id', id);
+      if (recErr) {
+        console.warn('[deleteEmployee] Failed to delete recurring schedules:', recErr.message);
+      }
       const { error: delErr } = await supabase.from('employees').delete().eq('id', id);
       if (delErr) {
         const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
