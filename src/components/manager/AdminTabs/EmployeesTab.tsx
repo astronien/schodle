@@ -6,6 +6,7 @@ import { getDiceBearAvatar } from '../../../lib/validators';
 import { useToast } from '../../../lib/toast';
 import { AdminPageHeader } from '../AdminSidebar';
 import { ConfirmModal } from '../../ConfirmModal';
+import { Modal } from '../../Modal';
 import { cn } from '../../../lib/utils';
 import type { Employee, Position, PositionGroup } from '../../../types';
 
@@ -213,44 +214,41 @@ export function EmployeesTab({
       )}
 
       {/* Bulk assign position modal */}
-      {showBulkAssign && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setShowBulkAssign(false)} />
-          <div className="relative w-full sm:max-w-sm bg-bg-panel rounded-t-2xl sm:rounded-2xl shadow-overlay animate-slide-up border border-white/40 p-5">
-            <h3 className="text-base font-bold text-text-primary mb-1">จัดตำแหน่งให้ {selectedCount} คน</h3>
-            <p className="text-xs text-text-tertiary mb-4">เลือกตำแหน่งที่ต้องการ assign</p>
-            <select
-              value={bulkPositionId}
-              onChange={(e) => setBulkPositionId(e.target.value)}
-              className="input-field w-full mb-4"
+      <Modal open={showBulkAssign} onClose={() => setShowBulkAssign(false)} size="sm" showCloseButton={false}>
+        <div className="p-5">
+          <h3 className="text-base font-bold text-text-primary mb-1">จัดตำแหน่งให้ {selectedCount} คน</h3>
+          <p className="text-xs text-text-tertiary mb-4">เลือกตำแหน่งที่ต้องการ assign</p>
+          <select
+            value={bulkPositionId}
+            onChange={(e) => setBulkPositionId(e.target.value)}
+            className="input-field w-full mb-4"
+          >
+            <option value="">-- เลือกตำแหน่ง --</option>
+            {positions.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowBulkAssign(false)}
+              className="flex-1 py-3 bg-bg-elevated text-text-tertiary border border-border-solid rounded-xl text-sm font-semibold hover:bg-white/80 transition-colors"
             >
-              <option value="">-- เลือกตำแหน่ง --</option>
-              {positions.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowBulkAssign(false)}
-                className="flex-1 py-3 bg-bg-elevated text-text-tertiary border border-border-solid rounded-xl text-sm font-semibold hover:bg-white/80 transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleBulkAssign}
-                disabled={!bulkPositionId || isBulkAssigning}
-                className="flex-1 py-3 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                {isBulkAssigning ? (
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>ยืนยัน</>
-                )}
-              </button>
-            </div>
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleBulkAssign}
+              disabled={!bulkPositionId || isBulkAssigning}
+              className="flex-1 py-3 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {isBulkAssigning ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>ยืนยัน</>
+              )}
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
       {filtered.length === 0 ? (
         <div className="card p-8 sm:p-12 text-center">
