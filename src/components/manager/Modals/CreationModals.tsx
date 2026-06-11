@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { X, Plus, Check } from 'lucide-react';
+import { X, Plus, Check, Pencil } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useToast } from '../../../lib/toast';
-import type { Position, PositionGroup, ShiftType } from '../../../types';
+import type { Employee, Position, PositionGroup, ShiftType } from '../../../types';
 
 interface CreateEmployeeModalProps {
   open: boolean;
@@ -363,7 +363,141 @@ export function CreateShiftTypeModal({ open, onClose, onCreate }: CreateShiftTyp
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <Check className="w-4 h-4" /> บันทึก
+                   <Check className="w-4 h-4" /> บันทึก
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface EditEmployeeModalProps {
+  open: boolean;
+  employee: Employee | null;
+  onClose: () => void;
+  onUpdate: (employee: Employee) => Promise<void>;
+  positions: Position[];
+  positionGroups: PositionGroup[];
+}
+
+export function EditEmployeeModal({ open, employee, onClose, onUpdate, positions, positionGroups }: EditEmployeeModalProps) {
+  const toast = useToast();
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [positionId, setPositionId] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  if (!open || !employee) return null;
+
+  if (!initialized) {
+    setName(employee.fullName);
+    setCode(employee.employeeCode);
+    setPositionId(employee.positionId || '');
+    setGroupId(employee.groupId || '');
+    setInitialized(true);
+  }
+
+  const handleClose = () => {
+    setInitialized(false);
+    onClose();
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !code.trim()) {
+      toast.warning('กรอกข้อมูลไม่ครบ', 'ต้องระบุทั้งชื่อและรหัสพนักงาน');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await onUpdate({
+        ...employee,
+        fullName: name.trim(),
+        employeeCode: code.trim(),
+        positionId: positionId || employee.positionId,
+        groupId: groupId || undefined,
+      });
+      toast.success('แก้ไขพนักงานสำเร็จ', name.trim());
+      setInitialized(false);
+      handleClose();
+    } catch (err: unknown) {
+      toast.error('แก้ไขพนักงานไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={handleClose} />
+      <div className="relative w-full sm:max-w-md bg-bg-panel rounded-t-2xl sm:rounded-2xl shadow-overlay overflow-hidden animate-slide-up border border-white/40">
+        <div className="w-10 h-1 bg-text-quaternary/30 rounded-full mx-auto mt-3 sm:hidden" />
+        <div className="p-5">
+          <div className="flex items-start justify-between mb-4 gap-2">
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-text-primary">แก้ไขพนักงาน</h3>
+              <p className="text-xs font-semibold text-text-tertiary mt-0.5">{employee.fullName}</p>
+            </div>
+            <button
+              onClick={handleClose}
+              className="w-9 h-9 bg-white/60 rounded-full flex items-center justify-center text-text-quaternary hover:text-text-primary hover:bg-white border border-border-solid transition-colors shrink-0"
+              aria-label="ปิด"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <label className="space-y-1 block">
+              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">ชื่อพนักงาน</div>
+              <input value={name} onChange={(e) => setName(e.target.value)} className="input-field w-full" placeholder="ชื่อ-นามสกุล" />
+            </label>
+            <label className="space-y-1 block">
+              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">รหัสพนักงาน</div>
+              <input value={code} onChange={(e) => setCode(e.target.value)} className="input-field w-full" placeholder="รหัส" />
+            </label>
+            <label className="space-y-1 block">
+              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">ตำแหน่ง</div>
+              <select value={positionId} onChange={(e) => setPositionId(e.target.value)} className="input-field w-full">
+                <option value="">-- เลือกตำแหน่ง --</option>
+                {positions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 block">
+              <div className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">กลุ่มตำแหน่ง (Optional)</div>
+              <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="input-field w-full">
+                <option value="">-- เลือกกลุ่ม (ถ้ามี) --</option>
+                {positionGroups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-5 flex items-center gap-2">
+            <button
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="flex-1 py-3 bg-bg-elevated text-text-tertiary border border-border-solid rounded-xl text-sm font-semibold hover:bg-white/80 transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="flex-1 py-3 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Pencil className="w-4 h-4" /> บันทึก
                 </>
               )}
             </button>

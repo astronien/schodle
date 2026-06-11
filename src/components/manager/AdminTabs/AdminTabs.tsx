@@ -134,6 +134,7 @@ export function AdminTabs({
               onOpenWeeklyOff={onOpenWeeklyOff}
               onDeleteEmployee={onDeleteEmployee}
               createEmployee={createEmployee}
+              updateEmployee={updateEmployee}
             />
           )}
 

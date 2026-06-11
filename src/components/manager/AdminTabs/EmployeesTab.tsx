@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Search, Plus, Trash2, Calendar, Users, MoreVertical } from 'lucide-react';
+import { Search, Plus, Trash2, Calendar, Users, MoreVertical, Pencil } from 'lucide-react';
 import { WEEKLY_OFF_DAYS } from '../Modals/WeeklyOffDayEditor';
-import { CreateEmployeeModal } from '../Modals/CreationModals';
+import { CreateEmployeeModal, EditEmployeeModal } from '../Modals/CreationModals';
 import { getDiceBearAvatar } from '../../../lib/validators';
 import { useToast } from '../../../lib/toast';
 import { AdminPageHeader } from '../AdminSidebar';
@@ -17,6 +17,7 @@ interface EmployeesTabProps {
   onOpenWeeklyOff: (employeeId: string) => void;
   onDeleteEmployee: (id: string) => Promise<void>;
   createEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
+  updateEmployee: (employee: Employee) => Promise<void>;
 }
 
 export function EmployeesTab({
@@ -28,9 +29,11 @@ export function EmployeesTab({
   onOpenWeeklyOff,
   onDeleteEmployee,
   createEmployee,
+  updateEmployee,
 }: EmployeesTabProps) {
   const toast = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const filtered = employees.filter((emp) => {
@@ -169,6 +172,16 @@ export function EmployeesTab({
                       >
                         <button
                           onClick={() => {
+                            setEditingEmployee(emp);
+                            setMenuOpenId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:bg-white/60 rounded-lg"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          แก้ไข
+                        </button>
+                        <button
+                          onClick={() => {
                             onOpenWeeklyOff(emp.id);
                             setMenuOpenId(null);
                           }}
@@ -250,24 +263,33 @@ export function EmployeesTab({
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      if (confirm(`ลบพนักงาน "${emp.fullName}" ?`)) {
-                        onDeleteEmployee(emp.id)
-                          .then(() => toast.success('ลบพนักงานสำเร็จ', emp.fullName))
-                          .catch((err: unknown) =>
-                            toast.error(
-                              'ลบพนักงานไม่สำเร็จ',
-                              err instanceof Error ? err.message : undefined,
-                            ),
-                          );
-                      }
-                    }}
-                    className="p-2 text-danger bg-danger/10 rounded-lg shrink-0"
-                    aria-label="ลบ"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => setEditingEmployee(emp)}
+                      className="p-2 text-brand bg-brand/10 rounded-lg"
+                      aria-label="แก้ไข"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`ลบพนักงาน "${emp.fullName}" ?`)) {
+                          onDeleteEmployee(emp.id)
+                            .then(() => toast.success('ลบพนักงานสำเร็จ', emp.fullName))
+                            .catch((err: unknown) =>
+                              toast.error(
+                                'ลบพนักงานไม่สำเร็จ',
+                                err instanceof Error ? err.message : undefined,
+                              ),
+                            );
+                        }
+                      }}
+                      className="p-2 text-danger bg-danger/10 rounded-lg"
+                      aria-label="ลบ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -279,6 +301,15 @@ export function EmployeesTab({
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreate={handleCreate}
+        positionGroups={positionGroups}
+      />
+
+      <EditEmployeeModal
+        open={Boolean(editingEmployee)}
+        employee={editingEmployee}
+        onClose={() => setEditingEmployee(null)}
+        onUpdate={updateEmployee}
+        positions={positions}
         positionGroups={positionGroups}
       />
     </div>
