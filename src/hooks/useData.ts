@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { getSessionToken } from '../lib/session';
+import { getSessionToken, clearSessionToken } from '../lib/session';
 import { sendPushToEmployee, sendPushToRole } from '../lib/push';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, RecurringSchedule } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
@@ -523,7 +523,23 @@ export function useData() {
       );
 
       if (fnError) {
-        throw new Error((data as { error?: string } | null)?.error ?? fnError.message);
+        const errBody = (fnError as { context?: Response }).context;
+        let serverMsg: string | null = null;
+        if (errBody && typeof errBody.json === 'function') {
+          try {
+            const parsed = (await errBody.json()) as { error?: string };
+            serverMsg = parsed?.error ?? null;
+          } catch { /* ignore */ }
+        }
+        const msg = serverMsg ?? (data as { error?: string } | null)?.error ?? fnError.message;
+        // If 401, session expired — clear and redirect to login
+        if (errBody?.status === 401 || msg.includes('401') || msg.includes('expired') || msg.includes('Invalid')) {
+          clearSessionToken();
+          localStorage.removeItem('schodle_auth_employee_id');
+          window.location.reload();
+          throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        }
+        throw new Error(msg);
       }
       if (data && data.error) {
         throw new Error(data.error);

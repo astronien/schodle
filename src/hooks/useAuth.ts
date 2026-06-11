@@ -69,6 +69,26 @@ export function useAuth() {
       return;
     }
 
+    // Check if session token is expired by decoding JWT payload
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.exp && payload.exp <= Math.floor(Date.now() / 1000)) {
+          localStorage.removeItem(AUTH_KEY);
+          clearSessionToken();
+          setIsLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If token can't be decoded, clear it
+      localStorage.removeItem(AUTH_KEY);
+      clearSessionToken();
+      setIsLoading(false);
+      return;
+    }
+
     const profile = await fetchEmployeeProfile(storedId);
     if (!profile) {
       localStorage.removeItem(AUTH_KEY);
