@@ -1,9 +1,10 @@
-import { Clock, Bell, Users, LogOut, Check, X } from 'lucide-react';
+import { Clock, Bell, Users, LogOut, Check, X, Sun, Moon } from 'lucide-react';
 import type { Employee, UserRole } from '../../types';
 import { subscribeToNotifications } from '../../lib/push';
 import { useState } from 'react';
 import { useToast } from '../../lib/toast';
 import { cn } from '../../lib/utils';
+import { useTheme } from '../../lib/theme';
 import {
   getNotificationPrefs,
   setNotificationPrefs,
@@ -23,6 +24,7 @@ interface HeaderProps {
 
 export function Header({ currentUser, role, isManager, onToggleRole, onLogout, appName }: HeaderProps) {
   const toast = useToast();
+  const { theme, toggleTheme } = useTheme();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showNotifPrefs, setShowNotifPrefs] = useState(false);
   const [notifPrefs, setNotifPrefsState] = useState<NotificationPreferences>(
@@ -124,6 +126,14 @@ export function Header({ currentUser, role, isManager, onToggleRole, onLogout, a
               </div>
             )}
           </div>
+
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-text-tertiary hover:text-brand hover:bg-bg-surface rounded-full transition-all duration-200"
+            title={theme === 'dark' ? 'โหมดสว่าง' : 'โหมดมืด'}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
 
           <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-border-solid">
             <div className="text-right hidden sm:block">
