@@ -60,7 +60,7 @@ export function printSchedule(
   employees: Employee[],
   schedules: ScheduleEntry[],
   shiftTypes: ShiftType[],
-  positions: Position[],
+  _positions: Position[],
   storeName: string,
 ) {
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
@@ -74,7 +74,6 @@ export function printSchedule(
 
   let tableRows = employees
     .map((emp) => {
-      const pos = positions.find((p) => p.id === emp.positionId);
       const dayCells = days
         .map((d) => {
           const dateStr = format(d, 'yyyy-MM-dd');
@@ -87,7 +86,6 @@ export function printSchedule(
       return `<tr>
         <td class="emp-name">${emp.fullName}</td>
         <td class="emp-code">${emp.employeeCode}</td>
-        <td class="emp-pos">${pos?.code || ''}</td>
         ${dayCells}
       </tr>`;
     })
@@ -111,24 +109,23 @@ export function printSchedule(
   <meta charset="UTF-8">
   <title>ตารางกะงาน - ${storeName}</title>
   <style>
-    @page { size: A3 landscape; margin: 8mm; }
+    @page { size: A4 landscape; margin: 5mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Sarabun','Sarabun PSK','Noto Sans Thai','Tahoma',sans-serif; padding: 10px; color: #1a1a2e; }
-    .header { text-align: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px double #1a1a2e; }
-    .header h1 { font-size: 16px; margin-bottom: 2px; }
-    .header p { font-size: 10px; color: #666; }
-    .legend { margin-bottom: 8px; padding: 5px 8px; background: #f5f5f5; border-radius: 4px; line-height: 1.8; }
-    table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
-    th, td { border: 1px solid #d0d0d0; padding: 2px 1px; text-align: center; white-space: nowrap; overflow: hidden; }
-    th { background: #1a1a2e; color: #fff; font-size: 8px; }
+    body { font-family: 'Sarabun','Sarabun PSK','Noto Sans Thai','Tahoma',sans-serif; color: #1a1a2e; font-size: 7px; }
+    .header { text-align: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 2px double #1a1a2e; }
+    .header h1 { font-size: 13px; margin-bottom: 1px; }
+    .header p { font-size: 8px; color: #666; }
+    .legend { margin-bottom: 4px; padding: 3px 6px; background: #f5f5f5; border-radius: 3px; line-height: 1.6; font-size: 7px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { border: 1px solid #d0d0d0; padding: 1px 0; text-align: center; white-space: nowrap; }
+    th { background: #1a1a2e; color: #fff; font-size: 7px; padding: 2px 0; }
     th small { font-weight: normal; opacity: 0.8; }
-    .emp-name { text-align: left; font-weight: 600; min-width: 100px; width: 120px; background: #fafafa; position: sticky; left: 0; font-size: 9px; padding-left: 4px; }
-    .emp-code { text-align: center; font-size: 8px; color: #666; width: 38px; }
-    .emp-pos { text-align: center; font-size: 8px; color: #666; width: 42px; }
-    td.shift { font-weight: 700; font-size: 8px; border-radius: 2px; }
+    .emp-name { text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #fafafa; position: sticky; left: 0; font-size: 7px; padding-left: 3px; width: 18%; max-width: 60mm; }
+    .emp-code { text-align: center; font-size: 6px; color: #666; width: 5%; }
+    td.shift { font-weight: 700; font-size: 7px; border-radius: 1px; }
     td.empty { background: #fafafa; }
     tr:nth-child(even) { background: #fafafa; }
-    .footer { margin-top: 8px; text-align: center; font-size: 9px; color: #999; }
+    .footer { margin-top: 4px; text-align: center; font-size: 7px; color: #999; }
     @media print {
       body { padding: 0; }
       .no-print { display: none; }
@@ -146,7 +143,6 @@ export function printSchedule(
       <tr>
         <th style="text-align:left">ชื่อพนักงาน</th>
         <th>รหัส</th>
-        <th>ต่ำแหน่ง</th>
         ${headerCells}
       </tr>
     </thead>
