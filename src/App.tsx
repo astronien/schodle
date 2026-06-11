@@ -88,6 +88,7 @@ function AppShell() {
     refresh,
     updateSchedule,
     deleteSchedule,
+    createSchedulesBulk,
     deleteSchedulesByMonth,
     deleteSchedulesBeforeDate,
     swapScheduleShifts,
@@ -167,13 +168,12 @@ function AppShell() {
     }
 
     let failed = 0;
-    for (const entry of entries) {
-      try {
-        await updateSchedule(entry);
-      } catch (err) {
-        failed += 1;
-        console.error('[generateSmartSchedule] update failed:', err, entry);
-      }
+    try {
+      const result = await createSchedulesBulk(entries);
+      failed = result.failed;
+    } catch (err) {
+      console.error('[generateSmartSchedule] bulk insert failed:', err);
+      failed = entries.length;
     }
     await refresh();
     if (warnings.length > 0) {

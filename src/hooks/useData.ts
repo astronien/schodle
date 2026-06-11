@@ -232,6 +232,72 @@ export function useData() {
     void fetchAll();
   }, [fetchAll]);
 
+  // Targeted refreshers — only refetch the affected table after a mutation,
+  // avoiding the cost of refetching all 7 tables on every CRUD.
+  const refreshEmployees = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at')
+      .order('full_name');
+    if (!error && data) {
+      setEmployees(data.map((e) => ({
+        id: e.id,
+        employeeCode: e.employee_code,
+        fullName: e.full_name,
+        positionId: e.position_id,
+        groupId: e.group_id || undefined,
+        role: e.role as Employee['role'],
+        phone: e.phone || undefined,
+        email: e.email || undefined,
+        avatar: e.avatar || undefined,
+        weeklyOffDay: typeof e.weekly_off_day === 'number' ? e.weekly_off_day : undefined,
+      })));
+    }
+  }, []);
+
+  const refreshPositions = useCallback(async () => {
+    const [posRes, groupRes] = await Promise.all([
+      supabase.from('positions').select('*').order('code'),
+      supabase.from('position_groups').select('*').order('name'),
+    ]);
+    if (posRes.data) {
+      setPositions(posRes.data.map((p) => ({
+        id: p.id, code: p.code, name: p.name, minRequired: p.min_required,
+      })));
+    }
+    if (groupRes.data) {
+      setPositionGroups(groupRes.data.map((g) => ({ id: g.id, name: g.name })));
+    }
+  }, []);
+
+  const refreshShiftTypes = useCallback(async () => {
+    const { data, error } = await supabase.from('shift_types').select('*').order('code');
+    if (!error && data) {
+      setShiftTypes(data.map((s) => ({
+        id: s.id, code: s.code, name: s.name,
+        startTime: s.start_time, endTime: s.end_time,
+        color: s.color, requiresApproval: s.requires_approval,
+        requiresReason: s.requires_reason, requiresEvidence: s.requires_evidence,
+        isVisible: s.is_visible, isLeave: s.is_leave ?? false,
+        targetStaff: s.target_staff || undefined,
+        category: (s.category as ShiftType['category']) || undefined,
+      })));
+    }
+  }, []);
+
+  const refreshRecurring = useCallback(async () => {
+    const { data, error } = await supabase.from('recurring_schedules').select('*').order('created_at');
+    if (!error && data) {
+      setRecurringSchedules(data.map((r) => ({
+        id: r.id, employeeId: r.employee_id, shiftTypeId: r.shift_type_id,
+        daysOfWeek: r.days_of_week, startDate: r.start_date,
+        endDate: r.end_date || undefined, isActive: r.is_active,
+        note: r.note || undefined, createdBy: r.created_by || undefined,
+        createdAt: r.created_at, updatedAt: r.updated_at,
+      })));
+    }
+  }, []);
+
   const refreshSchedulesThrottled = useCallback(() => {
     const run = async () => {
       try {
@@ -400,6 +466,45 @@ export function useData() {
       const { error: delErr } = await supabase.from('schedules').delete().eq('id', id);
       if (delErr) throw delErr;
       await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
+  // Bulk insert for AI-generated schedules. Falls back to per-row insert if
+  // the batch insert fails (e.g., one row violates a constraint). Returns
+  // counts so the caller can report success/failure.
+  const createSchedulesBulk = useCallback(
+    async (entries: ScheduleEntry[]): Promise<{ inserted: number; failed: number }> => {
+      if (entries.length === 0) return { inserted: 0, failed: 0 };
+      const rows = entries.map((e) => ({
+        id: e.id,
+        employee_id: e.employeeId,
+        date: e.date,
+        shift_type_id: e.shiftTypeId,
+        status: e.status,
+        request_type: e.requestType,
+        created_by: e.createdBy || null,
+        employee_note: e.employeeNote || null,
+        manager_remark: e.managerRemark || null,
+        swap_with_id: e.swapWithId || null,
+        evidence_url: e.evidenceUrl || null,
+        revert_shift_type_id: e.revertShiftTypeId || null,
+      }));
+      const { error } = await supabase.from('schedules').insert(rows);
+      if (!error) {
+        await fetchAll(true);
+        return { inserted: entries.length, failed: 0 };
+      }
+      // Fallback: insert one at a time so partial success is possible
+      let inserted = 0;
+      let failed = 0;
+      for (const row of rows) {
+        const { error: rowErr } = await supabase.from('schedules').insert(row);
+        if (rowErr) failed += 1;
+        else inserted += 1;
+      }
+      await fetchAll(true);
+      return { inserted, failed };
     },
     [fetchAll],
   );
@@ -595,9 +700,9 @@ export function useData() {
           .join(' | ');
         throw new Error(msg || 'Supabase delete failed');
       }
-      await fetchAll(true);
+      await Promise.all([refreshEmployees(), refreshRecurring(), fetchAll(true)]);
     },
-    [fetchAll],
+    [fetchAll, refreshEmployees, refreshRecurring],
   );
 
   const createPosition = useCallback(
@@ -613,9 +718,9 @@ export function useData() {
           .join(' | ');
         throw new Error(msg || 'Supabase insert failed');
       }
-      await fetchAll(true);
+      await refreshPositions();
     },
-    [fetchAll],
+    [refreshPositions],
   );
 
   const deletePosition = useCallback(
@@ -627,9 +732,9 @@ export function useData() {
           .join(' | ');
         throw new Error(msg || 'Supabase delete failed');
       }
-      await fetchAll(true);
+      await refreshPositions();
     },
-    [fetchAll],
+    [refreshPositions],
   );
 
   const updatePosition = useCallback(
@@ -643,9 +748,9 @@ export function useData() {
         })
         .eq('id', position.id);
       if (updErr) throw updErr;
-      await fetchAll(true);
+      await refreshPositions();
     },
-    [fetchAll],
+    [refreshPositions],
   );
 
   const createPositionGroup = useCallback(
@@ -947,8 +1052,13 @@ export function useData() {
     loading,
     error,
     refresh: fetchAll,
+    refreshEmployees,
+    refreshPositions,
+    refreshShiftTypes,
+    refreshRecurring,
     updateSchedule,
     deleteSchedule,
+    createSchedulesBulk,
     deleteSchedulesByMonth,
     deleteSchedulesBeforeDate,
     sendPush,
