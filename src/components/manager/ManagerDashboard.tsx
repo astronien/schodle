@@ -307,6 +307,37 @@ export function ManagerDashboard({
     }
   };
 
+  const handleSwapShifts = async (
+    sourceEmployeeId: string,
+    sourceDate: string,
+    targetEmployeeId: string,
+    targetDate: string,
+  ) => {
+    const sourceShift = schedules.find(
+      (s) => s.employeeId === sourceEmployeeId && s.date === sourceDate && s.status === 'approved'
+    );
+    const targetShift = schedules.find(
+      (s) => s.employeeId === targetEmployeeId && s.date === targetDate && s.status === 'approved'
+    );
+    if (!sourceShift && !targetShift) return;
+    try {
+      if (sourceShift && targetShift) {
+        await Promise.all([
+          updateSchedule({ ...sourceShift, shiftTypeId: targetShift.shiftTypeId }),
+          updateSchedule({ ...targetShift, shiftTypeId: sourceShift.shiftTypeId }),
+        ]);
+        const sourceName = employees.find((e) => e.id === sourceEmployeeId)?.fullName || '';
+        const targetName = employees.find((e) => e.id === targetEmployeeId)?.fullName || '';
+        toast.success('สลับกะสำเร็จ', `${sourceName} ⇄ ${targetName}`);
+      } else if (sourceShift) {
+        await updateSchedule({ ...sourceShift, employeeId: targetEmployeeId });
+        toast.success('ย้ายกะสำเร็จ');
+      }
+    } catch (err: unknown) {
+      toast.error('สลับกะไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+    }
+  };
+
   const pendingRequests = filterPendingRequests(schedules);
   const resolvedRequests = schedules.filter(
     (s) => (s.status === 'approved' || s.status === 'rejected') && s.requestType && s.requestType !== 'shift_change'
@@ -390,6 +421,20 @@ export function ManagerDashboard({
       toast.success(`คัดลอกตารางสำเร็จ ${copiedCount} รายการ`, `จากเดือน ${format(prevMonth, 'MMMM yyyy', { locale: th })}`);
     } else {
       toast.info('ไม่มีรายการใหม่ให้คัดลอก');
+    }
+  };
+
+  const handleApplyTemplate = async (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => {
+    for (const a of assignments) {
+      await updateSchedule({
+        id: crypto.randomUUID(),
+        employeeId: a.employeeId,
+        date: a.date,
+        shiftTypeId: a.shiftTypeId,
+        status: 'approved',
+        requestType: 'shift_change',
+        createdBy: 'manager',
+      });
     }
   };
 
@@ -594,8 +639,10 @@ export function ManagerDashboard({
               onClearShift={handleClearShift}
               onCloseCell={() => setEditingCell(null)}
               onDropShift={handleDropShift}
+              onSwapShifts={handleSwapShifts}
               storeName={settings.storeName}
               onCopyFromPrevMonth={handleCopyFromPrevMonth}
+              onApplyTemplate={handleApplyTemplate}
             />
           )}
 

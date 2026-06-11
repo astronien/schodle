@@ -1,12 +1,13 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertTriangle, Download, Printer, Copy } from 'lucide-react';
+import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { exportCSV, printSchedule } from '../../lib/export-utils';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
+import { TemplateManager } from './Modals/TemplateManager';
 
 interface CoverageGridProps {
   currentMonth: Date;
@@ -24,8 +25,10 @@ interface CoverageGridProps {
     targetEmployeeId: string,
     targetDate: string
   ) => Promise<void>;
+  onSwapShifts: (sourceEmployeeId: string, sourceDate: string, targetEmployeeId: string, targetDate: string) => Promise<void>;
   storeName?: string;
   onCopyFromPrevMonth?: () => void;
+  onApplyTemplate?: (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => void;
 }
 
 const SALES_POSITION_IDS = new Set(['3', '5']);
@@ -42,17 +45,18 @@ export function CoverageGrid({
   onClearShift,
   onCloseCell,
   onDropShift,
+  onSwapShifts,
   storeName,
   onCopyFromPrevMonth,
+  onApplyTemplate,
 }: CoverageGridProps) {
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
 
-  const imbalancedDays = daysInMonth.filter((day) => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    const { morningCount, afternoonCount } = getCoverageLookup(schedules, shiftTypes, dateStr);
-    return Math.abs(morningCount - afternoonCount) > 1;
-  });
+  const [swapMode, setSwapMode] = useState(false);
+  const [swapFirst, setSwapFirst] = useState<{ employeeId: string; date: string } | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const prevMonth = subMonths(currentMonth, 1);
   const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
@@ -61,9 +65,39 @@ export function CoverageGrid({
     (s) => s.date >= prevMonthStart && s.date <= prevMonthEnd
   );
 
+  const imbalancedDays = daysInMonth.filter((day) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const { morningCount, afternoonCount } = getCoverageLookup(schedules, shiftTypes, dateStr);
+    return Math.abs(morningCount - afternoonCount) > 1;
+  });
+
   const editingEmployee = editingCell
     ? employees.find((e) => e.id === editingCell.employeeId) ?? null
     : null;
+
+  const handleSwapClick = async (employeeId: string, date: string) => {
+    if (!swapFirst) {
+      setSwapFirst({ employeeId, date });
+      return;
+    }
+    if (swapFirst.employeeId === employeeId && swapFirst.date === date) {
+      setSwapFirst(null);
+      return;
+    }
+    try {
+      await onSwapShifts(swapFirst.employeeId, swapFirst.date, employeeId, date);
+    } finally {
+      setSwapFirst(null);
+    }
+  };
+
+  const handleCellClick = (employeeId: string, dateStr: string) => {
+    if (swapMode) {
+      handleSwapClick(employeeId, dateStr);
+    } else {
+      onOpenCell(employeeId, dateStr);
+    }
+  };
 
   return (
     <div className="card rounded-none sm:rounded-xl flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
@@ -96,6 +130,17 @@ export function CoverageGrid({
           )}
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setSwapMode(!swapMode); setSwapFirst(null); }}
+              className={cn(
+                'btn text-xs px-3 py-2',
+                swapMode ? 'bg-brand text-white' : 'btn-ghost'
+              )}
+              title={swapMode ? 'ออกจากโหมดสลับ' : 'สลับกะแบบเร็ว — คลิก 2 จุด'}
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+              {swapMode ? 'กำลังสลับ' : 'สลับ'}
+            </button>
             {prevMonthHasSchedules && onCopyFromPrevMonth && (
               <button
                 onClick={onCopyFromPrevMonth}
@@ -122,6 +167,16 @@ export function CoverageGrid({
               <Printer className="w-4 h-4" />
               พิมพ์
             </button>
+            {onApplyTemplate && (
+              <button
+                onClick={() => setShowTemplates(true)}
+                className="btn btn-ghost text-xs px-3 py-2"
+                title="จัดการเทมเพลต"
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                เทมเพลต
+              </button>
+            )}
           </div>
 
           <div className="flex gap-2 p-1.5 bg-bg-panel rounded-xl border border-success/20">
@@ -225,32 +280,58 @@ export function CoverageGrid({
                     (s) => s.employeeId === employee.id && s.date === dateStr && s.status === 'approved'
                   );
                   const shiftType = shift ? shiftTypes.find((t) => t.id === shift.shiftTypeId) : null;
+                  const cellKey = `${employee.id}-${dateStr}`;
+                  const isSwapFirst = swapFirst?.employeeId === employee.id && swapFirst?.date === dateStr;
+                  const isDragOver = dragOverCell === cellKey;
+                  const hasTargetShift = shift && shiftType;
                   return (
                     <td
                       key={day.toString()}
-                      className="p-1 border-b border-white/[0.03]"
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => onDropShift(e, employee.id, dateStr)}
+                      className={cn(
+                        'p-1 border-b border-white/[0.03] transition-colors',
+                        swapMode && 'cursor-pointer',
+                        isSwapFirst && 'bg-brand/20 ring-2 ring-brand ring-inset',
+                        isDragOver && hasTargetShift && 'bg-warn/20 ring-2 ring-warn ring-inset',
+                        isDragOver && !hasTargetShift && 'bg-success/20 ring-2 ring-success ring-inset',
+                      )}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverCell(cellKey);
+                      }}
+                      onDragLeave={() => setDragOverCell(null)}
+                      onDrop={(e) => {
+                        setDragOverCell(null);
+                        onDropShift(e, employee.id, dateStr);
+                      }}
                     >
                       {shift && shiftType ? (
                         <div
-                          draggable
-                          onClick={() => onOpenCell(employee.id, dateStr)}
+                          draggable={!swapMode}
+                          onClick={() => handleCellClick(employee.id, dateStr)}
                           onDragStart={(e) =>
                             e.dataTransfer.setData(
                               'shift',
                               JSON.stringify({ employeeId: employee.id, date: dateStr })
                             )
                           }
-                          className="w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-transform hover:scale-105 cursor-grab active:cursor-grabbing"
+                          className={cn(
+                            'w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing',
+                            !swapMode && 'hover:scale-105',
+                            swapMode && 'hover:ring-2 hover:ring-white/60',
+                          )}
                           style={{ backgroundColor: shiftType.color }}
                         >
                           {shiftType.code}
                         </div>
                       ) : (
                         <div
-                          onClick={() => onOpenCell(employee.id, dateStr)}
-                          className="w-full h-7 sm:h-9 rounded-md bg-bg-panel border border-dashed border-surface-200 cursor-pointer hover:bg-bg-surface transition-colors"
+                          onClick={() => handleCellClick(employee.id, dateStr)}
+                          className={cn(
+                            'w-full h-7 sm:h-9 rounded-md border border-dashed cursor-pointer transition-colors',
+                            swapMode
+                              ? 'border-brand/40 bg-brand/5 hover:bg-brand/10'
+                              : 'border-surface-200 bg-bg-panel hover:bg-bg-surface',
+                          )}
                         ></div>
                       )}
                     </td>
@@ -349,6 +430,17 @@ export function CoverageGrid({
         onClear={onClearShift}
         onClose={onCloseCell}
       />
+
+      {onApplyTemplate && (
+        <TemplateManager
+          open={showTemplates}
+          onClose={() => setShowTemplates(false)}
+          currentMonth={currentMonth}
+          schedules={schedules}
+          employees={employees}
+          onApply={onApplyTemplate}
+        />
+      )}
     </div>
   );
 }
