@@ -32,7 +32,7 @@ export function exportCSV(
       const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
       return st?.code || '';
     });
-    const workDays = dayCols.filter((c) => c && c !== 'X').length;
+    const workDays = dayCols.filter((c) => c && c !== 'X' && c !== 'OFF').length;
     return [
       emp.employeeCode, emp.fullName, pos?.name || '', emp.groupId || '',
       ...dayCols,
@@ -40,7 +40,13 @@ export function exportCSV(
     ];
   });
 
-  const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
+  const csvEscape = (val: string) => {
+    if (/^[=+\-@\t\r]/.test(val)) return `"'${val}"`;
+    return `"${val}"`;
+  };
+  const csvContent = [headers, ...rows]
+    .map((r) => r.map((c) => csvEscape(String(c))).join(','))
+    .join('\n');
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -71,6 +77,13 @@ export function printSchedule(
   });
 
   const dayShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  const safe = (str: string) =>
+    str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
   let tableRows = employees
     .map((emp) => {
@@ -80,12 +93,12 @@ export function printSchedule(
           const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
           if (!s) return '<td class="empty"></td>';
           const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
-          return `<td class="shift" style="background:${st?.color || '#ccc'};color:#fff">${st?.code || ''}</td>`;
+          return `<td class="shift" style="background:${st?.color || '#ccc'};color:#fff">${safe(st?.code || '')}</td>`;
         })
         .join('');
       return `<tr>
-        <td class="emp-name">${emp.fullName}</td>
-        <td class="emp-code">${emp.employeeCode}</td>
+        <td class="emp-name">${safe(emp.fullName)}</td>
+        <td class="emp-code">${safe(emp.employeeCode)}</td>
         ${dayCells}
       </tr>`;
     })
@@ -99,7 +112,7 @@ export function printSchedule(
     .filter((t) => t.isVisible)
     .map((st) => `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:10px;font-size:10px;">
     <span style="width:8px;height:8px;border-radius:2px;background:${st.color};display:inline-block"></span>
-    ${st.code} ${st.startTime}-${st.endTime}
+    ${safe(st.code)} ${safe(st.startTime)}-${safe(st.endTime)}
   </span>`)
     .join('');
 
@@ -107,7 +120,7 @@ export function printSchedule(
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>ตารางกะงาน - ${storeName}</title>
+  <title>ตารางกะงาน - ${safe(storeName)}</title>
   <style>
     @page { size: A4 landscape; margin: 4mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -135,8 +148,8 @@ export function printSchedule(
 </head>
 <body>
   <div class="header">
-    <h1>${storeName}</h1>
-    <p>ตารางกะงาน ประจำเดือน ${monthStr} · พิมพ์เมื่อ ${format(new Date(), 'd MMM yyyy HH:mm')}</p>
+    <h1>${safe(storeName)}</h1>
+    <p>ตารางกะงาน ประจำเดือน ${safe(monthStr)} · พิมพ์เมื่อ ${format(new Date(), 'd MMM yyyy HH:mm')}</p>
   </div>
   <div class="legend">${shiftLegend}</div>
   <div class="table-wrap">

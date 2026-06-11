@@ -56,6 +56,19 @@ function AppShell() {
 
   const mustChangePassword = !!currentEmployee?.mustChangePassword;
 
+  // Listen for auth-expired events from data mutations (e.g., create-employee 401).
+  // Clear session and reload — but only when not mid-mutation to avoid data loss.
+  useEffect(() => {
+    const handler = () => {
+      localStorage.removeItem('schodle_auth_employee_id');
+      sessionStorage.removeItem('schodle_session_token');
+      localStorage.removeItem('schodle_session_token');
+      logout();
+    };
+    window.addEventListener('schodle:auth-expired', handler);
+    return () => window.removeEventListener('schodle:auth-expired', handler);
+  }, [logout]);
+
   const [role, setRole] = useState<UserRole>('employee');
   const effectiveRole = !isManager && role === 'manager' ? 'employee' : role;
   const [activeMobileTab, setActiveMobileTab] = useState<'schedule' | 'requests' | 'settings'>('schedule');

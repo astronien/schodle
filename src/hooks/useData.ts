@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { getSessionToken, clearSessionToken } from '../lib/session';
+import { getSessionToken } from '../lib/session';
 import { sendPushToEmployee, sendPushToRole } from '../lib/push';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, RecurringSchedule } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
@@ -532,11 +532,9 @@ export function useData() {
           } catch { /* ignore */ }
         }
         const msg = serverMsg ?? (data as { error?: string } | null)?.error ?? fnError.message;
-        // If 401, session expired — clear and redirect to login
+        // If 401, session expired — signal app to handle auth failure gracefully
         if (errBody?.status === 401 || msg.includes('401') || msg.includes('expired') || msg.includes('Invalid')) {
-          clearSessionToken();
-          localStorage.removeItem('schodle_auth_employee_id');
-          window.location.reload();
+          window.dispatchEvent(new CustomEvent('schodle:auth-expired'));
           throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
         }
         throw new Error(msg);
