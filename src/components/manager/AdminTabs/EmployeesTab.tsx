@@ -268,7 +268,7 @@ export function EmployeesTab({
       ) : (
         <>
           {/* Desktop: table-like rows */}
-          <div className="hidden md:block glass-cell rounded-2xl overflow-hidden">
+          <div className="hidden md:block glass-cell rounded-2xl [&>div:first-child]:rounded-t-2xl [&>div:last-child]:rounded-b-2xl">
             <div className="grid grid-cols-[32px_1fr_120px_140px_120px_80px_60px] gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-quaternary border-b border-border-solid items-center">
               <button
                 onClick={toggleSelectAll}
