@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getSessionToken } from './session';
+import { shouldNotify, type NotificationType } from './notification-prefs';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
@@ -214,6 +215,7 @@ interface PushResult {
   sent?: number;
   failed?: number;
   error?: string;
+  skipped?: boolean;
 }
 
 async function invokeSendPush(body: Record<string, unknown>): Promise<PushResult> {
@@ -261,7 +263,11 @@ export async function sendPushToEmployee(
   title: string,
   body: string,
   url?: string,
+  notifType?: NotificationType,
 ): Promise<PushResult> {
+  if (notifType && !shouldNotify(employeeId, notifType)) {
+    return { success: true, skipped: true };
+  }
   return invokeSendPush({ employee_id: employeeId, title, body, url });
 }
 

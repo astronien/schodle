@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 /* ── iOS 26 Liquid Glass Theme ── */
 @theme {
   /* Background — warm cream with light tints (visible through glass) */
@@ -107,6 +109,109 @@
     background-color: rgba(232, 130, 90, 0.30);
     color: var(--color-text-primary);
   }
+}
+
+/* ── Dark Mode Overrides ── */
+.dark {
+  --color-bg-primary: #0f1115;
+  --color-bg-panel: rgba(24, 26, 32, 0.88);
+  --color-bg-surface: rgba(32, 35, 42, 0.75);
+  --color-bg-elevated: rgba(38, 42, 50, 0.80);
+
+  --color-text-primary: #f0eeec;
+  --color-text-secondary: #c8c5bf;
+  --color-text-tertiary: #8a8780;
+  --color-text-quaternary: #5a5854;
+
+  --color-brand: #f09070;
+  --color-brand-accent: #6fa87c;
+  --color-brand-hover: #e07a58;
+  --color-brand-muted: #a06040;
+
+  --color-success: #6fa87c;
+  --color-success-secondary: #5f9a6b;
+  --color-warn: #f0c020;
+  --color-danger: #f04040;
+
+  --color-border-solid: rgba(200, 195, 185, 0.12);
+  --color-border-solid-light: rgba(200, 195, 185, 0.20);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.20), 0 8px 32px -8px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-raised: 0 4px 16px rgba(0, 0, 0, 0.25), 0 24px 48px -16px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-overlay: 0 25px 50px -12px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(240, 144, 112, 0.08), transparent 50%),
+    radial-gradient(circle at 85% 80%, rgba(111, 168, 124, 0.06), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(160, 96, 64, 0.05), transparent 60%),
+    var(--color-bg-primary);
+}
+
+.dark .card {
+  background: var(--color-bg-panel);
+  border-color: var(--color-border-solid);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.20), 0 8px 32px -8px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .card:hover {
+  background: rgba(24, 26, 32, 0.92);
+  border-color: var(--color-border-solid-light);
+}
+
+.dark .glass-nav {
+  background: rgba(24, 26, 32, 0.80);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -8px 32px -8px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .btn-ghost {
+  background: rgba(32, 35, 42, 0.80);
+  border-color: var(--color-border-solid);
+}
+
+.dark .btn-ghost:hover {
+  background: rgba(38, 42, 50, 0.90);
+  border-color: var(--color-border-solid-light);
+}
+
+.dark .input-field {
+  background: rgba(32, 35, 42, 0.85);
+  border-color: var(--color-border-solid);
+  color: var(--color-text-primary);
+}
+
+.dark .input-field:focus {
+  background: rgba(32, 35, 42, 0.90);
+}
+
+.dark .glass-cell {
+  background: rgba(32, 35, 42, 0.70);
+  border-color: var(--color-border-solid);
+}
+
+.dark .glass-cell:hover {
+  background: rgba(38, 42, 50, 0.85);
+}
+
+.dark .pill {
+  background: rgba(32, 35, 42, 0.75);
+  border-color: var(--color-border-solid);
+}
+
+.dark .day-pill {
+  background: rgba(32, 35, 42, 0.80);
+  border-color: var(--color-border-solid);
+}
+
+.dark .day-pill:hover {
+  background: rgba(38, 42, 50, 0.90);
+}
+
+.dark ::selection {
+  background-color: rgba(240, 144, 112, 0.30);
+  color: var(--color-text-primary);
 }
 
 @layer components {

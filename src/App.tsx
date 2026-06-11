@@ -15,6 +15,7 @@ import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
 import { ToastProvider, useToast } from './lib/toast';
+import { ThemeProvider } from './lib/theme';
 import { th } from 'date-fns/locale';
 import { cn } from './lib/utils';
 import { generateSmartSchedule as runSmartSchedule } from './lib/schedule-generator';
@@ -589,9 +590,11 @@ function AppShell() {
 function App() {
   return (
     <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดร้ายแรง">
-      <ToastProvider>
-        <AppShell />
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

@@ -15,9 +15,12 @@ import {
   Share,
   Trash2,
   Calendar,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useToast } from '../../../lib/toast';
+import { useTheme } from '../../../lib/theme';
 import { AdminPageHeader } from '../AdminSidebar';
 import { ConfirmModal } from '../../ConfirmModal';
 import {
@@ -53,6 +56,7 @@ export function SettingsTab({
   });
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const toast = useToast();
+  const { theme, toggleTheme } = useTheme();
   const [local, setLocal] = useState<AppSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -195,6 +199,48 @@ export function SettingsTab({
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Card: Dark mode */}
+        <section className="glass-cell rounded-2xl p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-brand/15 flex items-center justify-center">
+                {theme === 'dark' ? (
+                  <Moon className="w-4 h-4 text-brand" />
+                ) : (
+                  <Sun className="w-4 h-4 text-brand" />
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-text-primary">โหมดมืด</h4>
+                <p className="text-[10px] text-text-tertiary">
+                  สลับธีมสว่าง/มืด สำหรับการใช้งานในที่แสงน้อย
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className={cn(
+                'shrink-0 w-12 h-7 rounded-full transition-colors relative',
+                theme === 'dark' ? 'bg-brand' : 'bg-bg-elevated',
+              )}
+              aria-label="สลับโหมดมืด"
+            >
+              <div
+                className={cn(
+                  'absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-all flex items-center justify-center',
+                  theme === 'dark' ? 'right-0.5' : 'left-0.5',
+                )}
+              >
+                {theme === 'dark' ? (
+                  <Moon className="w-3.5 h-3.5 text-brand" />
+                ) : (
+                  <Sun className="w-3.5 h-3.5 text-text-quaternary" />
+                )}
+              </div>
+            </button>
           </div>
         </section>
 

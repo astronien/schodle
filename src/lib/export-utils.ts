@@ -213,3 +213,58 @@ export function exportTextSummary(
 
   return `ตารางกะ ${monthStr}\n\n${header}\n${rows.join('\n')}`;
 }
+
+/**
+ * Export schedule as PDF
+ */
+export async function exportPDF(
+  currentMonth: Date,
+  employees: Employee[],
+  schedules: ScheduleEntry[],
+  shiftTypes: ShiftType[],
+  positions: Position[],
+  storeName: string,
+): Promise<void> {
+  const html2pdf = (await import('html2pdf.js')).default;
+  const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
+  const monthStr = format(currentMonth, 'MMMM yyyy', { locale: undefined });
+  const monthSchedules = schedules.filter((s) => {
+    const d = new Date(s.date);
+    return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth) && s.status === 'approved';
+  });
+
+  const shiftLegend = shiftTypes
+    .filter((t) => t.isVisible)
+    .map((t) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px;"><span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;"></span>${t.code} ${t.startTime}-${t.endTime}</span>`)
+    .join('');
+
+  const headerCells = days.map((d) => `<th style="padding:4px 2px;font-size:9px;font-weight:700;border-bottom:1px solid #ddd;min-width:22px;text-align:center;">${format(d, 'd')}</th>`).join('');
+
+  const rows = employees.map((emp) => {
+    const pos = positions.find((p) => p.id === emp.positionId);
+    const cells = days.map((d) => {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
+      if (!s) return '<td style="padding:3px 2px;border-bottom:1px solid #eee;font-size:9px;text-align:center;"></td>';
+      const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+      return `<td style="padding:3px 2px;border-bottom:1px solid #eee;font-size:9px;text-align:center;"><span style="display:inline-block;padding:1px 4px;border-radius:3px;background:${st?.color || '#999'};color:#fff;font-weight:700;font-size:8px;">${st?.code || '?'}</span></td>`;
+    }).join('');
+    return `<tr><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:10px;font-weight:600;white-space:nowrap;">${emp.fullName}</td><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;color:#888;">${emp.employeeCode}</td><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;">${pos?.code || ''}</td>${cells}</tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,system-ui,sans-serif;padding:16px;color:#333;}</style></head><body>
+    <div style="margin-bottom:12px;"><h2 style="font-size:16px;font-weight:800;margin-bottom:2px;">${storeName} — ตารางงาน ${monthStr}</h2><p style="font-size:10px;color:#888;">พิมพ์เมื่อ ${new Date().toLocaleDateString('th-TH')} · จำนวน ${employees.length} คน</p></div>
+    <div style="margin-bottom:10px;font-size:10px;">${shiftLegend}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px;"><thead><tr><th style="padding:4px 6px;text-align:left;font-size:10px;font-weight:700;border-bottom:2px solid #333;min-width:100px;">พนักงาน</th><th style="padding:4px 6px;text-align:left;font-size:10px;font-weight:700;border-bottom:2px solid #333;min-width:50px;">รหัส</th><th style="padding:4px 6px;text-align:left;font-size:10px;font-weight:700;border-bottom:2px solid #333;min-width:40px;">ตำแหน่ง</th>${headerCells}</tr></thead><tbody>${rows}</tbody></table>
+  </body></html>`;
+
+  const opt = {
+    margin: [5, 5, 5, 5] as [number, number, number, number],
+    filename: `schedule-${format(currentMonth, 'yyyy-MM')}.pdf`,
+    image: { type: 'jpeg' as const, quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4landscape' as const, orientation: 'landscape' as const },
+  };
+
+  await html2pdf().set(opt).from(html).save();
+}

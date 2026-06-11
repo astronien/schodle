@@ -4,7 +4,7 @@ import { th } from 'date-fns/locale';
 import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
-import { exportCSV, printSchedule } from '../../lib/export-utils';
+import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
 import { TemplateManager } from './Modals/TemplateManager';
@@ -57,6 +57,7 @@ export function CoverageGrid({
   const [swapFirst, setSwapFirst] = useState<{ employeeId: string; date: string } | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const prevMonth = subMonths(currentMonth, 1);
   const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
@@ -166,6 +167,28 @@ export function CoverageGrid({
             >
               <Printer className="w-4 h-4" />
               พิมพ์
+            </button>
+            <button
+              onClick={async () => {
+                setPdfLoading(true);
+                try {
+                  await exportPDF(currentMonth, employees, schedules, shiftTypes, positions, storeName || 'Store');
+                } catch (err: unknown) {
+                  console.error('PDF export failed:', err);
+                } finally {
+                  setPdfLoading(false);
+                }
+              }}
+              disabled={pdfLoading}
+              className="btn btn-ghost text-xs px-3 py-2"
+              title="ดาวน์โหลด PDF"
+            >
+              {pdfLoading ? (
+                <span className="w-4 h-4 border-2 border-text-quaternary/30 border-t-text-quaternary rounded-full animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              PDF
             </button>
             {onApplyTemplate && (
               <button

@@ -83,11 +83,11 @@ export function useData() {
     return true;
   }, []);
 
-  const sendPush = useCallback(async (employeeId: string, title: string, body: string, url?: string) => {
+  const sendPush = useCallback(async (employeeId: string, title: string, body: string, url?: string, notifType?: 'schedule_changes' | 'approval_status' | 'new_requests') => {
     const dedupKey = `e:${employeeId}:${title}:${body}`;
     if (!shouldSendPush(dedupKey)) return;
     try {
-      const result = await sendPushToEmployee(employeeId, title, body, url);
+      const result = await sendPushToEmployee(employeeId, title, body, url, notifType);
       if (!result.success) {
         console.warn('[sendPush] Non-fatal failure:', result.error);
       } else if (typeof result.sent === 'number' && result.failed && result.failed > 0) {
@@ -282,6 +282,7 @@ export function useData() {
             if (!recentNotificationRef.current.has(key)) {
               const title = 'อัปเดตตารางงาน';
               let body = `ตารางงานวันที่ ${date} มีการเปลี่ยนแปลง`;
+              let notifType: 'schedule_changes' | 'approval_status' = 'schedule_changes';
 
               if (eventType === 'INSERT') {
                 body = `มีรายการตารางงานใหม่วันที่ ${date}`;
@@ -289,12 +290,14 @@ export function useData() {
                 body = `รายการตารางงานวันที่ ${date} ถูกลบ`;
               } else if (status === 'approved') {
                 body = `กะงานวันที่ ${date} ได้รับการอนุมัติแล้ว`;
+                notifType = 'approval_status';
               } else if (status === 'rejected') {
                 body = `กะงานวันที่ ${date} ไม่ได้รับการอนุมัติ`;
+                notifType = 'approval_status';
               }
 
               recentNotificationRef.current.set(key, Date.now());
-              void sendPush(employeeId, title, body, '/dashboard');
+              void sendPush(employeeId, title, body, '/dashboard', notifType);
             }
           }
 
@@ -383,7 +386,7 @@ export function useData() {
         if (body) {
           const key = `UPDATE:${entry.employeeId}:${entry.date}:${entry.status}:${entry.shiftTypeId}`;
           recentNotificationRef.current.set(key, Date.now());
-          void sendPush(entry.employeeId, title, body, '/dashboard');
+          void sendPush(entry.employeeId, title, body, '/dashboard', 'approval_status');
         }
       }
 
