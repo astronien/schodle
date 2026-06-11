@@ -16,6 +16,11 @@ export const SESSION_TTL_SECONDS_DEFAULT = 8 * 60 * 60; // 8 hours
 /* ── Schedule generator ──────────────────────────────────────── */
 export const DEFAULT_LATE_SHIFT_CODES = ['XC', 'EV', 'A2'];
 export const DEFAULT_EARLY_SHIFT_CODES = ['M1', 'M2'];
+/** Max shift count difference between any two employees after balance. */
+export const BALANCE_TOLERANCE = 1;
+/** Max re-try iterations per day for Tier 1 strict placement. */
+export const MAX_ITERATIONS_PER_DAY_MULTIPLIER = 8;
+export const MAX_ITERATIONS_PER_DAY_BASE = 10;
 
 /* ── Sales position IDs (legacy hardcoded) ───────────────────── */
 export const SALES_POSITION_IDS = new Set(['3', '5']);

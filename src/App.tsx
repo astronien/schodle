@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 
 import { Clock, Calendar, Briefcase, ChevronRight } from 'lucide-react';
-import { format, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, eachDayOfInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import type { UserRole, Employee } from './types/index';
 
 
@@ -157,6 +157,12 @@ function AppShell() {
       employees,
       shiftTypes,
       existingEntries: schedules,
+      prevMonthSchedules: schedules.filter(
+        (s) =>
+          s.date.startsWith(format(subMonths(currentMonth, 1), 'yyyy-MM')) &&
+          s.status === 'approved' &&
+          s.createdBy === 'system',
+      ),
     });
 
     if (entries.length === 0) {

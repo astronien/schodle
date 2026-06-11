@@ -1,7 +1,21 @@
-import { addDays, differenceInCalendarWeeks, eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns';
+import {
+  addDays,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  startOfMonth,
+  startOfWeek,
+  subWeeks,
+} from 'date-fns';
 
 import type { Employee, ScheduleEntry, ShiftType } from '../types';
-import { DEFAULT_LATE_SHIFT_CODES, DEFAULT_EARLY_SHIFT_CODES } from '../config/constants';
+import {
+  DEFAULT_LATE_SHIFT_CODES,
+  DEFAULT_EARLY_SHIFT_CODES,
+  BALANCE_TOLERANCE,
+  MAX_ITERATIONS_PER_DAY_MULTIPLIER,
+  MAX_ITERATIONS_PER_DAY_BASE,
+} from '../config/constants';
 
 export type SmartScheduleDraft = Omit<ScheduleEntry, 'status' | 'requestType'> & {
   status: ScheduleEntry['status'];
@@ -22,6 +36,9 @@ export type SmartScheduleOptions = {
   /** Existing entries for the month — used to avoid duplicate assignments,
    *  skip approved leave days, and learn position→shift preferences. */
   existingEntries?: ScheduleEntry[];
+  /** Schedules from the PREVIOUS month (AI-generated only).
+   *  Used to determine the rotation start of this month (morning vs afternoon). */
+  prevMonthSchedules?: ScheduleEntry[];
   /** Generate a new id for each draft. Defaults to crypto.randomUUID. */
   newId?: () => string;
   /** Shuffle employees each day — defaults to true. Disable for deterministic tests. */
@@ -33,6 +50,82 @@ type ShiftCategory = 'morning' | 'afternoon' | 'other';
 /** How strictly the late→early rest rule is enforced. */
 type LateEarlyStrictness = 'strict' | 'relaxed' | 'off';
 
+const opposite = (c: ShiftCategory): ShiftCategory =>
+  c === 'morning' ? 'afternoon' : c === 'afternoon' ? 'morning' : 'other';
+
+/** Monday of the week containing the given date, snapped to the same month reference. */
+function getMondayOfWeek(date: Date): Date {
+  return startOfWeek(date, { weekStartsOn: 1 });
+}
+
+/** Week index (0-based) from the first Monday of the month. */
+function weekIndexFromFirstMonday(date: Date, firstMonday: Date): number {
+  const thisMonday = getMondayOfWeek(date);
+  const diffMs = thisMonday.getTime() - firstMonday.getTime();
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, Math.floor(days / 7));
+}
+
+/**
+ * Determine the rotation start of this month: which category should week 1 prefer?
+ * Logic: look at the PREVIOUS month's week 1 (Mon-Sun). If most shifts were morning,
+ * this month's week 1 should be afternoon (and vice versa). If no data, random.
+ */
+function getRotationStart(
+  prevMonthSchedules: ScheduleEntry[],
+  currentMonth: Date,
+  shiftTypes: ShiftType[],
+): ShiftCategory {
+  if (prevMonthSchedules.length === 0) {
+    return Math.random() < 0.5 ? 'morning' : 'afternoon';
+  }
+
+  // Find first Monday of previous month
+  const prevMonth = subWeeks(startOfMonth(currentMonth), 4);
+  const firstMondayOfPrev = getMondayOfWeek(prevMonth);
+
+  // Filter prev month schedules to week 1 (Mon-Sun starting from firstMondayOfPrev)
+  const week1End = addDays(firstMondayOfPrev, 6);
+  const week1Schedules = prevMonthSchedules.filter((s) => {
+    const d = new Date(`${s.date}T00:00:00`);
+    return d >= firstMondayOfPrev && d <= week1End;
+  });
+
+  if (week1Schedules.length === 0) {
+    // Fallback: try the first 7 days of prev month that have data
+    const firstWithData = prevMonthSchedules[0];
+    if (!firstWithData) return Math.random() < 0.5 ? 'morning' : 'afternoon';
+    const fallbackStart = new Date(`${firstWithData.date}T00:00:00`);
+    const fallbackEnd = addDays(fallbackStart, 6);
+    const fallback = prevMonthSchedules.filter((s) => {
+      const d = new Date(`${s.date}T00:00:00`);
+      return d >= fallbackStart && d <= fallbackEnd;
+    });
+    if (fallback.length === 0) {
+      return Math.random() < 0.5 ? 'morning' : 'afternoon';
+    }
+    return countMajority(fallback, shiftTypes);
+  }
+
+  return countMajority(week1Schedules, shiftTypes);
+}
+
+function countMajority(
+  schedules: ScheduleEntry[],
+  shiftTypes: ShiftType[],
+): ShiftCategory {
+  let morning = 0;
+  let afternoon = 0;
+  for (const s of schedules) {
+    const cat = shiftTypes.find((t) => t.id === s.shiftTypeId)?.category;
+    if (cat === 'morning') morning += 1;
+    else if (cat === 'afternoon') afternoon += 1;
+  }
+  if (morning > afternoon) return 'afternoon'; // opposite
+  if (afternoon > morning) return 'morning'; // opposite
+  return 'morning'; // tie default
+}
+
 export function generateSmartSchedule({
   month,
   employees,
@@ -40,6 +133,7 @@ export function generateSmartSchedule({
   lateCodes = DEFAULT_LATE_SHIFT_CODES,
   earlyCodes = DEFAULT_EARLY_SHIFT_CODES,
   existingEntries = [],
+  prevMonthSchedules = [],
   newId,
   shuffleEmployees = true,
 }: SmartScheduleOptions): SmartScheduleResult {
@@ -50,9 +144,10 @@ export function generateSmartSchedule({
 
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
   const monthStart = startOfMonth(month);
-  const employeeOrder = [...employees]
-    .slice()
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const firstMondayOfMonth = getMondayOfWeek(monthStart);
+
+  // Determine rotation start of this month (opposite of prev month's week 1)
+  const rotationStart = getRotationStart(prevMonthSchedules, month, shiftTypes);
 
   const existingByEmployeeDate = new Map<string, ScheduleEntry>();
   for (const entry of existingEntries) {
@@ -109,6 +204,30 @@ export function generateSmartSchedule({
     }
   }
 
+  // Compute weekly preferred category per (employee, week) using rotation start.
+  // week 0 of this month follows rotationStart; week 1 flips; week 2 flips back; etc.
+  // Per-employee offset (based on id parity) gives variety within the same week.
+  const getWeeklyPreferredFor = (employeeId: string, date: Date): ShiftCategory => {
+    const emp = employees.find((e) => e.id === employeeId);
+    if (!emp) return rotationStart;
+    // Off day → not preferred
+    if (typeof emp.weeklyOffDay === 'number' && date.getDay() === emp.weeklyOffDay) {
+      return 'other';
+    }
+    const weekIdx = weekIndexFromFirstMonday(date, firstMondayOfMonth);
+    // Employee offset: even id → rotationStart when even week, opposite when odd
+    const isEvenId = (parseInt(emp.id.replace(/\D/g, ''), 10) || 0) % 2 === 0;
+    const baseCategory: ShiftCategory =
+      weekIdx % 2 === 0
+        ? isEvenId
+          ? rotationStart
+          : opposite(rotationStart)
+        : isEvenId
+          ? opposite(rotationStart)
+          : rotationStart;
+    return baseCategory;
+  };
+
   for (let dayIdx = 0; dayIdx < days.length; dayIdx += 1) {
     const day = days[dayIdx];
     const dateStr = format(day, 'yyyy-MM-dd');
@@ -120,7 +239,7 @@ export function generateSmartSchedule({
     // Auto-fill weekly off days with X shift.
     for (const emp of employees) {
       if (typeof emp.weeklyOffDay !== 'number') continue;
-      if (new Date(`${dateStr}T00:00:00`).getDay() !== emp.weeklyOffDay) continue;
+      if (day.getDay() !== emp.weeklyOffDay) continue;
       const key = `${emp.id}:${dateStr}`;
       if (existingByEmployeeDate.has(key)) continue;
       if (leaveByEmployeeDate.has(key)) continue;
@@ -139,18 +258,6 @@ export function generateSmartSchedule({
       });
       assignedThisDay.add(emp.id);
     }
-
-    const weekIndex = differenceInCalendarWeeks(day, monthStart, { weekStartsOn: 1 });
-
-    const getWeeklyPreferred = (employeeId: string): ShiftCategory => {
-      const emp = employees.find((e) => e.id === employeeId);
-      if (!emp) return 'morning';
-      const groupKey = emp.groupId || emp.positionId;
-      const groupMembers = employeeOrder.filter((e) => (e.groupId || e.positionId) === groupKey);
-      const idxInGroup = groupMembers.findIndex((e) => e.id === employeeId);
-      const base: ShiftCategory = idxInGroup % 2 === 0 ? 'morning' : 'afternoon';
-      return weekIndex % 2 === 0 ? base : base === 'morning' ? 'afternoon' : 'morning';
-    };
 
     const remainingByType = new Map<string, number>(
       targetShiftTypes.map((t) => [t.id, t.targetStaff || 0]),
@@ -209,7 +316,6 @@ export function generateSmartSchedule({
       lateEarly: LateEarlyStrictness,
     ): boolean => {
       // Sort by workload: employees with fewer assignments get priority.
-      // Tie-break with shuffled order for variety.
       const sortedCandidates = [...candidates].sort((a, b) => {
         const countA = monthlyAssignedCount.get(a.id) || 0;
         const countB = monthlyAssignedCount.get(b.id) || 0;
@@ -255,7 +361,7 @@ export function generateSmartSchedule({
 
       if (shiftCategory === 'morning' || shiftCategory === 'afternoon') {
         const preferred = pool.filter(
-          (e) => getWeeklyPreferred(e.id) === shiftCategory,
+          (e) => getWeeklyPreferredFor(e.id, day) === shiftCategory,
         );
         if (tryAssignFrom(preferred, shiftType.id, lateEarly)) return true;
         return tryAssignFrom(pool, shiftType.id, lateEarly);
@@ -264,7 +370,7 @@ export function generateSmartSchedule({
     };
 
     let iterations = 0;
-    const MAX_ITERATIONS = targetShiftTypes.length * 8 + 10;
+    const MAX_ITERATIONS = targetShiftTypes.length * MAX_ITERATIONS_PER_DAY_MULTIPLIER + MAX_ITERATIONS_PER_DAY_BASE;
 
     // Tier 1: strict — respect all rules including position preference.
     while (iterations < MAX_ITERATIONS) {
@@ -303,8 +409,7 @@ export function generateSmartSchedule({
     }
 
     // Tier 2: relaxed — for shifts that still have remaining quota, try again
-    // ignoring the position preference (so understaffed shifts get filled even
-    // if no one from the "right" position is free).
+    // ignoring the position preference.
     for (const shiftType of targetShiftTypes) {
       const remaining = remainingByType.get(shiftType.id) || 0;
       if (remaining <= 0) continue;
@@ -315,7 +420,7 @@ export function generateSmartSchedule({
     }
 
     // Tier 3: warn-only — allow late→early if it would otherwise leave a shift
-    // empty. We cap how many such warnings we emit per day to avoid log spam.
+    // empty. Cap warnings at 3/day.
     let warnCount = 0;
     for (const shiftType of targetShiftTypes) {
       const remaining = remainingByType.get(shiftType.id) || 0;
@@ -334,5 +439,132 @@ export function generateSmartSchedule({
     }
   }
 
+  // ── Phase: BALANCE ─────────────────────────────────────────────
+  // After daily target placement, distribute remaining idle employees across
+  // shifts so total shifts per employee stays within BALANCE_TOLERANCE.
+  // Priority: shifts that haven't hit target yet, then balance across all shifts.
+  for (const day of days) {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const assignedThisDay = new Set(
+      entries.filter((e) => e.date === dateStr).map((e) => e.employeeId),
+    );
+
+    // Compute current counts by shift for this date
+    const dayCounts = new Map<string, Set<string>>();
+    for (const e of entries.filter((x) => x.date === dateStr)) {
+      const set = dayCounts.get(e.shiftTypeId) ?? new Set<string>();
+      set.add(e.employeeId);
+      dayCounts.set(e.shiftTypeId, set);
+    }
+
+    // How many people are still idle today?
+    const idleEmployees = employees.filter((e) => !assignedThisDay.has(e.id));
+    if (idleEmployees.length === 0) continue;
+
+    // Keep adding to shifts until everyone is assigned or shifts are full enough
+    for (const emp of idleEmployees) {
+      // Off day → skip
+      if (typeof emp.weeklyOffDay === 'number' && day.getDay() === emp.weeklyOffDay) continue;
+      // Already has entry today → skip
+      const existingKey = `${emp.id}:${dateStr}`;
+      if (existingByEmployeeDate.has(existingKey)) continue;
+      if (leaveByEmployeeDate.has(existingKey)) continue;
+
+      // Find a shift for this employee:
+      // Priority 1: shifts that haven't hit target yet (fill target first)
+      // Priority 2: balance equally — pick shift with fewest current people
+      // In both cases, prefer the employee's weekly preferred category
+      const empPreferred = getWeeklyPreferredFor(emp.id, day);
+
+      // Build candidate shifts
+      const belowTarget: ShiftType[] = [];
+      for (const st of targetShiftTypes) {
+        const current = dayCounts.get(st.id)?.size || 0;
+        const target = st.targetStaff || 0;
+        if (current < target) belowTarget.push(st);
+      }
+
+      let chosen: ShiftType | null = null;
+
+      if (belowTarget.length > 0) {
+        // Fill below-target first, prefer same category as preferred
+        const sameCat = belowTarget.filter(
+          (s) => (s.category || 'other') === empPreferred,
+        );
+        chosen = sameCat[0] ?? belowTarget[0];
+      } else {
+        // All targets met → balance: pick shift with smallest current count
+        // Prefer same category as preferred, then fewest people
+        const sorted = [...targetShiftTypes].sort((a, b) => {
+          const ca = dayCounts.get(a.id)?.size || 0;
+          const cb = dayCounts.get(b.id)?.size || 0;
+          const aPref = (a.category || 'other') === empPreferred ? -1 : 0;
+          const bPref = (b.category || 'other') === empPreferred ? -1 : 0;
+          if (aPref !== bPref) return aPref - bPref;
+          return ca - cb;
+        });
+        chosen = sorted[0] ?? null;
+      }
+
+      if (!chosen) continue;
+      // Skip if employee already has this shift today (shouldn't happen)
+      if (dayCounts.get(chosen.id)?.has(emp.id)) continue;
+      // Late→early check
+      if (!canAssignBalance(emp, day, chosen, entries, existingEntries, shiftTypes, lateCodes, earlyCodes)) continue;
+
+      entries.push({
+        id: idFactory(),
+        employeeId: emp.id,
+        shiftTypeId: chosen.id,
+        date: dateStr,
+        status: 'approved',
+        requestType: 'shift_change',
+        createdBy: 'system',
+      });
+      assignedThisDay.add(emp.id);
+      monthlyAssignedCount.set(emp.id, (monthlyAssignedCount.get(emp.id) || 0) + 1);
+      const set = dayCounts.get(chosen.id) ?? new Set<string>();
+      set.add(emp.id);
+      dayCounts.set(chosen.id, set);
+    }
+  }
+
+  // Check final balance — warn if anyone is too far behind avg
+  const counts = Array.from(monthlyAssignedCount.values()).filter((c) => c > 0);
+  if (counts.length > 1) {
+    const avg = counts.reduce((s, n) => s + n, 0) / counts.length;
+    const outliers = employees.filter(
+      (e) => Math.abs((monthlyAssignedCount.get(e.id) || 0) - avg) > BALANCE_TOLERANCE + 1,
+    );
+    if (outliers.length > 0) {
+      warnings.push(
+        `สมดุลไม่สมบูรณ์: ${outliers.length} คนมีจำนวนกะต่างจากค่าเฉลี่ยมาก`,
+      );
+    }
+  }
+
   return { entries, warnings };
+}
+
+function canAssignBalance(
+  emp: Employee,
+  day: Date,
+  shiftType: ShiftType,
+  entries: ScheduleEntry[],
+  existingEntries: ScheduleEntry[],
+  shiftTypes: ShiftType[],
+  lateCodes: string[],
+  earlyCodes: string[],
+): boolean {
+  const yesterday = format(addDays(day, -1), 'yyyy-MM-dd');
+  const yesterdayShift =
+    entries.find((e) => e.employeeId === emp.id && e.date === yesterday) ??
+    existingEntries.find((e) => e.employeeId === emp.id && e.date === yesterday);
+  if (!yesterdayShift) return true;
+  const yesterdayShiftType = shiftTypes.find((t) => t.id === yesterdayShift.shiftTypeId);
+  if (!yesterdayShiftType) return true;
+  if (lateCodes.includes(yesterdayShiftType.code) && earlyCodes.includes(shiftType.code)) {
+    return false;
+  }
+  return true;
 }

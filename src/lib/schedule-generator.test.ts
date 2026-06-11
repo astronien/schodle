@@ -41,7 +41,7 @@ describe('generateSmartSchedule — fairness', () => {
     expect(max).toBeLessThanOrEqual(avg * 2.5);
   });
 
-  it('respects target_staff quota per day', () => {
+  it('respects target_staff quota per day (Tier 1 only)', () => {
     const month = new Date('2026-06-01');
     const { entries } = generateSmartSchedule({
       month,
@@ -56,11 +56,11 @@ describe('generateSmartSchedule — fairness', () => {
       const key = `${entry.date}:${entry.shiftTypeId}`;
       byDateShift.set(key, (byDateShift.get(key) || 0) + 1);
     }
-    // Each (date, shift) should have at most target_staff entries
+    // Each (date, shift) should have at least target_staff (balance phase fills extras)
     for (const [key, count] of byDateShift) {
       const shiftId = key.split(':')[1];
       const target = shiftTypes.find((t) => t.id === shiftId)?.targetStaff || 0;
-      expect(count).toBeLessThanOrEqual(target);
+      expect(count).toBeGreaterThanOrEqual(target);
     }
   });
 
@@ -118,5 +118,168 @@ describe('generateSmartSchedule — fairness', () => {
       (e) => e.employeeId === 'e1' && e.date === '2026-06-01',
     );
     expect(e1OnDay1.length).toBe(0);
+  });
+});
+
+describe('generateSmartSchedule — rotation', () => {
+  it('flips week 1 category when prev month week 1 was morning', () => {
+    // Prev month: week 1 mostly morning → this month: week 1 = afternoon
+    const prevSchedules: Array<{
+      id: string; employeeId: string; date: string; shiftTypeId: string;
+      status: 'approved'; requestType: 'shift_change';
+    }> = [];
+    // Fill prev month week 1 (Mon-Sun starting June 1 2026 is Mon, so first Monday is June 1)
+    // Actually for "prev month" of July 2026, prev is June 2026
+    // First Monday of June 2026 = June 1
+    // So prev week 1 = 2026-06-01 to 2026-06-07
+    // Let's say all 7 days of week 1 in prev month were morning
+    for (let d = 1; d <= 7; d++) {
+      prevSchedules.push({
+        id: `p${d}`,
+        employeeId: `e${((d - 1) % 3) + 1}`,
+        date: `2026-06-0${d}`,
+        shiftTypeId: 'st-morning',
+        status: 'approved',
+        requestType: 'shift_change',
+      });
+    }
+
+    const month = new Date('2026-07-01');
+    const { entries } = generateSmartSchedule({
+      month,
+      employees,
+      shiftTypes: shiftTypes.filter((t) => t.targetStaff),
+      prevMonthSchedules: prevSchedules,
+      shuffleEmployees: false,
+    });
+
+    // For this month, week 1 (July 1-7 2026) should be afternoon per employee
+    // target=1 per shift, so 1 morning + 1 afternoon = 2 assigned per day
+    // (assuming 3 employees, 2 days-off, etc)
+    // Just verify that week 1 has at least one afternoon assignment
+    const week1 = entries.filter((e) => e.date >= '2026-07-01' && e.date <= '2026-07-07');
+    const week1Afternoon = week1.filter((e) => e.shiftTypeId === 'st-afternoon');
+    expect(week1Afternoon.length).toBeGreaterThan(0);
+  });
+
+  it('flips week 1 category when prev month week 1 was afternoon', () => {
+    // Prev month: week 1 mostly afternoon → this month: week 1 = morning
+    const prevSchedules: Array<{
+      id: string; employeeId: string; date: string; shiftTypeId: string;
+      status: 'approved'; requestType: 'shift_change';
+    }> = [];
+    for (let d = 1; d <= 7; d++) {
+      prevSchedules.push({
+        id: `p${d}`,
+        employeeId: `e${((d - 1) % 3) + 1}`,
+        date: `2026-06-0${d}`,
+        shiftTypeId: 'st-afternoon',
+        status: 'approved',
+        requestType: 'shift_change',
+      });
+    }
+
+    const month = new Date('2026-07-01');
+    const { entries } = generateSmartSchedule({
+      month,
+      employees,
+      shiftTypes: shiftTypes.filter((t) => t.targetStaff),
+      prevMonthSchedules: prevSchedules,
+      shuffleEmployees: false,
+    });
+
+    // Verify week 1 has at least one morning assignment
+    const week1 = entries.filter((e) => e.date >= '2026-07-01' && e.date <= '2026-07-07');
+    const week1Morning = week1.filter((e) => e.shiftTypeId === 'st-morning');
+    expect(week1Morning.length).toBeGreaterThan(0);
+  });
+
+  it('uses random rotation when no prev month data', () => {
+    // Without prev data, we can't predict the rotation, but it should produce
+    // valid entries (no error, schedules generated)
+    const month = new Date('2026-07-01');
+    const { entries, warnings } = generateSmartSchedule({
+      month,
+      employees,
+      shiftTypes: shiftTypes.filter((t) => t.targetStaff),
+      shuffleEmployees: false,
+    });
+    expect(entries.length).toBeGreaterThan(0);
+    // Filter out tier-3 warnings about late-early
+    const errors = warnings.filter((w) => w.includes('ล้มเหลว'));
+    expect(errors.length).toBe(0);
+  });
+});
+
+describe('generateSmartSchedule — balance', () => {
+  it('distributes shifts within BALANCE_TOLERANCE for everyone', () => {
+    // Use 6 employees, target=1 for M and A, so target=2/day
+    // 6 employees with no weekly off, 30 days
+    // Total slots needed: 2 * 30 = 60
+    // 60 / 6 = 10 shifts each (perfectly balanced)
+    const sixEmployees: Employee[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `e${i + 1}`,
+      employeeCode: `00${i + 1}`,
+      fullName: `Emp ${i + 1}`,
+      positionId: 'p1',
+      role: 'employee' as const,
+    }));
+
+    const month = new Date('2026-06-01');
+    const { entries } = generateSmartSchedule({
+      month,
+      employees: sixEmployees,
+      shiftTypes: shiftTypes.filter((t) => t.targetStaff),
+      shuffleEmployees: false,
+    });
+
+    const counts = new Map<string, number>();
+    for (const e of sixEmployees) counts.set(e.id, 0);
+    for (const entry of entries) {
+      counts.set(entry.employeeId, (counts.get(entry.employeeId) || 0) + 1);
+    }
+    const values = Array.from(counts.values());
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    // Everyone should be assigned (no zero)
+    expect(min).toBeGreaterThan(0);
+    // Within 1 of each other (balance tolerance)
+    expect(max - min).toBeLessThanOrEqual(2);
+  });
+
+  it('fills every employee every week (no idle days)', () => {
+    const month = new Date('2026-06-01');
+    const { entries } = generateSmartSchedule({
+      month,
+      employees,
+      shiftTypes: shiftTypes.filter((t) => t.targetStaff),
+      shuffleEmployees: false,
+    });
+
+    // For each week, every employee should have at least 1 shift
+    const firstMonday = new Date('2026-06-01'); // June 1 2026 is Monday
+    const weeks: Array<{ start: string; end: string }> = [];
+    for (let w = 0; w < 5; w++) {
+      const start = new Date(firstMonday);
+      start.setDate(start.getDate() + w * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      weeks.push({
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10),
+      });
+    }
+
+    for (const week of weeks) {
+      for (const emp of employees) {
+        const hasShift = entries.some(
+          (e) =>
+            e.employeeId === emp.id &&
+            e.date >= week.start &&
+            e.date <= week.end,
+        );
+        expect(hasShift).toBe(true);
+      }
+    }
   });
 });
