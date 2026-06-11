@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Edit2, Save, X, Tag, Users, UserMinus } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { AdminPageHeader } from './AdminSidebar';
+import { ConfirmModal } from '../ConfirmModal';
 import { cn } from '../../lib/utils';
 import { getDiceBearAvatar } from '../../lib/validators';
 import type { Employee, PositionGroup } from '../../types';
@@ -27,6 +28,7 @@ export function PositionGroupManager({
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<PositionGroup | null>(null);
 
   const toast = useToast();
   const showError = (err: unknown, fallback: string) =>
@@ -203,22 +205,7 @@ export function PositionGroupManager({
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(`ลบกลุ่ม "${group.name}" ?`)) {
-                            deleteGroup(group.id)
-                              .then(() => {
-                                toast.success('ลบกลุ่มสำเร็จ', group.name);
-                                employees
-                                  .filter((e) => e.groupId === group.id)
-                                  .forEach((e) => {
-                                    updateEmployee({ ...e, groupId: undefined }).catch(
-                                      showError as (e: unknown) => void,
-                                    );
-                                  });
-                              })
-                              .catch((err: unknown) => showError(err, 'ลบกลุ่มไม่สำเร็จ'));
-                          }
-                        }}
+                        onClick={() => setDeleteConfirm(group)}
                         className="p-2 text-danger bg-danger/10 hover:bg-danger/15 rounded-lg"
                         aria-label="ลบ"
                       >
@@ -310,6 +297,31 @@ export function PositionGroupManager({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={Boolean(deleteConfirm)}
+        title="ลบกลุ่ม"
+        message={`ลบกลุ่ม "${deleteConfirm?.name || ''}" ? พนักงานในกลุ่มจะถูกยกเลิกกลุ่ม`}
+        confirmLabel="ลบ"
+        variant="danger"
+        onConfirm={async () => {
+          if (!deleteConfirm) return;
+          const group = deleteConfirm;
+          try {
+            await deleteGroup(group.id);
+            toast.success('ลบกลุ่มสำเร็จ', group.name);
+            const members = employees.filter((e) => e.groupId === group.id);
+            const results = await Promise.allSettled(
+              members.map((e) => updateEmployee({ ...e, groupId: undefined })),
+            );
+            const failed = results.filter((r) => r.status === 'rejected').length;
+            if (failed > 0) toast.error(`ยกเลิกกลุ่มไม่สำเร็จ ${failed} คน`);
+          } catch (err: unknown) {
+            showError(err, 'ลบกลุ่มไม่สำเร็จ');
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

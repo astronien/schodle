@@ -108,6 +108,7 @@ export function ManagerDashboard({
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [copyConfirmCount, setCopyConfirmCount] = useState<number | null>(null);
   const prevPendingIds = useRef<Set<string>>(new Set(schedules.filter((s) => s.status === 'pending').map((s) => s.id)));
 
   useEffect(() => {
@@ -395,11 +396,15 @@ export function ManagerDashboard({
       (s) => s.date.startsWith(currentMonthStr) && s.status === 'approved'
     );
     if (currentMonthSchedulesExisting.length > 0) {
-      if (!confirm(`เดือนนี้มีตารางอยู่แล้ว ${currentMonthSchedulesExisting.length} รายการ\nต้องการเพิ่มทับหรือไม่?`)) {
-        return;
-      }
+      setCopyConfirmCount(currentMonthSchedulesExisting.length);
+      return;
     }
 
+    void doCopyPrevMonth(prevMonthSchedules, currentMonthStr);
+  };
+
+  const doCopyPrevMonth = (prevMonthSchedules: typeof schedules, currentMonthStr: string) => {
+    const prevMonth = subMonths(currentMonth, 1);
     let copiedCount = 0;
     for (const prevSchedule of prevMonthSchedules) {
       const day = prevSchedule.date.split('-')[2];
@@ -756,6 +761,23 @@ export function ManagerDashboard({
               toast.success('ล้างตารางเดือนนี้เรียบร้อย');
             }}
             onCancel={() => setShowClearConfirm(false)}
+          />
+
+          <ConfirmModal
+            open={copyConfirmCount !== null}
+            title="เพิ่มทับตารางเดือนปัจจุบัน"
+            message={`เดือนนี้มีตารางอยู่แล้ว ${copyConfirmCount ?? 0} รายการ\n\nรายการที่ซ้ำกันจะถูกข้ามไป (ไม่เขียนทับ) ต้องการดำเนินการต่อหรือไม่?`}
+            confirmLabel="เพิ่มต่อ"
+            variant="warning"
+            onConfirm={() => {
+              const prevMonth = subMonths(currentMonth, 1);
+              const prevMonthStr = format(prevMonth, 'yyyy-MM');
+              const prevMonthSchedules = schedules.filter(
+                (s) => s.date.startsWith(prevMonthStr) && s.status === 'approved',
+              );
+              doCopyPrevMonth(prevMonthSchedules, format(currentMonth, 'yyyy-MM'));
+            }}
+            onCancel={() => setCopyConfirmCount(null)}
           />
         </div>
       </div>

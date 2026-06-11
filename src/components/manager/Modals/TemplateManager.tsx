@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Play, FileText } from 'lucide-react';
 import { useToast } from '../../../lib/toast';
+import { ConfirmModal } from '../../ConfirmModal';
 import {
   loadTemplates,
   saveTemplates,
@@ -33,6 +34,7 @@ export function TemplateManager({
   const [newName, setNewName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isApplying, setIsApplying] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<ScheduleTemplate | null>(null);
 
   useEffect(() => {
     if (open) setTemplates(loadTemplates());
@@ -74,10 +76,7 @@ export function TemplateManager({
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('ลบเทมเพลตนี้?')) return;
-    deleteTemplate(id);
-    setTemplates(loadTemplates());
-    toast.success('ลบเทมเพลตแล้ว');
+    setDeleteConfirm(templates.find((t) => t.id === id) || null);
   };
 
   if (!open) return null;
@@ -191,6 +190,21 @@ export function TemplateManager({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(deleteConfirm)}
+        title="ลบเทมเพลต"
+        message={`ลบเทมเพลต "${deleteConfirm?.name || ''}" ?`}
+        confirmLabel="ลบ"
+        variant="danger"
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          deleteTemplate(deleteConfirm.id);
+          setTemplates(loadTemplates());
+          toast.success('ลบเทมเพลตแล้ว');
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

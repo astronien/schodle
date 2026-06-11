@@ -4,6 +4,7 @@ import { CreatePositionModal } from '../Modals/CreationModals';
 import { getDiceBearAvatar } from '../../../lib/validators';
 import { useToast } from '../../../lib/toast';
 import { AdminPageHeader } from '../AdminSidebar';
+import { ConfirmModal } from '../../ConfirmModal';
 import { cn } from '../../../lib/utils';
 import type { Employee, Position } from '../../../types';
 
@@ -26,6 +27,8 @@ export function PositionsTab({
   const toast = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [mobileAssignPosition, setMobileAssignPosition] = useState<Position | null>(null);
+  const [clearConfirm, setClearConfirm] = useState<Position | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Position | null>(null);
 
   const handleCreate = async (input: Omit<Position, 'id'>) => {
     await onCreate(input);
@@ -218,19 +221,7 @@ export function PositionsTab({
                     <div className="flex items-center gap-1 shrink-0">
                       {assigned.length > 0 && (
                         <button
-                          onClick={() => {
-                            if (confirm(`ล้างพนักงานทั้งหมดในตำแหน่ง "${pos.name}" ?`)) {
-                              assigned.forEach((e) => {
-                                const fallback = positions[0];
-                                if (fallback && fallback.id !== pos.id) {
-                                  onUpdateEmployee({ ...e, positionId: fallback.id }).catch(
-                                    showError,
-                                  );
-                                }
-                              });
-                              toast.success('ล้างตำแหน่งเรียบร้อย', pos.name);
-                            }
-                          }}
+                          onClick={() => setClearConfirm(pos)}
                           className="p-1.5 text-text-tertiary hover:text-warn hover:bg-warn/10 rounded-lg transition-all"
                           title="ล้างพนักงานทั้งหมด"
                           aria-label="ล้างพนักงาน"
@@ -239,13 +230,7 @@ export function PositionsTab({
                         </button>
                       )}
                       <button
-                        onClick={() => {
-                          if (confirm(`ลบตำแหน่ง "${pos.name}" ?`)) {
-                            onDelete(pos.id)
-                              .then(() => toast.success('ลบตำแหน่งสำเร็จ', pos.name))
-                              .catch(showError);
-                          }
-                        }}
+                        onClick={() => setDeleteConfirm(pos)}
                         className="p-1.5 text-danger bg-danger/10 hover:bg-danger/15 rounded-lg transition-colors"
                         aria-label="ลบ"
                       >
@@ -319,6 +304,52 @@ export function PositionsTab({
           }}
         />
       )}
+
+      <ConfirmModal
+        open={Boolean(clearConfirm)}
+        title="ล้างพนักงานทั้งหมด"
+        message={`ล้างพนักงานทั้งหมดในตำแหน่ง "${clearConfirm?.name || ''}" ? พนักงานจะถูกย้ายไปยังตำแหน่งแรก`}
+        confirmLabel="ล้างทั้งหมด"
+        variant="warning"
+        onConfirm={async () => {
+          if (!clearConfirm) return;
+          const pos = clearConfirm;
+          const fallback = positions[0];
+          if (fallback && fallback.id !== pos.id) {
+            const results = await Promise.allSettled(
+              employees
+                .filter((e) => e.positionId === pos.id)
+                .map((e) => onUpdateEmployee({ ...e, positionId: fallback.id })),
+            );
+            const failed = results.filter((r) => r.status === 'rejected').length;
+            if (failed > 0) {
+              toast.error(`ล้างไม่สำเร็จ ${failed} คน`);
+            } else {
+              toast.success('ล้างตำแหน่งเรียบร้อย', pos.name);
+            }
+          }
+        }}
+        onCancel={() => setClearConfirm(null)}
+      />
+
+      <ConfirmModal
+        open={Boolean(deleteConfirm)}
+        title="ลบตำแหน่ง"
+        message={`ลบตำแหน่ง "${deleteConfirm?.name || ''}" ? การกระทำนี้ไม่สามารถยกเลิกได้`}
+        confirmLabel="ลบ"
+        variant="danger"
+        onConfirm={async () => {
+          if (!deleteConfirm) return;
+          const pos = deleteConfirm;
+          try {
+            await onDelete(pos.id);
+            toast.success('ลบตำแหน่งสำเร็จ', pos.name);
+          } catch (err: unknown) {
+            showError(err);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { cn } from '../../../lib/utils';
 import { useToast } from '../../../lib/toast';
 import { CreateShiftTypeModal } from '../Modals/CreationModals';
 import { AdminPageHeader } from '../AdminSidebar';
+import { ConfirmModal } from '../../ConfirmModal';
 import type { ShiftType } from '../../../types';
 
 const SHIFT_CATEGORIES: Array<{ id: 'morning' | 'afternoon' | 'other'; label: string }> = [
@@ -55,6 +56,7 @@ export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: Shif
   const toast = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<ShiftType | null>(null);
 
   const handleCreate = async (input: Omit<ShiftType, 'id'>) => {
     await onCreate(input);
@@ -89,6 +91,25 @@ export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: Shif
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreate={handleCreate}
+      />
+
+      <ConfirmModal
+        open={Boolean(deleteConfirm)}
+        title="ลบกะงาน"
+        message={`ลบกะ "${deleteConfirm?.name || ''}" ? การกระทำนี้ไม่สามารถยกเลิกได้`}
+        confirmLabel="ลบ"
+        variant="danger"
+        onConfirm={async () => {
+          if (!deleteConfirm) return;
+          const t = deleteConfirm;
+          try {
+            await onDelete(t.id);
+            toast.success('ลบกะงานสำเร็จ', t.name);
+          } catch (err: unknown) {
+            showError(err);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
       />
 
       {shiftTypes.length === 0 ? (
@@ -137,11 +158,7 @@ export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: Shif
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`ลบกะ "${type.name}" ?`)) {
-                          onDelete(type.id)
-                            .then(() => toast.success('ลบกะงานสำเร็จ', type.name))
-                            .catch(showError);
-                        }
+                        setDeleteConfirm(type);
                       }}
                       className="p-2 text-danger bg-danger/10 hover:bg-danger/15 rounded-lg transition-colors"
                       aria-label="ลบ"

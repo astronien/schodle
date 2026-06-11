@@ -5,6 +5,7 @@ import { CreateEmployeeModal, EditEmployeeModal } from '../Modals/CreationModals
 import { getDiceBearAvatar } from '../../../lib/validators';
 import { useToast } from '../../../lib/toast';
 import { AdminPageHeader } from '../AdminSidebar';
+import { ConfirmModal } from '../../ConfirmModal';
 import { cn } from '../../../lib/utils';
 import type { Employee, Position, PositionGroup } from '../../../types';
 
@@ -40,6 +41,8 @@ export function EmployeesTab({
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
 
   const filtered = employees.filter((emp) => {
     const haystack = [emp.fullName, emp.employeeCode, emp.email]
@@ -188,11 +191,7 @@ export function EmployeesTab({
               จัดตำแหน่ง
             </button>
             <button
-              onClick={() => {
-                if (window.confirm(`ลบพนักงาน ${selectedCount} คน?`)) {
-                  handleBulkDelete();
-                }
-              }}
+              onClick={() => setBulkDeleteConfirm(true)}
               disabled={isBulkDeleting}
               className="btn text-xs py-2 bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20"
             >
@@ -370,17 +369,8 @@ export function EmployeesTab({
                         </button>
                         <button
                           onClick={() => {
-                            onDeleteEmployee(emp.id)
-                              .then(() => {
-                                toast.success('ลบพนักงานสำเร็จ', emp.fullName);
-                                setMenuOpenId(null);
-                              })
-                              .catch((err: unknown) =>
-                                toast.error(
-                                  'ลบพนักงานไม่สำเร็จ',
-                                  err instanceof Error ? err.message : undefined,
-                                ),
-                              );
+                            setSingleDeleteId(emp.id);
+                            setMenuOpenId(null);
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-danger hover:bg-danger/10 rounded-lg"
                         >
@@ -464,18 +454,7 @@ export function EmployeesTab({
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm(`ลบพนักงาน "${emp.fullName}" ?`)) {
-                          onDeleteEmployee(emp.id)
-                            .then(() => toast.success('ลบพนักงานสำเร็จ', emp.fullName))
-                            .catch((err: unknown) =>
-                              toast.error(
-                                'ลบพนักงานไม่สำเร็จ',
-                                err instanceof Error ? err.message : undefined,
-                              ),
-                            );
-                        }
-                      }}
+                      onClick={() => setSingleDeleteId(emp.id)}
                       className="p-2 text-danger bg-danger/10 rounded-lg"
                       aria-label="ลบ"
                     >
@@ -503,6 +482,35 @@ export function EmployeesTab({
         onUpdate={updateEmployee}
         positions={positions}
         positionGroups={positionGroups}
+      />
+
+      <ConfirmModal
+        open={bulkDeleteConfirm}
+        title="ลบพนักงาน"
+        message={`ลบพนักงาน ${selectedCount} คน? การกระทำนี้ไม่สามารถยกเลิกได้`}
+        confirmLabel="ลบทั้งหมด"
+        variant="danger"
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteConfirm(false)}
+      />
+
+      <ConfirmModal
+        open={Boolean(singleDeleteId)}
+        title="ลบพนักงาน"
+        message={`ลบพนักงาน "${employees.find((e) => e.id === singleDeleteId)?.fullName || ''}" ? การกระทำนี้ไม่สามารถยกเลิกได้`}
+        confirmLabel="ลบ"
+        variant="danger"
+        onConfirm={async () => {
+          if (!singleDeleteId) return;
+          const emp = employees.find((e) => e.id === singleDeleteId);
+          try {
+            await onDeleteEmployee(singleDeleteId);
+            toast.success('ลบพนักงานสำเร็จ', emp?.fullName);
+          } catch (err: unknown) {
+            toast.error('ลบพนักงานไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+          }
+        }}
+        onCancel={() => setSingleDeleteId(null)}
       />
     </div>
   );
