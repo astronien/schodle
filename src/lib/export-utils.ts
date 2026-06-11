@@ -109,23 +109,24 @@ export function printSchedule(
   <meta charset="UTF-8">
   <title>ตารางกะงาน - ${storeName}</title>
   <style>
-    @page { size: A4 landscape; margin: 5mm; }
+    @page { size: A4 landscape; margin: 4mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Sarabun','Sarabun PSK','Noto Sans Thai','Tahoma',sans-serif; color: #1a1a2e; font-size: 7px; }
-    .header { text-align: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 2px double #1a1a2e; }
-    .header h1 { font-size: 13px; margin-bottom: 1px; }
+    body { font-family: 'Sarabun','Sarabun PSK','Noto Sans Thai','Tahoma',sans-serif; color: #1a1a2e; font-size: 8px; }
+    .header { text-align: center; margin-bottom: 3px; padding-bottom: 3px; border-bottom: 2px double #1a1a2e; }
+    .header h1 { font-size: 14px; margin-bottom: 1px; }
     .header p { font-size: 8px; color: #666; }
-    .legend { margin-bottom: 4px; padding: 3px 6px; background: #f5f5f5; border-radius: 3px; line-height: 1.6; font-size: 7px; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { border: 1px solid #d0d0d0; padding: 1px 0; text-align: center; white-space: nowrap; }
-    th { background: #1a1a2e; color: #fff; font-size: 7px; padding: 2px 0; }
+    .legend { margin-bottom: 3px; padding: 2px 6px; background: #f5f5f5; border-radius: 3px; line-height: 1.5; font-size: 7px; }
+    .table-wrap { width: 100%; overflow: hidden; }
+    table { border-collapse: collapse; font-size: 7px; width: 100%; }
+    th, td { border: 0.5px solid #bbb; padding: 1px 1px; text-align: center; white-space: nowrap; }
+    th { background: #1a1a2e; color: #fff; font-size: 7px; padding: 2px 1px; }
     th small { font-weight: normal; opacity: 0.8; }
-    .emp-name { text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #fafafa; position: sticky; left: 0; font-size: 7px; padding-left: 3px; width: 18%; max-width: 60mm; }
-    .emp-code { text-align: center; font-size: 6px; color: #666; width: 5%; }
+    .emp-name { text-align: left; font-weight: 600; white-space: nowrap; background: #fafafa; position: sticky; left: 0; font-size: 7px; padding-left: 3px; }
+    .emp-code { text-align: center; font-size: 6px; color: #666; }
     td.shift { font-weight: 700; font-size: 7px; border-radius: 1px; }
     td.empty { background: #fafafa; }
     tr:nth-child(even) { background: #fafafa; }
-    .footer { margin-top: 4px; text-align: center; font-size: 7px; color: #999; }
+    .footer { margin-top: 3px; text-align: center; font-size: 7px; color: #999; }
     @media print {
       body { padding: 0; }
       .no-print { display: none; }
@@ -138,6 +139,7 @@ export function printSchedule(
     <p>ตารางกะงาน ประจำเดือน ${monthStr} · พิมพ์เมื่อ ${format(new Date(), 'd MMM yyyy HH:mm')}</p>
   </div>
   <div class="legend">${shiftLegend}</div>
+  <div class="table-wrap">
   <table>
     <thead>
       <tr>
@@ -150,11 +152,26 @@ export function printSchedule(
       ${tableRows}
     </tbody>
   </table>
+  </div>
   <div class="footer">Schodle</div>
   <div class="no-print" style="text-align:center;margin-top:12px">
     <button onclick="window.print()" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#1a1a2e;color:#fff;border:none;border-radius:6px;">🖨 พิมพ์ตาราง</button>
   </div>
-  <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };</script>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        var wrap = document.querySelector('.table-wrap');
+        if (wrap) {
+          var pageW = document.documentElement.clientWidth;
+          var tableW = wrap.scrollWidth;
+          if (tableW > pageW) {
+            wrap.style.zoom = (pageW / tableW * 0.98).toFixed(3);
+          }
+        }
+        window.print();
+      }, 300);
+    };
+  </script>
 </body>
 </html>`;
 
