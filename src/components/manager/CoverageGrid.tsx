@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertTriangle, Download, Printer } from 'lucide-react';
+import { AlertTriangle, Download, Printer, Copy } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { exportCSV, printSchedule } from '../../lib/export-utils';
@@ -25,6 +25,7 @@ interface CoverageGridProps {
     targetDate: string
   ) => Promise<void>;
   storeName?: string;
+  onCopyFromPrevMonth?: () => void;
 }
 
 const SALES_POSITION_IDS = new Set(['3', '5']);
@@ -42,6 +43,7 @@ export function CoverageGrid({
   onCloseCell,
   onDropShift,
   storeName,
+  onCopyFromPrevMonth,
 }: CoverageGridProps) {
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
@@ -51,6 +53,13 @@ export function CoverageGrid({
     const { morningCount, afternoonCount } = getCoverageLookup(schedules, shiftTypes, dateStr);
     return Math.abs(morningCount - afternoonCount) > 1;
   });
+
+  const prevMonth = subMonths(currentMonth, 1);
+  const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
+  const prevMonthEnd = format(endOfMonth(prevMonth), 'yyyy-MM-dd');
+  const prevMonthHasSchedules = schedules.some(
+    (s) => s.date >= prevMonthStart && s.date <= prevMonthEnd
+  );
 
   const editingEmployee = editingCell
     ? employees.find((e) => e.id === editingCell.employeeId) ?? null
@@ -87,6 +96,16 @@ export function CoverageGrid({
           )}
 
           <div className="flex items-center gap-2">
+            {prevMonthHasSchedules && onCopyFromPrevMonth && (
+              <button
+                onClick={onCopyFromPrevMonth}
+                className="btn btn-ghost text-xs px-3 py-2"
+                title="คัดลอกตารางจากเดือนก่อน"
+              >
+                <Copy className="w-4 h-4" />
+                คัดลอกเดือนก่อน
+              </button>
+            )}
             <button
               onClick={() => exportCSV(currentMonth, employees, schedules, shiftTypes, positions)}
               className="btn btn-ghost text-xs px-3 py-2"

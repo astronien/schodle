@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, Trash2, Calendar, Users, MoreVertical, Pencil } from 'lucide-react';
+import { Search, Plus, Trash2, Calendar, Users, MoreVertical, Pencil, CheckSquare, Square, UserCog } from 'lucide-react';
 import { WEEKLY_OFF_DAYS } from '../Modals/WeeklyOffDayEditor';
 import { CreateEmployeeModal, EditEmployeeModal } from '../Modals/CreationModals';
 import { getDiceBearAvatar } from '../../../lib/validators';
@@ -35,6 +35,11 @@ export function EmployeesTab({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPositionId, setBulkPositionId] = useState('');
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkAssigning, setIsBulkAssigning] = useState(false);
 
   const filtered = employees.filter((emp) => {
     const haystack = [emp.fullName, emp.employeeCode, emp.email]
@@ -45,6 +50,71 @@ export function EmployeesTab({
   });
 
   const unassignedCount = employees.filter((e) => !e.positionId).length;
+  const selectedCount = selectedIds.size;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((e) => e.id)));
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkPositionId || selectedIds.size === 0) return;
+    setIsBulkAssigning(true);
+    try {
+      const pos = positions.find((p) => p.id === bulkPositionId);
+      const empNames: string[] = [];
+      for (const id of selectedIds) {
+        const emp = employees.find((e) => e.id === id);
+        if (emp) {
+          await updateEmployee({ ...emp, positionId: bulkPositionId });
+          empNames.push(emp.fullName);
+        }
+      }
+      toast.success(`จัดตำแหน่งสำเร็จ ${empNames.length} คน`, pos?.name);
+      setSelectedIds(new Set());
+      setShowBulkAssign(false);
+      setBulkPositionId('');
+    } catch (err: unknown) {
+      toast.error('จัดตำแหน่งไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+    } finally {
+      setIsBulkAssigning(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      let failed = 0;
+      for (const id of selectedIds) {
+        try {
+          await onDeleteEmployee(id);
+        } catch {
+          failed += 1;
+        }
+      }
+      const count = selectedIds.size - failed;
+      if (count > 0) toast.success(`ลบพนักงานสำเร็จ ${count} คน`);
+      if (failed > 0) toast.error(`ลบไม่สำเร็จ ${failed} คน`);
+      setSelectedIds(new Set());
+    } catch (err: unknown) {
+      toast.error('ลบไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const handleCreate = async (input: { fullName: string; employeeCode: string; groupId?: string }) => {
     const defaultPos = positions.find((p) => p.code === 'Cashier') || positions[0];
@@ -71,6 +141,8 @@ export function EmployeesTab({
       ? WEEKLY_OFF_DAYS.find((d) => d.value === id)?.label
       : null;
 
+  const hasSelection = selectedIds.size > 0;
+
   return (
     <div className="animate-fade-in">
       <AdminPageHeader
@@ -78,7 +150,7 @@ export function EmployeesTab({
         title="จัดการพนักงาน"
         description={`${filtered.length} / ${employees.length} คน${
           unassignedCount > 0 ? ` · ${unassignedCount} รอจัดตำแหน่ง` : ''
-        }`}
+        }${hasSelection ? ` · เลือก ${selectedCount} คน` : ''}`}
         actions={
           <>
             <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -101,6 +173,86 @@ export function EmployeesTab({
         }
       />
 
+      {/* Bulk action bar */}
+      {hasSelection && (
+        <div className="mb-4 p-3 rounded-2xl bg-brand/10 border border-brand/20 flex flex-wrap items-center gap-3 animate-slide-up">
+          <span className="text-xs font-bold text-brand">
+            เลือก {selectedCount} คน
+          </span>
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            <button
+              onClick={() => setShowBulkAssign(true)}
+              className="btn btn-secondary text-xs py-2"
+            >
+              <UserCog className="w-4 h-4" />
+              จัดตำแหน่ง
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm(`ลบพนักงาน ${selectedCount} คน?`)) {
+                  handleBulkDelete();
+                }
+              }}
+              disabled={isBulkDeleting}
+              className="btn text-xs py-2 bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20"
+            >
+              {isBulkDeleting ? (
+                <span className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              ลบทั้งหมด
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="btn btn-ghost text-xs py-2"
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk assign position modal */}
+      {showBulkAssign && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setShowBulkAssign(false)} />
+          <div className="relative w-full sm:max-w-sm bg-bg-panel rounded-t-2xl sm:rounded-2xl shadow-overlay animate-slide-up border border-white/40 p-5">
+            <h3 className="text-base font-bold text-text-primary mb-1">จัดตำแหน่งให้ {selectedCount} คน</h3>
+            <p className="text-xs text-text-tertiary mb-4">เลือกตำแหน่งที่ต้องการ assign</p>
+            <select
+              value={bulkPositionId}
+              onChange={(e) => setBulkPositionId(e.target.value)}
+              className="input-field w-full mb-4"
+            >
+              <option value="">-- เลือกตำแหน่ง --</option>
+              {positions.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBulkAssign(false)}
+                className="flex-1 py-3 bg-bg-elevated text-text-tertiary border border-border-solid rounded-xl text-sm font-semibold hover:bg-white/80 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleBulkAssign}
+                disabled={!bulkPositionId || isBulkAssigning}
+                className="flex-1 py-3 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isBulkAssigning ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>ยืนยัน</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="card p-8 sm:p-12 text-center">
           <div className="w-14 h-14 bg-bg-surface rounded-full flex items-center justify-center mx-auto mb-3 text-text-quaternary">
@@ -117,7 +269,17 @@ export function EmployeesTab({
         <>
           {/* Desktop: table-like rows */}
           <div className="hidden md:block glass-cell rounded-2xl overflow-hidden">
-            <div className="grid grid-cols-[1fr_120px_140px_120px_80px_60px] gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-quaternary border-b border-border-solid">
+            <div className="grid grid-cols-[32px_1fr_120px_140px_120px_80px_60px] gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-quaternary border-b border-border-solid items-center">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center justify-center"
+              >
+                {selectedIds.size === filtered.length && filtered.length > 0 ? (
+                  <CheckSquare className="w-4 h-4 text-brand" />
+                ) : (
+                  <Square className="w-4 h-4" />
+                )}
+              </button>
               <div>พนักงาน</div>
               <div>รหัส</div>
               <div>ตำแหน่ง</div>
@@ -127,13 +289,29 @@ export function EmployeesTab({
             </div>
             {filtered.map((emp) => {
               const offLabel = getOffDayLabel(emp.weeklyOffDay);
+              const isSelected = selectedIds.has(emp.id);
               return (
-                <button
+                <div
                   key={emp.id}
-                  onClick={() => onOpenWeeklyOff(emp.id)}
-                  className="w-full grid grid-cols-[1fr_120px_140px_120px_80px_60px] gap-3 px-4 py-3 items-center text-left hover:bg-white/70 transition-colors border-b border-border-solid last:border-0"
+                  className={cn(
+                    'w-full grid grid-cols-[32px_1fr_120px_140px_120px_80px_60px] gap-3 px-4 py-3 items-center text-left border-b border-border-solid last:border-0 transition-colors',
+                    isSelected ? 'bg-brand/5' : 'hover:bg-white/70',
+                  )}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    onClick={() => toggleSelect(emp.id)}
+                    className="flex items-center justify-center"
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="w-4 h-4 text-brand" />
+                    ) : (
+                      <Square className="w-4 h-4 text-text-quaternary" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => onOpenWeeklyOff(emp.id)}
+                    className="flex items-center gap-3 min-w-0"
+                  >
                     <div className="w-9 h-9 rounded-lg overflow-hidden bg-bg-surface border border-border-solid shrink-0">
                       <img
                         src={emp.avatar || getDiceBearAvatar(emp.fullName)}
@@ -144,7 +322,7 @@ export function EmployeesTab({
                     <span className="text-sm font-semibold text-text-primary truncate">
                       {emp.fullName}
                     </span>
-                  </div>
+                  </button>
                   <span className="text-xs font-mono font-semibold text-text-tertiary">
                     {emp.employeeCode}
                   </span>
@@ -212,7 +390,7 @@ export function EmployeesTab({
                       </div>
                     )}
                   </span>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -221,11 +399,25 @@ export function EmployeesTab({
           <div className="md:hidden space-y-2">
             {filtered.map((emp) => {
               const offLabel = getOffDayLabel(emp.weeklyOffDay);
+              const isSelected = selectedIds.has(emp.id);
               return (
                 <div
                   key={emp.id}
-                  className="glass-cell rounded-2xl p-3.5 flex items-center gap-3"
+                  className={cn(
+                    'glass-cell rounded-2xl p-3.5 flex items-center gap-3 transition-colors',
+                    isSelected && 'ring-1 ring-brand bg-brand/5',
+                  )}
                 >
+                  <button
+                    onClick={() => toggleSelect(emp.id)}
+                    className="shrink-0"
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5 text-brand" />
+                    ) : (
+                      <Square className="w-5 h-5 text-text-quaternary" />
+                    )}
+                  </button>
                   <div
                     onClick={() => onOpenWeeklyOff(emp.id)}
                     className="flex items-center gap-3 flex-1 min-w-0"

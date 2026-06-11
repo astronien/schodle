@@ -350,6 +350,49 @@ export function ManagerDashboard({
     setShowClearConfirm(true);
   };
 
+  const handleCopyFromPrevMonth = () => {
+    const prevMonth = subMonths(currentMonth, 1);
+    const prevMonthStr = format(prevMonth, 'yyyy-MM');
+    const prevMonthSchedules = schedules.filter((s) => s.date.startsWith(prevMonthStr) && s.status === 'approved');
+    if (prevMonthSchedules.length === 0) {
+      toast.info('เดือนก่อนหน้าไม่มีตารางงาน');
+      return;
+    }
+
+    const currentMonthStr = format(currentMonth, 'yyyy-MM');
+    const currentMonthSchedulesExisting = schedules.filter(
+      (s) => s.date.startsWith(currentMonthStr) && s.status === 'approved'
+    );
+    if (currentMonthSchedulesExisting.length > 0) {
+      if (!confirm(`เดือนนี้มีตารางอยู่แล้ว ${currentMonthSchedulesExisting.length} รายการ\nต้องการเพิ่มทับหรือไม่?`)) {
+        return;
+      }
+    }
+
+    let copiedCount = 0;
+    for (const prevSchedule of prevMonthSchedules) {
+      const day = prevSchedule.date.split('-')[2];
+      const newDate = `${currentMonthStr}-${day}`;
+      const exists = schedules.some(
+        (s) => s.date === newDate && s.employeeId === prevSchedule.employeeId && s.status === 'approved'
+      );
+      if (!exists) {
+        updateSchedule({
+          ...prevSchedule,
+          date: newDate,
+          status: 'approved',
+        });
+        copiedCount++;
+      }
+    }
+
+    if (copiedCount > 0) {
+      toast.success(`คัดลอกตารางสำเร็จ ${copiedCount} รายการ`, `จากเดือน ${format(prevMonth, 'MMMM yyyy', { locale: th })}`);
+    } else {
+      toast.info('ไม่มีรายการใหม่ให้คัดลอก');
+    }
+  };
+
   const today = format(new Date(), 'yyyy-MM-dd');
   const stats = [
     { label: 'รออนุมัติ', value: pendingRequests.length, tone: 'warn' as const },
@@ -490,6 +533,7 @@ export function ManagerDashboard({
               onCloseCell={() => setEditingCell(null)}
               onDropShift={handleDropShift}
               storeName={settings.storeName}
+              onCopyFromPrevMonth={handleCopyFromPrevMonth}
             />
           )}
 
