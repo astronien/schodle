@@ -4,11 +4,10 @@ import { useToast } from '../../../lib/toast';
 import { ConfirmModal } from '../../ConfirmModal';
 import { DAY_NAMES_SHORT } from '../../../config/constants';
 import {
-  loadTemplates,
-  saveTemplates,
-  createTemplateFromSchedules,
+  loadTemplates as loadTemplatesAsync,
+  createTemplateFromSchedules as createTemplateFromSchedulesAsync,
   applyTemplateToMonth,
-  deleteTemplate,
+  deleteTemplate as deleteTemplateAsync,
 } from '../../../lib/schedule-templates';
 import type { ScheduleTemplate } from '../../../lib/schedule-templates';
 import type { ScheduleEntry, Employee } from '../../../types';
@@ -32,23 +31,29 @@ export function TemplateManager({
 }: TemplateManagerProps) {
   const toast = useToast();
   const [templates, setTemplates] = useState<ScheduleTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
   const [newName, setNewName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isApplying, setIsApplying] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<ScheduleTemplate | null>(null);
 
   useEffect(() => {
-    if (open) setTemplates(loadTemplates());
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    loadTemplatesAsync()
+      .then((data) => { if (!cancelled) setTemplates(data); })
+      .catch(() => { if (!cancelled) setTemplates([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [open]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!newName.trim()) return;
     setIsSaving(true);
     try {
-      const template = createTemplateFromSchedules(newName.trim(), schedules, currentMonth);
-      const updated = [...templates, template];
-      saveTemplates(updated);
-      setTemplates(updated);
+      const template = await createTemplateFromSchedulesAsync(newName.trim(), schedules, currentMonth);
+      setTemplates((prev) => [template, ...prev]);
       setNewName('');
       toast.success('บันทึกเทมเพลตสำเร็จ', template.patterns.length + ' คน');
     } catch (err: unknown) {
@@ -76,8 +81,19 @@ export function TemplateManager({
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDeleteRequest = (id: string) => {
     setDeleteConfirm(templates.find((t) => t.id === id) || null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    try {
+      await deleteTemplateAsync(deleteConfirm.id);
+      setTemplates((prev) => prev.filter((t) => t.id !== deleteConfirm.id));
+      toast.success('ลบเทมเพลตแล้ว');
+    } catch {
+      toast.error('ลบเทมเพลตไม่สำเร็จ');
+    }
   };
 
   if (!open) return null;
@@ -124,7 +140,12 @@ export function TemplateManager({
 
         {/* Template list */}
         <div className="flex-1 overflow-auto p-4 space-y-2">
-          {templates.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8">
+              <span className="w-6 h-6 border-2 border-brand/30 border-t-brand rounded-full animate-spin block mx-auto" />
+              <p className="text-xs text-text-tertiary mt-2">กำลังโหลด...</p>
+            </div>
+          ) : templates.length === 0 ? (
             <div className="text-center py-8">
               <FileText className="w-10 h-10 text-text-quaternary mx-auto mb-2" />
               <p className="text-xs text-text-tertiary">ยังไม่มีเทมเพลต</p>
@@ -134,10 +155,6 @@ export function TemplateManager({
             templates.map((tpl) => {
               const dayNames = [...DAY_NAMES_SHORT];
               const patternSummary = tpl.patterns.length + ' คน';
-              const shiftCodes = new Set<string>();
-              tpl.patterns.forEach((p) => {
-                Object.values(p.shiftsByDay).forEach((stId) => shiftCodes.add(stId));
-              });
               return (
                 <div key={tpl.id} className="p-3 rounded-xl bg-bg-surface border border-border-solid hover:border-brand/30 transition-colors">
                   <div className="flex items-center justify-between mb-1">
@@ -155,7 +172,7 @@ export function TemplateManager({
                         )}
                       </button>
                       <button
-                        onClick={() => handleDelete(tpl.id)}
+                        onClick={() => handleDeleteRequest(tpl.id)}
                         className="p-1.5 text-danger hover:bg-danger/10 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -198,12 +215,7 @@ export function TemplateManager({
         message={`ลบเทมเพลต "${deleteConfirm?.name || ''}" ?`}
         confirmLabel="ลบ"
         variant="danger"
-        onConfirm={() => {
-          if (!deleteConfirm) return;
-          deleteTemplate(deleteConfirm.id);
-          setTemplates(loadTemplates());
-          toast.success('ลบเทมเพลตแล้ว');
-        }}
+        onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteConfirm(null)}
       />
     </div>

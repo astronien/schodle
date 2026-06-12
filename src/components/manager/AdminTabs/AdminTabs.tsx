@@ -7,6 +7,7 @@ import { EmployeesTab } from './EmployeesTab';
 import { ShiftTypesTab } from './ShiftTypesTab';
 import { PositionsTab } from './PositionsTab';
 import { SettingsTab } from './SettingsTab';
+import { AuditTab } from './AuditTab';
 
 export type { AdminTabId };
 
@@ -191,6 +192,10 @@ export function AdminTabs({
               onSendTestPush={onSendTestPush}
               onDeleteSchedulesBeforeDate={onDeleteSchedulesBeforeDate}
             />
+          )}
+
+          {activeTab === 'audit' && (
+            <AuditTab />
           )}
         </div>
       </div>
