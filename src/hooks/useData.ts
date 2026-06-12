@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { getSessionToken } from '../lib/session';
 import { sendPushToEmployee, sendPushToRole } from '../lib/push';
+import { dbSelect, dbInsert, dbUpdate, dbUpsert, dbDelete } from '../lib/db-query';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, RecurringSchedule } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
 import {
@@ -133,13 +134,13 @@ export function useData() {
     setError(null);
     try {
       const [posRes, empRes, shiftRes, groupRes, schedRes, recurringRes, settingsRes] = await Promise.all([
-        supabase.from('positions').select('*').order('code'),
-        supabase.from('employees').select('id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at').order('full_name'),
-        supabase.from('shift_types').select('*').order('code'),
-        supabase.from('position_groups').select('*').order('name'),
-        supabase.from('schedules').select('*').order('date'),
-        supabase.from('recurring_schedules').select('*').order('created_at'),
-        supabase.from('settings').select('*'),
+        dbSelect('positions', undefined, '*', { column: 'code', ascending: true }),
+        dbSelect('employees', undefined, 'id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at', { column: 'full_name', ascending: true }),
+        dbSelect('shift_types', undefined, '*', { column: 'code', ascending: true }),
+        dbSelect('position_groups', undefined, '*', { column: 'name', ascending: true }),
+        dbSelect('schedules', undefined, '*', { column: 'date', ascending: true }),
+        dbSelect('recurring_schedules', undefined, '*', { column: 'created_at', ascending: true }),
+        dbSelect('settings'),
       ]);
 
       if (posRes.error) throw posRes.error;
