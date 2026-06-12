@@ -121,10 +121,7 @@ export function useData() {
   }, [shouldSendPush]);
 
   const fetchSchedulesOnly = useCallback(async (): Promise<ScheduleEntry[]> => {
-    const { data, error: schedErr } = await supabase
-      .from('schedules')
-      .select('*')
-      .order('date');
+    const { data, error: schedErr } = await dbSelect<any>('schedules', undefined, '*', { column: 'date', ascending: true });
     if (schedErr) throw schedErr;
     return (data || []).map(mapScheduleRow);
   }, []);
@@ -134,13 +131,13 @@ export function useData() {
     setError(null);
     try {
       const [posRes, empRes, shiftRes, groupRes, schedRes, recurringRes, settingsRes] = await Promise.all([
-        dbSelect('positions', undefined, '*', { column: 'code', ascending: true }),
-        dbSelect('employees', undefined, 'id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at', { column: 'full_name', ascending: true }),
-        dbSelect('shift_types', undefined, '*', { column: 'code', ascending: true }),
-        dbSelect('position_groups', undefined, '*', { column: 'name', ascending: true }),
-        dbSelect('schedules', undefined, '*', { column: 'date', ascending: true }),
-        dbSelect('recurring_schedules', undefined, '*', { column: 'created_at', ascending: true }),
-        dbSelect('settings'),
+        dbSelect<any>('positions', undefined, '*', { column: 'code', ascending: true }),
+        dbSelect<any>('employees', undefined, 'id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at', { column: 'full_name', ascending: true }),
+        dbSelect<any>('shift_types', undefined, '*', { column: 'code', ascending: true }),
+        dbSelect<any>('position_groups', undefined, '*', { column: 'name', ascending: true }),
+        dbSelect<any>('schedules', undefined, '*', { column: 'date', ascending: true }),
+        dbSelect<any>('recurring_schedules', undefined, '*', { column: 'created_at', ascending: true }),
+        dbSelect<any>('settings'),
       ]);
 
       if (posRes.error) throw posRes.error;
@@ -272,8 +269,8 @@ export function useData() {
 
   const refreshPositions = useCallback(async () => {
     const [posRes, groupRes] = await Promise.all([
-      supabase.from('positions').select('*').order('code'),
-      supabase.from('position_groups').select('*').order('name'),
+      dbSelect<any>('positions', undefined, '*', { column: 'code', ascending: true }),
+      dbSelect<any>('position_groups', undefined, '*', { column: 'name', ascending: true }),
     ]);
     if (posRes.data) {
       setPositions(posRes.data.map((p) => ({
@@ -286,7 +283,7 @@ export function useData() {
   }, []);
 
   const refreshShiftTypes = useCallback(async () => {
-    const { data, error } = await supabase.from('shift_types').select('*').order('code');
+    const { data, error } = await dbSelect<any>('shift_types', undefined, '*', { column: 'code', ascending: true });
     if (!error && data) {
       setShiftTypes(data.map((s) => ({
         id: s.id, code: s.code, name: s.name,
@@ -301,7 +298,7 @@ export function useData() {
   }, []);
 
   const refreshRecurring = useCallback(async () => {
-    const { data, error } = await supabase.from('recurring_schedules').select('*').order('created_at');
+    const { data, error } = await dbSelect<any>('recurring_schedules', undefined, '*', { column: 'created_at', ascending: true });
     if (!error && data) {
       setRecurringSchedules(data.map((r) => ({
         id: r.id, employeeId: r.employee_id, shiftTypeId: r.shift_type_id,
@@ -432,24 +429,21 @@ export function useData() {
         }
       }
 
-      const { error: upsertErr } = await supabase.from('schedules').upsert(
-        {
-          id: entry.id,
-          employee_id: entry.employeeId,
-          date: entry.date,
-          shift_type_id: entry.shiftTypeId,
-          status: entry.status,
-          request_type: entry.requestType,
-          created_by: entry.createdBy || null,
-          employee_note: entry.employeeNote || null,
-          manager_remark: entry.managerRemark || null,
-          swap_with_id: entry.swapWithId || null,
-          evidence_url: entry.evidenceUrl || null,
-          revert_shift_type_id: entry.revertShiftTypeId || null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' },
-      );
+      const { error: upsertErr } = await dbUpsert('schedules', {
+        id: entry.id,
+        employee_id: entry.employeeId,
+        date: entry.date,
+        shift_type_id: entry.shiftTypeId,
+        status: entry.status,
+        request_type: entry.requestType,
+        created_by: entry.createdBy || null,
+        employee_note: entry.employeeNote || null,
+        manager_remark: entry.managerRemark || null,
+        swap_with_id: entry.swapWithId || null,
+        evidence_url: entry.evidenceUrl || null,
+        revert_shift_type_id: entry.revertShiftTypeId || null,
+        updated_at: new Date().toISOString(),
+      });
 
       if (upsertErr) throw upsertErr;
 
@@ -492,7 +486,7 @@ export function useData() {
 
   const deleteSchedule = useCallback(
     async (id: string) => {
-      const { error: delErr } = await supabase.from('schedules').delete().eq('id', id);
+      const { error: delErr } = await dbDelete('schedules', { id });
       if (delErr) throw delErr;
       await fetchAll(true);
     },
@@ -519,7 +513,7 @@ export function useData() {
         evidence_url: e.evidenceUrl || null,
         revert_shift_type_id: e.revertShiftTypeId || null,
       }));
-      const { error } = await supabase.from('schedules').insert(rows);
+      const { error } = await dbInsert('schedules', rows);
       if (!error) {
         await fetchAll(true);
         return { inserted: entries.length, failed: 0 };
@@ -528,7 +522,7 @@ export function useData() {
       let inserted = 0;
       let failed = 0;
       for (const row of rows) {
-        const { error: rowErr } = await supabase.from('schedules').insert(row);
+        const { error: rowErr } = await dbInsert('schedules', row);
         if (rowErr) failed += 1;
         else inserted += 1;
       }
@@ -543,11 +537,9 @@ export function useData() {
       const { format, startOfMonth, endOfMonth } = await import('date-fns');
       const monthStart = format(startOfMonth(month), 'yyyy-MM-dd');
       const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd');
-      const { error: delErr } = await supabase
-        .from('schedules')
-        .delete()
-        .gte('date', monthStart)
-        .lte('date', monthEnd);
+      const { error: delErr } = await dbDelete('schedules', {
+        date: { gte: monthStart, lte: monthEnd }
+      });
       if (delErr) throw delErr;
       await fetchAll(true);
     },
@@ -556,10 +548,9 @@ export function useData() {
 
   const deleteSchedulesBeforeDate = useCallback(
     async (beforeDate: string) => {
-      const { error: delErr } = await supabase
-        .from('schedules')
-        .delete()
-        .lt('date', beforeDate);
+      const { error: delErr } = await dbDelete('schedules', {
+        date: { lt: beforeDate }
+      });
       if (delErr) throw delErr;
       await fetchAll(true);
     },
@@ -694,26 +685,20 @@ export function useData() {
 
   const updateEmployee = useCallback(
     async (employee: Employee) => {
-      const { error: updErr } = await supabase
-        .from('employees')
-        .update({
-          employee_code: employee.employeeCode,
-          full_name: employee.fullName,
-          position_id: employee.positionId,
-          group_id: employee.groupId || null,
-          role: employee.role,
-          phone: employee.phone || null,
-          email: employee.email || null,
-          avatar: employee.avatar || null,
-          weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
-        })
-        .eq('id', employee.id);
+      const { error: updErr } = await dbUpdate('employees', {
+        employee_code: employee.employeeCode,
+        full_name: employee.fullName,
+        position_id: employee.positionId,
+        group_id: employee.groupId || null,
+        role: employee.role,
+        phone: employee.phone || null,
+        email: employee.email || null,
+        avatar: employee.avatar || null,
+        weekly_off_day: typeof employee.weeklyOffDay === 'number' ? employee.weeklyOffDay : null,
+      }, { id: employee.id });
 
       if (updErr) {
-        const msg = [updErr.message, updErr.details, updErr.hint, `code: ${updErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase update failed');
+        throw new Error(updErr.message || 'Supabase update failed');
       }
       await fetchAll(true);
     },
@@ -723,21 +708,18 @@ export function useData() {
   const deleteEmployee = useCallback(
     async (id: string) => {
       // Delete related schedules first to avoid foreign key constraint
-      const { error: schedErr } = await supabase.from('schedules').delete().eq('employee_id', id);
+      const { error: schedErr } = await dbDelete('schedules', { employee_id: id });
       if (schedErr) {
         console.warn('[deleteEmployee] Failed to delete related schedules:', schedErr.message);
       }
       // Also delete recurring schedules
-      const { error: recErr } = await supabase.from('recurring_schedules').delete().eq('employee_id', id);
+      const { error: recErr } = await dbDelete('recurring_schedules', { employee_id: id });
       if (recErr) {
         console.warn('[deleteEmployee] Failed to delete recurring schedules:', recErr.message);
       }
-      const { error: delErr } = await supabase.from('employees').delete().eq('id', id);
+      const { error: delErr } = await dbDelete('employees', { id });
       if (delErr) {
-        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase delete failed');
+        throw new Error(delErr.message || 'Supabase delete failed');
       }
       await Promise.all([refreshEmployees(), refreshRecurring(), fetchAll(true)]);
     },
@@ -746,16 +728,13 @@ export function useData() {
 
   const createPosition = useCallback(
     async (position: Omit<Position, 'id'>) => {
-      const { error: insErr } = await supabase.from('positions').insert({
+      const { error: insErr } = await dbInsert('positions', {
         code: position.code,
         name: position.name,
         min_required: position.minRequired,
       });
       if (insErr) {
-        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase insert failed');
+        throw new Error(insErr.message || 'Supabase insert failed');
       }
       await refreshPositions();
     },
@@ -764,12 +743,9 @@ export function useData() {
 
   const deletePosition = useCallback(
     async (id: string) => {
-      const { error: delErr } = await supabase.from('positions').delete().eq('id', id);
+      const { error: delErr } = await dbDelete('positions', { id });
       if (delErr) {
-        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase delete failed');
+        throw new Error(delErr.message || 'Supabase delete failed');
       }
       await refreshPositions();
     },
@@ -778,14 +754,11 @@ export function useData() {
 
   const updatePosition = useCallback(
     async (position: Position) => {
-      const { error: updErr } = await supabase
-        .from('positions')
-        .update({
-          code: position.code,
-          name: position.name,
-          min_required: position.minRequired,
-        })
-        .eq('id', position.id);
+      const { error: updErr } = await dbUpdate('positions', {
+        code: position.code,
+        name: position.name,
+        min_required: position.minRequired,
+      }, { id: position.id });
       if (updErr) throw updErr;
       await refreshPositions();
     },
@@ -794,7 +767,7 @@ export function useData() {
 
   const createPositionGroup = useCallback(
     async (group: Omit<PositionGroup, 'id'>) => {
-      const { error: insErr } = await supabase.from('position_groups').insert({ name: group.name });
+      const { error: insErr } = await dbInsert('position_groups', { name: group.name });
       if (insErr) throw insErr;
       await fetchAll(true);
     },
@@ -803,7 +776,7 @@ export function useData() {
 
   const updatePositionGroup = useCallback(
     async (group: PositionGroup) => {
-      const { error: updErr } = await supabase.from('position_groups').update({ name: group.name }).eq('id', group.id);
+      const { error: updErr } = await dbUpdate('position_groups', { name: group.name }, { id: group.id });
       if (updErr) throw updErr;
       await fetchAll(true);
     },
@@ -812,7 +785,7 @@ export function useData() {
 
   const deletePositionGroup = useCallback(
     async (id: string) => {
-      const { error: delErr } = await supabase.from('position_groups').delete().eq('id', id);
+      const { error: delErr } = await dbDelete('position_groups', { id });
       if (delErr) throw delErr;
       await fetchAll(true);
     },
@@ -821,7 +794,7 @@ export function useData() {
 
   const createShiftType = useCallback(
     async (shiftType: Omit<ShiftType, 'id'>) => {
-      const { error: insErr } = await supabase.from('shift_types').insert({
+      const { error: insErr } = await dbInsert('shift_types', {
         code: shiftType.code,
         name: shiftType.name,
         start_time: shiftType.startTime,
@@ -836,10 +809,7 @@ export function useData() {
         category: shiftType.category || null,
       });
       if (insErr) {
-        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase insert failed');
+        throw new Error(insErr.message || 'Supabase insert failed');
       }
       await fetchAll(true);
     },
@@ -848,28 +818,22 @@ export function useData() {
 
   const updateShiftType = useCallback(
     async (shiftType: ShiftType) => {
-      const { error: updErr } = await supabase
-        .from('shift_types')
-        .update({
-          code: shiftType.code,
-          name: shiftType.name,
-          start_time: shiftType.startTime,
-          end_time: shiftType.endTime,
-          color: shiftType.color,
-          requires_approval: shiftType.requiresApproval,
-          requires_reason: shiftType.requiresReason,
-          requires_evidence: shiftType.requiresEvidence,
-          is_visible: shiftType.isVisible,
-          is_leave: shiftType.isLeave ?? false,
-          target_staff: shiftType.targetStaff || null,
-          category: shiftType.category || null,
-        })
-        .eq('id', shiftType.id);
+      const { error: updErr } = await dbUpdate('shift_types', {
+        code: shiftType.code,
+        name: shiftType.name,
+        start_time: shiftType.startTime,
+        end_time: shiftType.endTime,
+        color: shiftType.color,
+        requires_approval: shiftType.requiresApproval,
+        requires_reason: shiftType.requiresReason,
+        requires_evidence: shiftType.requiresEvidence,
+        is_visible: shiftType.isVisible,
+        is_leave: shiftType.isLeave ?? false,
+        target_staff: shiftType.targetStaff || null,
+        category: shiftType.category || null,
+      }, { id: shiftType.id });
       if (updErr) {
-        const msg = [updErr.message, updErr.details, updErr.hint, `code: ${updErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase update failed');
+        throw new Error(updErr.message || 'Supabase update failed');
       }
       await fetchAll(true);
     },
@@ -878,12 +842,9 @@ export function useData() {
 
   const deleteShiftType = useCallback(
     async (id: string) => {
-      const { error: delErr } = await supabase.from('shift_types').delete().eq('id', id);
+      const { error: delErr } = await dbDelete('shift_types', { id });
       if (delErr) {
-        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase delete failed');
+        throw new Error(delErr.message || 'Supabase delete failed');
       }
       await fetchAll(true);
     },
@@ -892,7 +853,7 @@ export function useData() {
 
   const createRecurringSchedule = useCallback(
     async (recurring: Omit<RecurringSchedule, 'id' | 'createdAt' | 'updatedAt'>) => {
-      const { error: insErr } = await supabase.from('recurring_schedules').insert({
+      const { error: insErr } = await dbInsert('recurring_schedules', {
         employee_id: recurring.employeeId,
         shift_type_id: recurring.shiftTypeId,
         days_of_week: recurring.daysOfWeek,
@@ -903,10 +864,7 @@ export function useData() {
         created_by: recurring.createdBy || null,
       });
       if (insErr) {
-        const msg = [insErr.message, insErr.details, insErr.hint, `code: ${insErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase insert failed');
+        throw new Error(insErr.message || 'Supabase insert failed');
       }
       await fetchAll(true);
     },
@@ -915,24 +873,18 @@ export function useData() {
 
   const updateRecurringSchedule = useCallback(
     async (recurring: RecurringSchedule) => {
-      const { error: updErr } = await supabase
-        .from('recurring_schedules')
-        .update({
-          employee_id: recurring.employeeId,
-          shift_type_id: recurring.shiftTypeId,
-          days_of_week: recurring.daysOfWeek,
-          start_date: recurring.startDate,
-          end_date: recurring.endDate || null,
-          is_active: recurring.isActive,
-          note: recurring.note || null,
-          created_by: recurring.createdBy || null,
-        })
-        .eq('id', recurring.id);
+      const { error: updErr } = await dbUpdate('recurring_schedules', {
+        employee_id: recurring.employeeId,
+        shift_type_id: recurring.shiftTypeId,
+        days_of_week: recurring.daysOfWeek,
+        start_date: recurring.startDate,
+        end_date: recurring.endDate || null,
+        is_active: recurring.isActive,
+        note: recurring.note || null,
+        created_by: recurring.createdBy || null,
+      }, { id: recurring.id });
       if (updErr) {
-        const msg = [updErr.message, updErr.details, updErr.hint, `code: ${updErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase update failed');
+        throw new Error(updErr.message || 'Supabase update failed');
       }
       await fetchAll(true);
     },
@@ -941,12 +893,9 @@ export function useData() {
 
   const deleteRecurringSchedule = useCallback(
     async (id: string) => {
-      const { error: delErr } = await supabase.from('recurring_schedules').delete().eq('id', id);
+      const { error: delErr } = await dbDelete('recurring_schedules', { id });
       if (delErr) {
-        const msg = [delErr.message, delErr.details, delErr.hint, `code: ${delErr.code}`]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(msg || 'Supabase delete failed');
+        throw new Error(delErr.message || 'Supabase delete failed');
       }
       await fetchAll(true);
     },
@@ -1013,7 +962,7 @@ export function useData() {
       }
 
       // Bulk insert
-      const { error: bulkErr } = await supabase.from('schedules').insert(
+      const { error: bulkErr } = await dbInsert('schedules',
         newEntries.map((e) => ({
           id: e.id,
           employee_id: e.employeeId,
@@ -1036,9 +985,9 @@ export function useData() {
   const updateSettings = useCallback(
     async (newSettings: AppSettings) => {
       const results = await Promise.all([
-        supabase.from('settings').upsert({ key: 'store_name', value: newSettings.storeName }),
-        supabase.from('settings').upsert({ key: 'app_name', value: newSettings.appName }),
-        supabase.from('settings').upsert({ key: 'allow_employee_set_shifts', value: String(newSettings.allowEmployeeSetShifts) }),
+        dbUpsert('settings', { key: 'store_name', value: newSettings.storeName }),
+        dbUpsert('settings', { key: 'app_name', value: newSettings.appName }),
+        dbUpsert('settings', { key: 'allow_employee_set_shifts', value: String(newSettings.allowEmployeeSetShifts) }),
       ]);
       const firstError = results.find((r) => r.error)?.error;
       if (firstError) throw firstError;

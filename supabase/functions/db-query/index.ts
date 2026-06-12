@@ -60,11 +60,21 @@ function json(body: unknown, status = 200) {
   });
 }
 
+interface FilterCondition {
+  eq?: unknown;
+  gte?: unknown;
+  lte?: unknown;
+  lt?: unknown;
+  gt?: unknown;
+  neq?: unknown;
+  in?: unknown[];
+}
+
 interface QueryRequest {
   table: string;
   operation: "select" | "insert" | "update" | "upsert" | "delete";
   data?: unknown;
-  filter?: Record<string, unknown>;
+  filter?: Record<string, unknown | FilterCondition>;
   select?: string;
   order?: { column: string; ascending?: boolean };
 }
@@ -109,14 +119,33 @@ serve(async (req) => {
   try {
     let query;
 
+    // Helper function to apply filters
+    const applyFilters = (q: any, filter?: Record<string, unknown | FilterCondition>) => {
+      if (!filter) return q;
+      
+      for (const [key, value] of Object.entries(filter)) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          // Complex filter condition
+          const condition = value as FilterCondition;
+          if (condition.eq !== undefined) q = q.eq(key, condition.eq);
+          if (condition.gte !== undefined) q = q.gte(key, condition.gte);
+          if (condition.lte !== undefined) q = q.lte(key, condition.lte);
+          if (condition.lt !== undefined) q = q.lt(key, condition.lt);
+          if (condition.gt !== undefined) q = q.gt(key, condition.gt);
+          if (condition.neq !== undefined) q = q.neq(key, condition.neq);
+          if (condition.in !== undefined) q = q.in(key, condition.in);
+        } else {
+          // Simple equality filter
+          q = q.eq(key, value);
+        }
+      }
+      return q;
+    };
+
     switch (operation) {
       case "select":
         query = supabase.from(table).select(select || "*");
-        if (filter) {
-          for (const [key, value] of Object.entries(filter)) {
-            query = query.eq(key, value);
-          }
-        }
+        query = applyFilters(query, filter);
         if (order) {
           query = query.order(order.column, { ascending: order.ascending ?? true });
         }
@@ -128,11 +157,7 @@ serve(async (req) => {
 
       case "update":
         query = supabase.from(table).update(data as Record<string, unknown>);
-        if (filter) {
-          for (const [key, value] of Object.entries(filter)) {
-            query = query.eq(key, value);
-          }
-        }
+        query = applyFilters(query, filter);
         break;
 
       case "upsert":
@@ -141,11 +166,7 @@ serve(async (req) => {
 
       case "delete":
         query = supabase.from(table).delete();
-        if (filter) {
-          for (const [key, value] of Object.entries(filter)) {
-            query = query.eq(key, value);
-          }
-        }
+        query = applyFilters(query, filter);
         break;
 
       default:

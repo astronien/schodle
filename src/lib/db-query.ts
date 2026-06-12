@@ -6,11 +6,21 @@
 import { supabase } from './supabase';
 import { getSessionToken } from './session';
 
+interface FilterCondition {
+  eq?: unknown;
+  gte?: unknown;
+  lte?: unknown;
+  lt?: unknown;
+  gt?: unknown;
+  neq?: unknown;
+  in?: unknown[];
+}
+
 interface QueryOptions {
   table: string;
   operation: 'select' | 'insert' | 'update' | 'upsert' | 'delete';
   data?: unknown;
-  filter?: Record<string, unknown>;
+  filter?: Record<string, unknown | FilterCondition>;
   select?: string;
   order?: { column: string; ascending?: boolean };
 }
@@ -47,7 +57,7 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
  */
 export async function dbSelect<T = unknown>(
   table: string,
-  filter?: Record<string, unknown>,
+  filter?: Record<string, unknown | FilterCondition>,
   select?: string,
   order?: { column: string; ascending?: boolean }
 ): Promise<{ data: T[] | null; error: Error | null }> {
@@ -70,7 +80,7 @@ export async function dbInsert<T = unknown>(
 export async function dbUpdate<T = unknown>(
   table: string,
   data: unknown,
-  filter: Record<string, unknown>
+  filter: Record<string, unknown | FilterCondition>
 ): Promise<{ data: T | null; error: Error | null }> {
   return dbQuery<T>({ table, operation: 'update', data, filter });
 }
@@ -90,7 +100,7 @@ export async function dbUpsert<T = unknown>(
  */
 export async function dbDelete(
   table: string,
-  filter: Record<string, unknown>
+  filter: Record<string, unknown | FilterCondition>
 ): Promise<{ error: Error | null }> {
   const { error } = await dbQuery({ table, operation: 'delete', filter });
   return { error };
