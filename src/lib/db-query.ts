@@ -1,6 +1,9 @@
 /**
- * Database query helper that routes all operations through the db-query Edge Function
- * This ensures all queries go through session verification and service role
+ * Database query helper that routes all operations through the db-query Edge Function.
+ * Falls back to direct Supabase queries if the Edge Function is unavailable
+ * (e.g., CORS issues, function not deployed, network errors).
+ *
+ * Direct queries use the user's own JWT and rely on RLS policies for access control.
  */
 
 import { supabase } from './supabase';
@@ -25,8 +28,22 @@ interface QueryOptions {
   order?: { column: string; ascending?: boolean };
 }
 
+const CORS_ERROR_PATTERNS = [
+  'Failed to fetch',
+  'NetworkError',
+  'Network request failed',
+  'Load failed',
+  'CORS',
+  'preflight',
+  'ERR_FAILED',
+];
+
+function isCorsOrNetworkError(message: string): boolean {
+  return CORS_ERROR_PATTERNS.some((p) => message.includes(p));
+}
+
 /**
- * Execute a database query through the db-query Edge Function
+ * Execute a database query — try Edge Function first, fall back to direct Supabase.
  */
 export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ data: T | null; error: Error | null }> {
   const token = getSessionToken();
@@ -34,21 +51,108 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
     return { data: null, error: new Error('Session expired') };
   }
 
+  // Try Edge Function first
   try {
-    const { data, error } = await supabase.functions.invoke<{ data: T }>('db-query', {
-      body: options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const result = await tryEdgeFunction<T>(options, token);
+    return result;
+  } catch (catchErr) {
+    const msg = catchErr instanceof Error ? catchErr.message : 'Unknown error';
+    if (isCorsOrNetworkError(msg)) {
+      console.warn(`[db-query] Edge Function unavailable (${msg}), falling back to direct query`);
+      return fallbackQuery<T>(options);
+    }
+    return { data: null, error: catchErr instanceof Error ? catchErr : new Error('Unknown error') };
+  }
+}
 
-    if (error) {
-      return { data: null, error: new Error(error.message) };
+async function tryEdgeFunction<T>(options: QueryOptions, token: string): Promise<{ data: T | null; error: Error | null }> {
+  const { data, error } = await supabase.functions.invoke<{ data: T }>('db-query', {
+    body: options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (error) {
+    const msg = error.message || '';
+    // If it looks like a CORS/network error from invoke, throw so caller can fall back
+    if (isCorsOrNetworkError(msg) || msg.includes('401') || msg.includes('not found')) {
+      throw error;
+    }
+    return { data: null, error: new Error(msg) };
+  }
+
+  return { data: data?.data ?? null, error: null };
+}
+
+/**
+ * Fallback: execute query directly using the Supabase client (user's JWT, RLS applies).
+ */
+async function fallbackQuery<T>(options: QueryOptions): Promise<{ data: T | null; error: Error | null }> {
+  const { table, operation, data, filter, select, order } = options;
+
+  try {
+    let query: any;
+
+    const applyFilters = (q: any, f?: Record<string, unknown | FilterCondition>) => {
+      if (!f) return q;
+      for (const [key, value] of Object.entries(f)) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const condition = value as FilterCondition;
+          if (condition.eq !== undefined) q = q.eq(key, condition.eq);
+          if (condition.gte !== undefined) q = q.gte(key, condition.gte);
+          if (condition.lte !== undefined) q = q.lte(key, condition.lte);
+          if (condition.lt !== undefined) q = q.lt(key, condition.lt);
+          if (condition.gt !== undefined) q = q.gt(key, condition.gt);
+          if (condition.neq !== undefined) q = q.neq(key, condition.neq);
+          if (condition.in !== undefined) q = q.in(key, condition.in);
+        } else {
+          q = q.eq(key, value);
+        }
+      }
+      return q;
+    };
+
+    switch (operation) {
+      case 'select':
+        query = supabase.from(table).select(select || '*');
+        query = applyFilters(query, filter);
+        if (order) {
+          query = query.order(order.column, { ascending: order.ascending ?? true });
+        }
+        break;
+
+      case 'insert':
+        query = supabase.from(table).insert(data as Record<string, unknown>);
+        if (Array.isArray(data)) query = query.select();
+        break;
+
+      case 'update':
+        query = supabase.from(table).update(data as Record<string, unknown>);
+        query = applyFilters(query, filter);
+        break;
+
+      case 'upsert':
+        query = supabase.from(table).upsert(data as Record<string, unknown>);
+        break;
+
+      case 'delete':
+        query = supabase.from(table).delete();
+        query = applyFilters(query, filter);
+        break;
+
+      default:
+        return { data: null, error: new Error('Invalid operation') };
     }
 
-    return { data: data?.data ?? null, error: null };
+    const { data: result, error: queryError } = await query;
+    if (queryError) {
+      return { data: null, error: new Error(queryError.message) };
+    }
+
+    return { data: (result as T) ?? null, error: null };
   } catch (err) {
-    return { data: null, error: err instanceof Error ? err : new Error('Unknown error') };
+    return { data: null, error: err instanceof Error ? err : new Error('Fallback query failed') };
   }
 }
 
