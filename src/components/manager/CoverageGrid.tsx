@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone, Calendar } from 'lucide-react';
+import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone, Calendar, CheckSquare, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
@@ -31,6 +31,7 @@ interface CoverageGridProps {
     targetDate: string
   ) => Promise<void>;
   onSwapShifts: (sourceEmployeeId: string, sourceDate: string, targetEmployeeId: string, targetDate: string) => Promise<void>;
+  onBulkAssign?: (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => void;
   storeName?: string;
   onCopyFromPrevMonth?: () => void;
   onApplyTemplate?: (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => void;
@@ -49,6 +50,7 @@ export function CoverageGrid({
   onCloseCell,
   onDropShift,
   onSwapShifts,
+  onBulkAssign,
   storeName,
   onCopyFromPrevMonth,
   onApplyTemplate,
@@ -62,6 +64,8 @@ export function CoverageGrid({
   const [showTemplates, setShowTemplates] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedCells, setSelectedCells] = useState<Map<string, { employeeId: string; date: string }>>(new Map());
   const toast = useToast();
 
   const prevMonth = subMonths(currentMonth, 1);
@@ -100,6 +104,17 @@ export function CoverageGrid({
   const handleCellClick = (employeeId: string, dateStr: string) => {
     if (swapMode) {
       handleSwapClick(employeeId, dateStr);
+    } else if (multiSelectMode) {
+      const key = `${employeeId}-${dateStr}`;
+      setSelectedCells((prev) => {
+        const next = new Map(prev);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.set(key, { employeeId, date: dateStr });
+        }
+        return next;
+      });
     } else {
       onOpenCell(employeeId, dateStr);
     }
@@ -137,7 +152,18 @@ export function CoverageGrid({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { setSwapMode(!swapMode); setSwapFirst(null); }}
+              onClick={() => { setMultiSelectMode(!multiSelectMode); setSelectedCells(new Map()); setSwapMode(false); setSwapFirst(null); }}
+              className={cn(
+                'btn text-xs px-3 py-2',
+                multiSelectMode ? 'bg-brand text-white' : 'btn-ghost'
+              )}
+              title={multiSelectMode ? 'ออกจากโหมดเลือกหลายวัน' : 'เลือกหลายวัน — เซตกะเดียวกันทีเดียว'}
+            >
+              <CheckSquare className="w-4 h-4" />
+              {multiSelectMode ? `เลือกอยู่ (${selectedCells.size})` : 'เลือกหลายวัน'}
+            </button>
+            <button
+              onClick={() => { setSwapMode(!swapMode); setSwapFirst(null); setMultiSelectMode(false); setSelectedCells(new Map()); }}
               className={cn(
                 'btn text-xs px-3 py-2',
                 swapMode ? 'bg-brand text-white' : 'btn-ghost'
@@ -347,14 +373,16 @@ export function CoverageGrid({
                   const cellKey = `${employee.id}-${dateStr}`;
                   const isSwapFirst = swapFirst?.employeeId === employee.id && swapFirst?.date === dateStr;
                   const isDragOver = dragOverCell === cellKey;
+                  const isMultiSelected = multiSelectMode && selectedCells.has(cellKey);
                   const hasTargetShift = shift && shiftType;
                   return (
                     <td
                       key={day.toString()}
                       className={cn(
                         'p-1 border-b border-white/[0.03] transition-colors',
-                        swapMode && 'cursor-pointer',
+                        (swapMode || multiSelectMode) && 'cursor-pointer',
                         isSwapFirst && 'bg-brand/20 ring-2 ring-brand ring-inset',
+                        isMultiSelected && 'bg-brand/20 ring-2 ring-brand ring-inset',
                         isDragOver && hasTargetShift && 'bg-warn/20 ring-2 ring-warn ring-inset',
                         isDragOver && !hasTargetShift && 'bg-success/20 ring-2 ring-success ring-inset',
                       )}
@@ -504,6 +532,58 @@ export function CoverageGrid({
           employees={employees}
           onApply={onApplyTemplate}
         />
+      )}
+
+      {multiSelectMode && selectedCells.size > 0 && (
+        <div className="sticky bottom-0 z-30 bg-bg-panel/95 backdrop-blur-xl border-t border-brand/20 p-3 sm:p-4 animate-slide-up">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-brand" />
+              <span className="text-xs font-bold text-text-primary">
+                เลือกแล้ว {selectedCells.size} วัน
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedCells(new Map())}
+              className="text-xs font-semibold text-text-tertiary hover:text-danger transition-colors flex items-center gap-1"
+            >
+              <X className="w-3 h-3" />
+              ล้างการเลือก
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {shiftTypes
+              .filter((t) => t.isVisible)
+              .map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => {
+                    if (!onBulkAssign) return;
+                    const assignments = Array.from(selectedCells.values()).map((c) => ({
+                      employeeId: c.employeeId,
+                      date: c.date,
+                      shiftTypeId: type.id,
+                    }));
+                    onBulkAssign(assignments);
+                    setSelectedCells(new Map());
+                    setMultiSelectMode(false);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border-solid bg-white/50 hover:bg-white/80 hover:border-brand/40 transition-all active:scale-[0.98]"
+                >
+                  <div
+                    className="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm"
+                    style={{ backgroundColor: type.color }}
+                  >
+                    {type.code}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-text-primary leading-none">{type.name}</p>
+                    <p className="text-[10px] text-text-tertiary font-medium">{type.startTime} - {type.endTime}</p>
+                  </div>
+                </button>
+              ))}
+          </div>
+        </div>
       )}
 
       <ConfirmModal

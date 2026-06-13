@@ -231,6 +231,30 @@ export function ManagerDashboard({
     }
   };
 
+  const handleBulkAssign = async (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => {
+    try {
+      for (const a of assignments) {
+        const existing = schedules.find((s) => s.employeeId === a.employeeId && s.date === a.date);
+        if (existing) {
+          await updateSchedule({ ...existing, shiftTypeId: a.shiftTypeId, status: 'approved', createdBy: 'manager' });
+        } else {
+          await updateSchedule({
+            id: crypto.randomUUID(),
+            employeeId: a.employeeId,
+            date: a.date,
+            shiftTypeId: a.shiftTypeId,
+            status: 'approved',
+            requestType: 'shift_change',
+            createdBy: 'manager',
+          });
+        }
+      }
+      toast.success('เซตกะสำเร็จ', `บันทึก ${assignments.length} รายการ`);
+    } catch (err: unknown) {
+      toast.error('บันทึกไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+    }
+  };
+
   const handleOpenWeeklyOffDay = (employeeId: string) => {
     const emp = employees.find((e) => e.id === employeeId);
     setEditingWeeklyOffEmployeeId(employeeId);
@@ -607,6 +631,7 @@ export function ManagerDashboard({
               onCloseCell={() => setEditingCell(null)}
               onDropShift={handleDropShift}
               onSwapShifts={handleSwapShifts}
+              onBulkAssign={handleBulkAssign}
               storeName={settings.storeName}
               onCopyFromPrevMonth={handleCopyFromPrevMonth}
               onApplyTemplate={handleApplyTemplate}
