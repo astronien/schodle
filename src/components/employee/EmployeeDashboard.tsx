@@ -11,12 +11,13 @@ import {
   startOfDay,
 } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Search, Briefcase, Calendar as CalIcon } from 'lucide-react';
+import { Briefcase, Calendar as CalIcon, CalendarPlus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../lib/toast';
 import { Calendar } from './Calendar';
 import { CoverageView } from './CoverageView';
 import { ShiftEditor } from './ShiftEditor';
+import { buildICS, downloadICS } from '../../lib/calendar-export';
 import type { AppSettings, Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 
 interface EmployeeDashboardProps {
@@ -199,10 +200,29 @@ export function EmployeeDashboard({
             </button>
           </div>
           <button
-            aria-label="ค้นหา"
-            className="w-11 h-11 rounded-full glass-nav flex items-center justify-center text-text-primary hover:!bg-white/70 transition-colors"
+            onClick={() => {
+              const events = userSchedules
+                .filter((s) => s.status === 'approved')
+                .map((s) => {
+                  const shift = shiftTypes.find((t) => t.id === s.shiftTypeId);
+                  const pos = positions.find((p) => p.id === currentUser.positionId);
+                  return {
+                    date: s.date,
+                    startTime: shift?.startTime || '00:00',
+                    endTime: shift?.endTime || '23:59',
+                    summary: shift ? `${shift.name} (${shift.code})` : 'กะงาน',
+                    description: `${currentUser.fullName}\n${pos?.name || ''}\n${shift ? `${shift.startTime}-${shift.endTime}` : ''}`,
+                    location: '',
+                    uid: `schodle-${s.id}@schodle.app`,
+                  };
+                });
+              const ics = buildICS(events);
+              downloadICS(ics, `schedule-${format(currentMonth, 'yyyy-MM')}.ics`);
+            }}
+            className="w-11 h-11 rounded-full glass-nav flex items-center justify-center text-brand hover:!bg-brand/10 transition-colors"
+            title="เพิ่มในปฏิทิน"
           >
-            <Search className="w-5 h-5" />
+            <CalendarPlus className="w-5 h-5" />
           </button>
         </div>
       </div>

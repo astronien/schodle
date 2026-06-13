@@ -6,6 +6,7 @@ import { sendPushToEmployee, sendPushToRole } from '../lib/push';
 import { dbSelect, dbInsert, dbUpdate, dbUpsert, dbDelete } from '../lib/db-query';
 import type { Employee, Position, ScheduleEntry, ShiftType, AppSettings, PositionGroup, RecurringSchedule } from '../types';
 import { createEmployeeLookupMaps } from '../lib/schedule-utils';
+import { getCachedData, setCachedData } from '../lib/offline-cache';
 import {
   REALTIME_THROTTLE_MS,
   RECENT_NOTIFICATION_WINDOW_MS,
@@ -215,6 +216,11 @@ export function useData() {
 
       setSchedules((schedRes.data || []).map(mapScheduleRow));
 
+      setCachedData('employees', empRes.data || []);
+      setCachedData('positions', posRes.data || []);
+      setCachedData('shift_types', shiftRes.data || []);
+      setCachedData('schedules', schedRes.data || []);
+
       if (settingsRes.data) {
         const settingsMap: Record<string, string> = {};
         settingsRes.data.forEach((s) => {
@@ -228,6 +234,54 @@ export function useData() {
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
+
+      const cachedEmps = getCachedData<any>('employees');
+      const cachedPos = getCachedData<any>('positions');
+      const cachedShifts = getCachedData<any>('shift_types');
+      const cachedScheds = getCachedData<any>('schedules');
+      if (cachedEmps) {
+        setEmployees(cachedEmps.map((e: any) => ({
+          id: e.id,
+          employeeCode: e.employee_code,
+          fullName: e.full_name,
+          positionId: e.position_id,
+          groupId: e.group_id || undefined,
+          role: e.role as Employee['role'],
+          phone: e.phone || undefined,
+          email: e.email || undefined,
+          avatar: e.avatar || undefined,
+          weeklyOffDay: typeof e.weekly_off_day === 'number' ? e.weekly_off_day : undefined,
+        })));
+      }
+      if (cachedPos) {
+        setPositions(cachedPos.map((p: any) => ({
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          minRequired: p.min_required,
+        })));
+      }
+      if (cachedShifts) {
+        setShiftTypes(cachedShifts.map((s: any) => ({
+          id: s.id,
+          code: s.code,
+          name: s.name,
+          startTime: s.start_time,
+          endTime: s.end_time,
+          color: s.color,
+          requiresApproval: s.requires_approval,
+          requiresReason: s.requires_reason,
+          requiresEvidence: s.requires_evidence,
+          isVisible: s.is_visible,
+          isLeave: s.is_leave ?? false,
+          targetStaff: s.target_staff || undefined,
+          category: (s.category as ShiftType['category']) || undefined,
+          annualQuota: s.annual_quota || undefined,
+        })));
+      }
+      if (cachedScheds) {
+        setSchedules(cachedScheds.map(mapScheduleRow));
+      }
     } finally {
       setLoading(false);
     }

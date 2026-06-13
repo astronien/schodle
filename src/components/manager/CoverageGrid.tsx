@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone } from 'lucide-react';
+import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone, Calendar } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
 import { SALES_POSITION_IDS } from '../../config/constants';
 import { sendPushToRole } from '../../lib/push';
+import { buildICS, downloadICS } from '../../lib/calendar-export';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
 import { TemplateManager } from './Modals/TemplateManager';
@@ -193,6 +194,34 @@ export function CoverageGrid({
                 <Download className="w-4 h-4" />
               )}
               PDF
+            </button>
+            <button
+              onClick={() => {
+                const events = employees.flatMap((emp) => {
+                  const pos = positions.find((p) => p.id === emp.positionId);
+                  return schedules
+                    .filter((s) => s.employeeId === emp.id && s.status === 'approved')
+                    .map((s) => {
+                      const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+                      return {
+                        date: s.date,
+                        startTime: st?.startTime || '00:00',
+                        endTime: st?.endTime || '23:59',
+                        summary: st ? `${st.name} (${st.code})` : 'กะงาน',
+                        description: `${emp.fullName}\n${pos?.name || ''}\n${st ? `${st.startTime}-${st.endTime}` : ''}`,
+                        location: storeName || 'ร้าน',
+                        uid: `schodle-${s.id}@schodle.app`,
+                      };
+                    });
+                });
+                const ics = buildICS(events);
+                downloadICS(ics, `schedule-${format(currentMonth, 'yyyy-MM')}.ics`);
+              }}
+              className="btn btn-ghost text-xs px-3 py-2"
+              title="ส่งออกปฏิทิน"
+            >
+              <Calendar className="w-4 h-4" />
+              ปฏิทิน
             </button>
             <button
               onClick={() => setShowPublishConfirm(true)}

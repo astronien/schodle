@@ -14,6 +14,7 @@ import { LoginPage } from './components/auth/LoginPage';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
+import { OfflineBanner } from './components/OfflineBanner';
 import { ToastProvider, useToast } from './lib/toast';
 import { ThemeProvider } from './lib/theme';
 import { th } from 'date-fns/locale';
@@ -665,6 +666,7 @@ function AppShell() {
       </main>
 
       <MobileNav activeTab={activeMobileTab} onChangeTab={setActiveMobileTab} activeView={activeView} onChangeView={setActiveView} />
+      <OfflineBanner />
       <UpdatePrompt />
 
       <ChangePasswordModal
