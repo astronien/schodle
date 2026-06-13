@@ -142,6 +142,50 @@ export function ReportPanel({
             </div>
           </div>
 
+          {/* Leave balance */}
+          {(() => {
+            const leaveTypes = shiftTypes.filter((t) => t.isLeave && t.annualQuota && t.annualQuota > 0);
+            if (leaveTypes.length === 0) return null;
+            const year = currentMonth.getFullYear();
+            const empYearApproved = schedules.filter(
+              (s) => s.employeeId === emp.id && s.status === 'approved' && new Date(s.date).getFullYear() === year
+            );
+            return (
+              <div className="mb-6 p-4 bg-bg-surface rounded-xl">
+                <h4 className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-3">
+                  คงเหลือวันลาปี {year}
+                </h4>
+                <div className="space-y-2.5">
+                  {leaveTypes.map((t) => {
+                    const used = empYearApproved.filter((s) => s.shiftTypeId === t.id).length;
+                    const quota = t.annualQuota || 0;
+                    const remaining = Math.max(quota - used, 0);
+                    const pct = quota > 0 ? (used / quota) * 100 : 0;
+                    return (
+                      <div key={t.id}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-text-primary">{t.name}</span>
+                          <span className="text-[10px] text-text-tertiary">
+                            {remaining} / {quota} วัน
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-bg-elevated rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              'h-full rounded-full transition-all',
+                              pct >= 80 ? 'bg-danger' : pct >= 50 ? 'bg-warn' : 'bg-success',
+                            )}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -276,6 +320,54 @@ export function ReportPanel({
           Export CSV
         </button>
       </div>
+
+      {/* Leave balance overview */}
+      {(() => {
+        const leaveTypes = shiftTypes.filter((t) => t.isLeave && t.annualQuota && t.annualQuota > 0);
+        if (leaveTypes.length === 0) return null;
+        const year = currentMonth.getFullYear();
+        const yearApproved = schedules.filter(
+          (s) => s.status === 'approved' && new Date(s.date).getFullYear() === year
+        );
+        return (
+          <div className="card p-4 sm:p-5 rounded-xl">
+            <h3 className="text-sm font-bold text-text-primary mb-3">ยอดลารายปี {year}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {leaveTypes.map((t) => {
+                const used = yearApproved.filter((s) => s.shiftTypeId === t.id).length;
+                const quota = t.annualQuota || 1;
+                const remaining = Math.max(quota - used, 0);
+                const pct = (used / quota) * 100;
+                return (
+                  <div key={t.id} className="p-3 bg-bg-surface rounded-xl">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: t.color }} />
+                        <span className="text-xs font-bold text-text-primary">{t.name}</span>
+                      </div>
+                      <span className="text-[10px] text-text-tertiary">
+                        {used}/{quota} ({remaining} คงเหลือ)
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-bg-elevated rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          pct >= 80 ? 'bg-danger' : pct >= 50 ? 'bg-warn' : 'bg-success',
+                        )}
+                        style={{ width: `${Math.min(pct, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[9px] text-text-quaternary mt-1">
+                      ใช้ไป {pct.toFixed(0)}% ของ配额
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="space-y-3">
         {employees.map((emp) => {
