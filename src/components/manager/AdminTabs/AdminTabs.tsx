@@ -1,6 +1,6 @@
 import { PositionGroupManager } from '../PositionGroupManager';
 import { RecurringSchedulesTab } from '../RecurringSchedulesTab';
-import type { AppSettings, Employee, Position, PositionGroup, RecurringSchedule, ShiftType } from '../../../types';
+import type { AppSettings, Employee, Position, PositionGroup, RecurringSchedule, ScheduleEntry, ShiftType } from '../../../types';
 import { AdminSidebar, AdminMobileSubTabs } from '../AdminSidebar';
 import type { AdminTabId } from '../AdminSidebar';
 import { EmployeesTab } from './EmployeesTab';
@@ -8,6 +8,7 @@ import { ShiftTypesTab } from './ShiftTypesTab';
 import { PositionsTab } from './PositionsTab';
 import { SettingsTab } from './SettingsTab';
 import { AuditTab } from './AuditTab';
+import { AnalyticsTab } from './AnalyticsTab';
 
 export type { AdminTabId };
 
@@ -50,6 +51,9 @@ interface AdminTabsProps {
   onDeleteRecurring: (id: string) => Promise<void>;
   onApplyRecurring: (month: Date, employeeIds?: string[]) => Promise<{ count: number; message: string }>;
 
+  // Analytics
+  schedules: ScheduleEntry[];
+
   // Settings
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => Promise<void>;
@@ -88,6 +92,7 @@ export function AdminTabs({
   onUpdateRecurring,
   onDeleteRecurring,
   onApplyRecurring,
+  schedules,
   settings,
   updateSettings,
   isSubscribing,
@@ -196,6 +201,16 @@ export function AdminTabs({
 
           {activeTab === 'audit' && (
             <AuditTab />
+          )}
+
+          {activeTab === 'analytics' && (
+            <AnalyticsTab
+              employees={employees}
+              positions={positions}
+              shiftTypes={shiftTypes}
+              schedules={schedules}
+              currentMonth={applyMonth}
+            />
           )}
         </div>
       </div>

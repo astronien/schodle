@@ -730,6 +730,7 @@ export function ManagerDashboard({
               onUpdateRecurring={updateRecurringSchedule}
               onDeleteRecurring={deleteRecurringSchedule}
               onApplyRecurring={applyRecurringSchedules}
+              schedules={schedules}
               settings={settings}
               updateSettings={updateSettings}
               isSubscribing={isSubscribing}

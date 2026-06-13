@@ -1,14 +1,17 @@
 import { useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate } from 'lucide-react';
+import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
 import { SALES_POSITION_IDS } from '../../config/constants';
+import { sendPushToRole } from '../../lib/push';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
 import { TemplateManager } from './Modals/TemplateManager';
+import { ConfirmModal } from '../ConfirmModal';
+import { useToast } from '../../lib/toast';
 
 interface CoverageGridProps {
   currentMonth: Date;
@@ -57,6 +60,8 @@ export function CoverageGrid({
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const toast = useToast();
 
   const prevMonth = subMonths(currentMonth, 1);
   const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
@@ -188,6 +193,14 @@ export function CoverageGrid({
                 <Download className="w-4 h-4" />
               )}
               PDF
+            </button>
+            <button
+              onClick={() => setShowPublishConfirm(true)}
+              className="btn text-xs px-3 py-2 bg-brand text-white hover:bg-brand-hover"
+              title="ประกาศตารางให้พนักงาน"
+            >
+              <Megaphone className="w-4 h-4" />
+              ประกาศ
             </button>
             {onApplyTemplate && (
               <button
@@ -463,6 +476,29 @@ export function CoverageGrid({
           onApply={onApplyTemplate}
         />
       )}
+
+      <ConfirmModal
+        open={showPublishConfirm}
+        title="ประกาศตารางงาน"
+        message={`แจ้งเตือนพนักงานทุกคนเกี่ยวกับตารางงานเดือน ${format(currentMonth, 'MMMM yyyy', { locale: th })}?`}
+        confirmLabel="ประกาศ"
+        variant="warning"
+        onConfirm={async () => {
+          const monthLabel = format(currentMonth, 'MMMM yyyy', { locale: th });
+          const result = await sendPushToRole(
+            'employee',
+            'ประกาศตารางงาน',
+            `ตารางงานเดือน ${monthLabel} เผยแพร่แล้ว กรุณาตรวจสอบกะงานของคุณ`,
+            '/dashboard',
+          );
+          if (result.success) {
+            toast.success('ประกาศสำเร็จ', `แจ้งเตือนไปยังพนักงาน${result.sent ? ' ' + result.sent + ' คน' : ''}`);
+          } else {
+            toast.error('ประกาศไม่สำเร็จ', result.error);
+          }
+        }}
+        onCancel={() => setShowPublishConfirm(false)}
+      />
     </div>
   );
 }

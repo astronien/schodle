@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Download, Bell, Image, Clock, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Bell, Image, Clock, Users, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getEmployeeMonthlyStats } from '../../lib/schedule-utils';
+import { supabase } from '../../lib/supabase';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
 
 interface ReportPanelProps {
@@ -22,6 +23,28 @@ export function ReportPanel({
   positions,
 }: ReportPanelProps) {
   const [reportEmployeeId, setReportEmployeeId] = useState<string | null>(null);
+  const [confirmations, setConfirmations] = useState<Record<string, string>>({});
+
+  const monthKey = format(currentMonth, 'yyyy-MM');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_schedule_confirmations', {
+          p_month_key: monthKey,
+        });
+        if (!cancelled && !error && data) {
+          const map: Record<string, string> = {};
+          for (const row of data) {
+            map[row.employee_id] = row.confirmed_at;
+          }
+          setConfirmations(map);
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [monthKey]);
 
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthSchedules = schedules.filter((s) => {
@@ -390,7 +413,14 @@ export function ReportPanel({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold text-text-primary truncate">{emp.fullName}</p>
-                  {hasAlert && <span className="w-2 h-2 bg-warn rounded-full animate-pulse shrink-0"></span>}
+                  <div className="flex items-center gap-1">
+                    {confirmations[emp.id] ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                    ) : (
+                      <span className="w-3.5 h-3.5 rounded-full border-2 border-text-quaternary/30 shrink-0" />
+                    )}
+                    {hasAlert && <span className="w-2 h-2 bg-warn rounded-full animate-pulse shrink-0"></span>}
+                  </div>
                 </div>
                 <p className="text-[10px] font-semibold text-text-quaternary uppercase tracking-wider">
                   {emp.employeeCode} · {pos?.name}

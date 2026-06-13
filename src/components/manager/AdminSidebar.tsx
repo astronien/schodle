@@ -1,8 +1,8 @@
-import { Users, Clock, Briefcase, Tag, Repeat, Settings as SettingsIcon, History } from 'lucide-react';
+import { Users, Clock, Briefcase, Tag, Repeat, Settings as SettingsIcon, History, BarChart3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ReactNode } from 'react';
 
-export type AdminTabId = 'employees' | 'shifts' | 'positions' | 'groups' | 'recurring' | 'settings' | 'audit';
+export type AdminTabId = 'employees' | 'shifts' | 'positions' | 'groups' | 'recurring' | 'settings' | 'audit' | 'analytics';
 
 interface AdminSidebarProps {
   activeTab: AdminTabId;
@@ -25,6 +25,7 @@ const TABS: TabMeta[] = [
   { id: 'recurring', label: 'ตารางซ้ำ', description: 'กะประจำสัปดาห์', icon: Repeat },
   { id: 'settings', label: 'ตั้งค่าแอป', description: 'ตั้งค่าทั่วไป', icon: SettingsIcon },
   { id: 'audit', label: 'บันทึกการใช้งาน', description: 'Audit Log', icon: History },
+  { id: 'analytics', label: 'วิเคราะห์', description: 'แดชบอร์ดสถิติ', icon: BarChart3 },
 ];
 
 export function AdminSidebar({ activeTab, onChangeTab, counts }: AdminSidebarProps) {

@@ -27,6 +27,9 @@ import { SW_UPDATE_INTERVAL_MS, AUTH_EXPIRED_EVENT } from './config/constants';
 const EmployeeDashboard = lazy(() =>
   import('./components/employee/EmployeeDashboard').then((m) => ({ default: m.EmployeeDashboard }))
 );
+const ScheduleConfirmationBanner = lazy(() =>
+  import('./components/employee/ScheduleConfirmationBanner').then((m) => ({ default: m.ScheduleConfirmationBanner }))
+);
 const ManagerDashboard = lazy(() =>
   import('./components/manager/ManagerDashboard').then((m) => ({ default: m.ManagerDashboard }))
 );
@@ -320,18 +323,24 @@ function AppShell() {
             {effectiveRole === 'employee' ? (
               <>
                 {activeMobileTab === 'schedule' && (
-                  <EmployeeDashboard
-                    currentUser={currentUser}
-                    schedules={schedules}
-                    updateSchedule={updateSchedule}
-                    shiftTypes={shiftTypes}
-                    employees={employees}
-                    positions={positions}
-                    uploadFile={uploadFile}
-                    settings={settings}
-                    activeView={activeView}
-                    onActiveViewChange={setActiveView}
-                  />
+                  <>
+                    <ScheduleConfirmationBanner
+                      employeeId={currentUser.id}
+                      currentMonth={currentMonth}
+                    />
+                    <EmployeeDashboard
+                      currentUser={currentUser}
+                      schedules={schedules}
+                      updateSchedule={updateSchedule}
+                      shiftTypes={shiftTypes}
+                      employees={employees}
+                      positions={positions}
+                      uploadFile={uploadFile}
+                      settings={settings}
+                      activeView={activeView}
+                      onActiveViewChange={setActiveView}
+                    />
+                  </>
                 )}
                 {activeMobileTab === 'requests' && (
                   <div className="space-y-4 pb-24">
