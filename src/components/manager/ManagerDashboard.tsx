@@ -677,9 +677,7 @@ export function ManagerDashboard({
 
           {activeTab === 'coverage-summary' && (
             <CoverageSummaryTab
-              currentMonth={currentMonth}
               schedules={schedules}
-              shiftTypes={shiftTypes}
               employees={employees}
               positions={positions}
             />
