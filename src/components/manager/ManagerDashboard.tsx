@@ -469,29 +469,6 @@ export function ManagerDashboard({
     },
   ];
 
-  // Coverage summary per position
-  const daysInCurrentMonth = eachDayOfInterval({
-    start: startOfMonth(currentMonth),
-    end: endOfMonth(currentMonth),
-  });
-  const totalSlots = daysInCurrentMonth.length;
-  const positionCoverage = positions.map((pos) => {
-    const posEmployees = employees.filter((e) => e.positionId === pos.id);
-    let coveredDays = 0;
-    for (const day of daysInCurrentMonth) {
-      const dateStr = format(day, 'yyyy-MM-dd');
-      const hasCoverage = schedules.some(
-        (s) =>
-          s.date === dateStr &&
-          s.status === 'approved' &&
-          posEmployees.some((e) => e.id === s.employeeId)
-      );
-      if (hasCoverage) coveredDays++;
-    }
-    const pct = totalSlots > 0 ? Math.round((coveredDays / totalSlots) * 100) : 0;
-    return { ...pos, coveredDays, totalSlots, pct };
-  });
-
   return (
     <div className="w-full">
       {/* Header + Stats (mobile & desktop) */}
@@ -533,45 +510,6 @@ export function ManagerDashboard({
           ))}
         </div>
       </div>
-
-      {/* Coverage summary card */}
-      {positionCoverage.length > 0 && (
-        <div className="mb-4 sm:mb-6 card p-4 sm:p-5 rounded-xl">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-5 bg-brand rounded-full"></div>
-            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-              Coverage Summary — {format(currentMonth, 'MMMM yyyy', { locale: th })}
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            {positionCoverage.map((pos) => (
-              <div key={pos.id} className="p-3 rounded-xl bg-bg-surface border border-border-solid">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">{pos.code}</span>
-                  <span className={cn(
-                    'text-xs font-bold',
-                    pos.pct >= 80 ? 'text-success' : pos.pct >= 50 ? 'text-warn' : 'text-danger'
-                  )}>
-                    {pos.pct}%
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-bg-elevated rounded-full overflow-hidden mb-1.5">
-                  <div
-                    className={cn(
-                      'h-full rounded-full transition-all duration-500',
-                      pos.pct >= 80 ? 'bg-success' : pos.pct >= 50 ? 'bg-warn' : 'bg-danger'
-                    )}
-                    style={{ width: `${pos.pct}%` }}
-                  />
-                </div>
-                <div className="text-[9px] font-semibold text-text-quaternary">
-                  {pos.coveredDays}/{pos.totalSlots} วัน · {pos.name}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Mobile: horizontal tabs + month nav */}
       <div className="lg:hidden sticky top-[calc(3.5rem+1px)] z-20 rounded-2xl border border-border-solid bg-bg-panel/80 backdrop-blur-xl p-3 sm:p-4 mb-4">
