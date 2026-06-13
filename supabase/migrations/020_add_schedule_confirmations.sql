@@ -45,25 +45,30 @@ CREATE POLICY "Managers can read all confirmations"
   );
 
 -- ============================================================================
--- STEP 3: RPC functions (accept employee_id explicitly since session
---          context may not be set when called from client directly)
+-- STEP 3: RPC functions
+-- Note: Two overloads per function — with and without employee_id.
+-- This avoids issues with DEFAULT parameters and PostgREST.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION confirm_schedule(
   p_month_key text,
-  p_employee_id uuid DEFAULT NULL
+  p_employee_id uuid
 )
+RETURNS void AS $$
+BEGIN
+  INSERT INTO schedule_confirmations (employee_id, month_key, confirmed_at)
+  VALUES (p_employee_id, p_month_key, now())
+  ON CONFLICT (employee_id, month_key) DO NOTHING;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION confirm_schedule(p_month_key text)
 RETURNS void AS $$
 DECLARE
   v_employee_id uuid;
 BEGIN
-  v_employee_id := COALESCE(p_employee_id, current_setting('app.current_employee_id', true)::uuid);
-  IF v_employee_id IS NULL THEN
-    RAISE EXCEPTION 'Cannot identify user';
-  END IF;
-  INSERT INTO schedule_confirmations (employee_id, month_key, confirmed_at)
-  VALUES (v_employee_id, p_month_key, now())
-  ON CONFLICT (employee_id, month_key) DO NOTHING;
+  v_employee_id := current_setting('app.current_employee_id', true)::uuid;
+  PERFORM confirm_schedule(p_month_key, v_employee_id);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -82,17 +87,25 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION get_my_confirmation(
   p_month_key text,
-  p_employee_id uuid DEFAULT NULL
+  p_employee_id uuid
 )
+RETURNS TABLE (confirmed_at timestamptz) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT sc.confirmed_at
+  FROM schedule_confirmations sc
+  WHERE sc.employee_id = p_employee_id AND sc.month_key = p_month_key;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION get_my_confirmation(p_month_key text)
 RETURNS TABLE (confirmed_at timestamptz) AS $$
 DECLARE
   v_employee_id uuid;
 BEGIN
-  v_employee_id := COALESCE(p_employee_id, current_setting('app.current_employee_id', true)::uuid);
+  v_employee_id := current_setting('app.current_employee_id', true)::uuid;
   RETURN QUERY
-  SELECT sc.confirmed_at
-  FROM schedule_confirmations sc
-  WHERE sc.employee_id = v_employee_id AND sc.month_key = p_month_key;
+  SELECT * FROM get_my_confirmation(p_month_key, v_employee_id);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

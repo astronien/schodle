@@ -23,6 +23,7 @@ import { WeeklyOffDayEditor, WEEKLY_OFF_DAYS } from './components/manager/Modals
 import { ConfirmModal } from './components/ConfirmModal';
 import { getEmployeeMonthlyStats } from './lib/schedule-utils';
 import { SW_UPDATE_INTERVAL_MS, AUTH_EXPIRED_EVENT } from './config/constants';
+import { useRealtime } from './hooks/useRealtime';
 
 const EmployeeDashboard = lazy(() =>
   import('./components/employee/EmployeeDashboard').then((m) => ({ default: m.EmployeeDashboard }))
@@ -120,6 +121,12 @@ function AppShell() {
     updateSettings,
     uploadFile,
   } = useData();
+
+  const { activeEditors, syncedAt, isLive } = useRealtime({
+    employeeId: currentEmployee?.id || '',
+    fullName: currentEmployee?.fullName || '',
+    role: currentEmployee?.role || '',
+  });
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -635,6 +642,9 @@ function AppShell() {
                 settings={settings}
                 updateSettings={updateSettings}
                 currentUser={currentUser}
+                activeEditors={activeEditors}
+                syncedAt={syncedAt}
+                isLive={isLive}
               />
             ) : (
               <EmployeeDashboard

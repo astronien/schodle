@@ -11,6 +11,7 @@ import { ConfirmModal } from '../ConfirmModal';
 import { CoverageGrid } from './CoverageGrid';
 import { RequestList } from './RequestList';
 import { ReportPanel } from './ReportPanel';
+import { CollaborationStatus } from '../CollaborationStatus';
 import { AdminTabs, type AdminTabId } from './AdminTabs/AdminTabs';
 import { ManagerSidebarNav, ManagerMobileTabs } from './ManagerSidebarNav';
 import type {
@@ -22,6 +23,8 @@ import type {
   ScheduleEntry,
   ShiftType,
 } from '../../types';
+
+import type { ActiveEditor } from '../../hooks/useRealtime';
 
 interface ManagerDashboardProps {
   currentUser: Employee;
@@ -57,6 +60,9 @@ interface ManagerDashboardProps {
   generateSmartSchedule: () => void;
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => Promise<void>;
+  activeEditors: ActiveEditor[];
+  syncedAt: Date | null;
+  isLive: boolean;
 }
 
 export type TabId = 'coverage' | 'requests' | 'report' | 'admin';
@@ -95,6 +101,9 @@ export function ManagerDashboard({
   generateSmartSchedule,
   settings,
   updateSettings,
+  activeEditors,
+  syncedAt,
+  isLive,
 }: ManagerDashboardProps) {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<TabId>('coverage');
@@ -586,6 +595,13 @@ export function ManagerDashboard({
             <div className="px-3 py-2 rounded-lg bg-bg-surface border border-white/[0.06] text-sm font-semibold text-text-primary min-w-[130px] text-center">
               {format(currentMonth, 'MMMM yyyy', { locale: th })}
             </div>
+
+            <CollaborationStatus
+              activeEditors={activeEditors}
+              syncedAt={syncedAt}
+              isLive={isLive}
+            />
+
             <button
               onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
               className="px-3 py-2 rounded-lg bg-bg-surface hover:bg-bg-surface text-text-tertiary hover:text-text-primary transition-colors"
@@ -622,6 +638,13 @@ export function ManagerDashboard({
             <div className="px-3 py-2 rounded-lg bg-bg-surface border border-white/[0.06] text-sm font-semibold text-text-primary min-w-[130px] text-center">
               {format(currentMonth, 'MMMM yyyy', { locale: th })}
             </div>
+
+            <CollaborationStatus
+              activeEditors={activeEditors}
+              syncedAt={syncedAt}
+              isLive={isLive}
+            />
+
             <button
               onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
               className="px-3 py-2 rounded-lg bg-bg-surface hover:bg-bg-surface text-text-tertiary hover:text-text-primary transition-colors"
