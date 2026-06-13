@@ -38,7 +38,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- STEP 1: Add annual_quota column to shift_types
 -- ============================================================================
 
-ALTER TABLE shift_types ADD COLUMN annual_quota integer;
+ALTER TABLE shift_types ADD COLUMN IF NOT EXISTS annual_quota integer;
 
 COMMENT ON COLUMN shift_types.annual_quota IS 'จำนวนวันลาสูงสุดต่อปี (เฉพาะประเภท isLeave = true)';
 
