@@ -14,6 +14,7 @@ import { ReportPanel } from './ReportPanel';
 import { CollaborationStatus } from '../CollaborationStatus';
 import { AdminTabs, type AdminTabId } from './AdminTabs/AdminTabs';
 import { ManagerSidebarNav, ManagerMobileTabs } from './ManagerSidebarNav';
+import { CoverageSummaryTab } from './CoverageSummaryTab';
 import type {
   AppSettings,
   Employee,
@@ -65,7 +66,7 @@ interface ManagerDashboardProps {
   isLive: boolean;
 }
 
-export type TabId = 'coverage' | 'requests' | 'report' | 'admin';
+export type TabId = 'coverage' | 'coverage-summary' | 'requests' | 'report' | 'admin';
 
 export function ManagerDashboard({
   currentUser,
@@ -671,6 +672,16 @@ export function ManagerDashboard({
               storeName={settings.storeName}
               onCopyFromPrevMonth={handleCopyFromPrevMonth}
               onApplyTemplate={handleApplyTemplate}
+            />
+          )}
+
+          {activeTab === 'coverage-summary' && (
+            <CoverageSummaryTab
+              currentMonth={currentMonth}
+              schedules={schedules}
+              shiftTypes={shiftTypes}
+              employees={employees}
+              positions={positions}
             />
           )}
 

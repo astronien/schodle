@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { PlusCircle, LayoutGrid, Bell, Download, Check, ChevronsLeft, ChevronsRight, AlertCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { PlusCircle, LayoutGrid, Bell, Download, Check, ChevronsLeft, ChevronsRight, AlertCircle, AlertTriangle, Trash2, BarChart3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { TabId } from './ManagerDashboard';
 import type { Conflict } from '../../lib/conflict-validator';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Bell }> = [
   { id: 'coverage', label: 'ตารางรวม', icon: LayoutGrid },
+  { id: 'coverage-summary', label: 'Coverage', icon: BarChart3 },
   { id: 'requests', label: 'คำขอ', icon: Bell },
   { id: 'report', label: 'รายงาน', icon: Download },
   { id: 'admin', label: 'จัดการ', icon: Check },
