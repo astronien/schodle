@@ -21,6 +21,7 @@ export type ShiftType = {
   isLeave?: boolean;
   targetStaff?: number;
   category?: 'morning' | 'afternoon' | 'other';
+  annualQuota?: number;
 };
 
 export type PositionGroup = {

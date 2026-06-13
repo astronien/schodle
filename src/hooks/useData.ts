@@ -193,6 +193,7 @@ export function useData() {
           isLeave: s.is_leave ?? false,
           targetStaff: s.target_staff || undefined,
           category: (s.category as ShiftType['category']) || undefined,
+          annualQuota: s.annual_quota || undefined,
         })),
       );
 
@@ -293,6 +294,7 @@ export function useData() {
         isVisible: s.is_visible, isLeave: s.is_leave ?? false,
         targetStaff: s.target_staff || undefined,
         category: (s.category as ShiftType['category']) || undefined,
+        annualQuota: s.annual_quota || undefined,
       })));
     }
   }, []);

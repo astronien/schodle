@@ -28,22 +28,10 @@ interface QueryOptions {
   order?: { column: string; ascending?: boolean };
 }
 
-const CORS_ERROR_PATTERNS = [
-  'Failed to fetch',
-  'NetworkError',
-  'Network request failed',
-  'Load failed',
-  'CORS',
-  'preflight',
-  'ERR_FAILED',
-];
-
-function isCorsOrNetworkError(message: string): boolean {
-  return CORS_ERROR_PATTERNS.some((p) => message.includes(p));
-}
-
 /**
  * Execute a database query — try Edge Function first, fall back to direct Supabase.
+ * Falls back on ANY error from the Edge Function (CORS, 401, 500, network, etc.)
+ * so the app works even if the function isn't deployed or configured correctly.
  */
 export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ data: T | null; error: Error | null }> {
   const token = getSessionToken();
@@ -51,38 +39,28 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
     return { data: null, error: new Error('Session expired') };
   }
 
-  // Try Edge Function first
   try {
-    const result = await tryEdgeFunction<T>(options, token);
-    return result;
-  } catch (catchErr) {
-    const msg = catchErr instanceof Error ? catchErr.message : 'Unknown error';
-    if (isCorsOrNetworkError(msg)) {
-      console.warn(`[db-query] Edge Function unavailable (${msg}), falling back to direct query`);
+    // Try Edge Function
+    const { data, error } = await supabase.functions.invoke<{ data: T }>('db-query', {
+      body: options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (error) {
+      // Edge Function returned an error — fall back
+      console.warn(`[db-query] Edge Function error, falling back to direct query: ${error.message}`);
       return fallbackQuery<T>(options);
     }
-    return { data: null, error: catchErr instanceof Error ? catchErr : new Error('Unknown error') };
+
+    return { data: data?.data ?? null, error: null };
+  } catch (catchErr) {
+    // Network error, CORS, function not found, etc. — fall back
+    const msg = catchErr instanceof Error ? catchErr.message : 'Unknown error';
+    console.warn(`[db-query] Edge Function unavailable (${msg}), falling back to direct query`);
+    return fallbackQuery<T>(options);
   }
-}
-
-async function tryEdgeFunction<T>(options: QueryOptions, token: string): Promise<{ data: T | null; error: Error | null }> {
-  const { data, error } = await supabase.functions.invoke<{ data: T }>('db-query', {
-    body: options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (error) {
-    const msg = error.message || '';
-    // If it looks like a CORS/network error from invoke, throw so caller can fall back
-    if (isCorsOrNetworkError(msg) || msg.includes('401') || msg.includes('not found')) {
-      throw error;
-    }
-    return { data: null, error: new Error(msg) };
-  }
-
-  return { data: data?.data ?? null, error: null };
 }
 
 /**

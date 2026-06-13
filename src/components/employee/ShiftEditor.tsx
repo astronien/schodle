@@ -197,6 +197,15 @@ export function ShiftEditor({
                       s.status !== 'rejected'
                   ).length;
                   const isFull = count >= 3 && type.id !== 'xc';
+                  const yearApproved = schedules.filter(
+                    (s) =>
+                      s.employeeId === currentUser.id &&
+                      s.status === 'approved' &&
+                      s.shiftTypeId === type.id &&
+                      new Date(s.date).getFullYear() === new Date().getFullYear() &&
+                      type.isLeave
+                  ).length;
+                  const remaining = type.isLeave && type.annualQuota ? type.annualQuota - yearApproved : null;
                   return (
                     <button
                       key={type.id}
@@ -242,6 +251,16 @@ export function ShiftEditor({
                             )}
                           >
                             {isFull ? 'เต็ม' : `${count}/3`}
+                          </span>
+                        )}
+                        {remaining !== null && (
+                          <span
+                            className={cn(
+                              'text-[10px] font-bold px-2 py-1 rounded-md',
+                              remaining <= 0 ? 'bg-danger/10 text-danger' : remaining <= 3 ? 'bg-warn/10 text-warn' : 'bg-success/10 text-success'
+                            )}
+                          >
+                            คง{remaining}/{type.annualQuota}
                           </span>
                         )}
                         {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-accent" />}

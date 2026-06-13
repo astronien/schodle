@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 
-import { Clock, Calendar, Briefcase, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, Briefcase, ChevronRight, XCircle } from 'lucide-react';
 import { format, eachDayOfInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import type { UserRole, Employee } from './types/index';
 
@@ -20,6 +20,7 @@ import { th } from 'date-fns/locale';
 import { cn } from './lib/utils';
 import { generateSmartSchedule as runSmartSchedule } from './lib/schedule-generator';
 import { WeeklyOffDayEditor, WEEKLY_OFF_DAYS } from './components/manager/Modals/WeeklyOffDayEditor';
+import { ConfirmModal } from './components/ConfirmModal';
 import { getEmployeeMonthlyStats } from './lib/schedule-utils';
 import { SW_UPDATE_INTERVAL_MS, AUTH_EXPIRED_EVENT } from './config/constants';
 
@@ -76,6 +77,7 @@ function AppShell() {
   const [activeView, setActiveView] = useState<'calendar' | 'coverage'>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editingWeeklyOffDay, setEditingWeeklyOffDay] = useState(false);
+  const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
   const [selectedWeeklyOffDay, setSelectedWeeklyOffDay] = useState<number | null>(null);
   const [isSavingWeeklyOffDay, setIsSavingWeeklyOffDay] = useState(false);
 
@@ -410,6 +412,16 @@ function AppShell() {
                                   </div>
                                 </div>
 
+                                {s.status === 'pending' && (
+                                  <button
+                                    onClick={() => setCancelRequestId(s.id)}
+                                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-danger/30 text-danger text-xs font-bold hover:bg-danger/5 transition-colors"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    ยกเลิกคำขอ
+                                  </button>
+                                )}
+
                                 {(s.employeeNote || s.managerRemark) && (
                                   <div className="space-y-2 mt-3 pt-3 border-t border-border-solid">
                                     {s.employeeNote && (
@@ -447,9 +459,20 @@ function AppShell() {
                     ? WEEKLY_OFF_DAYS.find((d) => d.value === currentUser.weeklyOffDay)?.label || 'ไม่ระบุ'
                     : 'ยังไม่ได้ตั้ง';
                   const totalLeaveDays = Object.values(stats.counts).reduce((a, b) => a + b, 0);
-                  const vacationDays = stats.counts['V'] || 0;
-                  const sickDays = stats.counts['ป่วย'] || 0;
                   const position = positions.find((p) => p.id === currentUser?.positionId);
+                  const leaveTypesWithQuota = shiftTypes.filter((t) => t.isLeave && t.annualQuota && t.annualQuota > 0);
+                  const currentYear = currentMonth.getFullYear();
+                  const yearLeaveApproved = schedules.filter(
+                    (s) =>
+                      s.employeeId === currentUser?.id &&
+                      s.status === 'approved' &&
+                      new Date(s.date).getFullYear() === currentYear &&
+                      shiftTypes.find((t) => t.id === s.shiftTypeId)?.isLeave
+                  );
+                  const usedLeaveByType = new Map<string, number>();
+                  yearLeaveApproved.forEach((s) => {
+                    usedLeaveByType.set(s.shiftTypeId, (usedLeaveByType.get(s.shiftTypeId) || 0) + 1);
+                  });
 
                   return (
                     <div className="space-y-4 pb-24">
@@ -509,22 +532,59 @@ function AppShell() {
                             สรุปวันลา เดือน{format(currentMonth, 'MMMM', { locale: th })}
                           </h3>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                           <div className="p-3 bg-bg-surface rounded-xl text-center">
                             <p className="text-xl font-bold text-text-primary">{totalLeaveDays}</p>
                             <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">ลาทั้งหมด</p>
                           </div>
-                          <div className="p-3 bg-success/10 rounded-xl text-center">
-                            <p className="text-xl font-bold text-success">{vacationDays}</p>
-                            <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">ลากิจ</p>
-                          </div>
-                          <div className="p-3 bg-warn/10 rounded-xl text-center">
-                            <p className="text-xl font-bold text-warn">{sickDays}</p>
-                            <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">ลาป่วย</p>
-                          </div>
+                          {shiftTypes.filter((t) => t.isLeave).slice(0, 4).map((t) => {
+                            const count = stats.counts[t.code] || 0;
+                            return (
+                              <div key={t.id} className="p-3 bg-bg-surface rounded-xl text-center">
+                                <p className="text-xl font-bold" style={{ color: t.color || 'var(--color-text-primary)' }}>{count}</p>
+                                <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">{t.name}</p>
+                              </div>
+                            );
+                          })}
                         </div>
                         {totalLeaveDays === 0 && (
-                          <p className="text-[10px] text-text-quaternary text-center mt-3">เดือนนี้ยังไม่มีวันลา</p>
+                          <p className="text-[10px] text-text-quaternary text-center mb-4">เดือนนี้ยังไม่มีวันลา</p>
+                        )}
+
+                        {/* Annual leave balance */}
+                        {leaveTypesWithQuota.length > 0 && (
+                          <div className="border-t border-border-solid pt-4">
+                            <h4 className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-3">
+                              คงเหลือปี {currentYear}
+                            </h4>
+                            <div className="space-y-2.5">
+                              {leaveTypesWithQuota.map((t) => {
+                                const used = usedLeaveByType.get(t.id) || 0;
+                                const quota = t.annualQuota || 0;
+                                const remaining = Math.max(quota - used, 0);
+                                const pct = quota > 0 ? (used / quota) * 100 : 0;
+                                return (
+                                  <div key={t.id}>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs font-bold text-text-primary">{t.name}</span>
+                                      <span className="text-[10px] text-text-tertiary">
+                                        {remaining} / {quota} วัน
+                                      </span>
+                                    </div>
+                                    <div className="w-full h-2 bg-bg-elevated rounded-full overflow-hidden">
+                                      <div
+                                        className={cn(
+                                          'h-full rounded-full transition-all',
+                                          pct >= 80 ? 'bg-danger' : pct >= 50 ? 'bg-warn' : 'bg-success',
+                                        )}
+                                        style={{ width: `${Math.min(pct, 100)}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -608,6 +668,24 @@ function AppShell() {
           onSave={handleSaveWeeklyOffDay}
         />
       )}
+
+      <ConfirmModal
+        open={Boolean(cancelRequestId)}
+        title="ยกเลิกคำขอ"
+        message="คุณต้องการยกเลิกคำขอนี้ใช่หรือไม่?"
+        confirmLabel="ยกเลิกคำขอ"
+        variant="danger"
+        onConfirm={async () => {
+          if (!cancelRequestId) return;
+          try {
+            await deleteSchedule(cancelRequestId);
+            toast.success('ยกเลิกคำขอแล้ว');
+          } catch {
+            toast.error('ยกเลิกไม่สำเร็จ');
+          }
+        }}
+        onCancel={() => setCancelRequestId(null)}
+      />
     </div>
   );
 }
