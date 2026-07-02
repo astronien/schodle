@@ -189,7 +189,6 @@ export function CellEditor({
                 ))}
                 {daysInMonth.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
-                  const dayOfWeek = day.getDay();
                   const isCurrentDate = dateStr === date;
                   const hasSchedule = schedules.some(
                     (s) => s.employeeId === employee?.id && s.date === dateStr && s.status === 'approved'
