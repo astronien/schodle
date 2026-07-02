@@ -255,6 +255,41 @@ export function ManagerDashboard({
     }
   };
 
+  const handleMoveOffDay = async (employeeId: string, originalDate: string, newDate: string) => {
+    try {
+      const xShift = shiftTypes.find((t) => t.code === 'X');
+      if (!xShift) {
+        toast.error('ไม่พบประเภทกะ X (วันหยุด)');
+        return;
+      }
+
+      const originalSchedule = schedules.find((s) => s.employeeId === employeeId && s.date === originalDate);
+      if (originalSchedule) {
+        await deleteSchedule(originalSchedule.id);
+      }
+
+      const newDateSchedule = schedules.find((s) => s.employeeId === employeeId && s.date === newDate);
+      if (newDateSchedule) {
+        await updateSchedule({ ...newDateSchedule, shiftTypeId: xShift.id, status: 'approved', createdBy: 'manager' });
+      } else {
+        await updateSchedule({
+          id: crypto.randomUUID(),
+          employeeId,
+          date: newDate,
+          shiftTypeId: xShift.id,
+          status: 'approved',
+          requestType: 'shift_change',
+          createdBy: 'manager',
+        });
+      }
+
+      setEditingCell(null);
+      toast.success('ย้ายวันหยุดเรียบร้อย', `จาก ${format(new Date(originalDate), 'd MMM', { locale: th })} เป็น ${format(new Date(newDate), 'd MMM', { locale: th })}`);
+    } catch (err: unknown) {
+      toast.error('ย้ายวันหยุดไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+    }
+  };
+
   const handleOpenWeeklyOffDay = (employeeId: string) => {
     const emp = employees.find((e) => e.id === employeeId);
     setEditingWeeklyOffEmployeeId(employeeId);
@@ -632,6 +667,7 @@ export function ManagerDashboard({
               onDropShift={handleDropShift}
               onSwapShifts={handleSwapShifts}
               onBulkAssign={handleBulkAssign}
+              onMoveOffDay={handleMoveOffDay}
               storeName={settings.storeName}
               onCopyFromPrevMonth={handleCopyFromPrevMonth}
               onApplyTemplate={handleApplyTemplate}
@@ -749,12 +785,40 @@ export function ManagerDashboard({
           <ConfirmModal
             open={showClearConfirm}
             title="ล้างตารางทั้งเดือน"
-            message={`คุณต้องการลบตารางงานทั้งหมด ${currentMonthSchedules.length} รายการของเดือน ${format(currentMonth, 'MMMM yyyy', { locale: th })} ใช่หรือไม่?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+            message={`คุณต้องการลบตารางงานทั้งหมด ${currentMonthSchedules.length} รายการของเดือน ${format(currentMonth, 'MMMM yyyy', { locale: th })} ใช่หรือไม่?\n\nวันหยุดประจำสัปดาห์ของพนักงานจะถูกสร้างอัตโนมัติ (กะ X) แต่สามารถเปลี่ยนได้ในภายหลัง`}
             confirmLabel="ลบทั้งหมด"
             variant="danger"
             onConfirm={async () => {
               await deleteSchedulesByMonth(currentMonth);
-              toast.success('ล้างตารางเดือนนี้เรียบร้อย');
+
+              const xShift = shiftTypes.find((t) => t.code === 'X');
+              if (xShift) {
+                const days = eachDayOfInterval({
+                  start: startOfMonth(currentMonth),
+                  end: endOfMonth(currentMonth),
+                });
+
+                for (const emp of employees) {
+                  if (typeof emp.weeklyOffDay !== 'number') continue;
+
+                  for (const day of days) {
+                    if (day.getDay() !== emp.weeklyOffDay) continue;
+
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    await updateSchedule({
+                      id: crypto.randomUUID(),
+                      employeeId: emp.id,
+                      date: dateStr,
+                      shiftTypeId: xShift.id,
+                      status: 'approved',
+                      requestType: 'shift_change',
+                      createdBy: 'manager',
+                    });
+                  }
+                }
+              }
+
+              toast.success('ล้างตารางเดือนนี้เรียบร้อย', 'สร้างวันหยุดประจำสัปดาห์อัตโนมัติ');
             }}
             onCancel={() => setShowClearConfirm(false)}
           />

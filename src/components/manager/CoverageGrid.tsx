@@ -32,6 +32,7 @@ interface CoverageGridProps {
   ) => Promise<void>;
   onSwapShifts: (sourceEmployeeId: string, sourceDate: string, targetEmployeeId: string, targetDate: string) => Promise<void>;
   onBulkAssign?: (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => void;
+  onMoveOffDay?: (employeeId: string, originalDate: string, newDate: string) => void;
   storeName?: string;
   onCopyFromPrevMonth?: () => void;
   onApplyTemplate?: (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => void;
@@ -51,6 +52,7 @@ export function CoverageGrid({
   onDropShift,
   onSwapShifts,
   onBulkAssign,
+  onMoveOffDay,
   storeName,
   onCopyFromPrevMonth,
   onApplyTemplate,
@@ -521,6 +523,9 @@ export function CoverageGrid({
         onAssign={onAssignShift}
         onClear={onClearShift}
         onClose={onCloseCell}
+        onMoveOffDay={onMoveOffDay ? (originalDate, newDate) => {
+          if (editingCell) onMoveOffDay(editingCell.employeeId, originalDate, newDate);
+        } : undefined}
       />
 
       {onApplyTemplate && (
