@@ -473,14 +473,16 @@ export function useData() {
   }, [refreshSchedulesThrottled, sendPush, fetchAll]);
 
   const updateSchedule = useCallback(
-    async (entry: ScheduleEntry, forceNotify?: boolean) => {
+    async (entry: ScheduleEntry, forceNotify?: boolean, skipWeeklyOffValidation?: boolean) => {
       const emp = employeeLookupMaps.employeeById.get(entry.employeeId);
-      if (typeof emp?.weeklyOffDay === 'number') {
-        const day = new Date(`${entry.date}T00:00:00`).getDay();
-        if (day === emp.weeklyOffDay) {
-          const shiftType = employeeLookupMaps.shiftTypeById.get(entry.shiftTypeId);
-          if (shiftType?.code !== 'X') {
-            throw new Error(`ไม่สามารถจัดกะวันที่ ${entry.date} ได้ (วันหยุดประจำสัปดาห์)`);
+      if (!skipWeeklyOffValidation) {
+        if (typeof emp?.weeklyOffDay === 'number') {
+          const day = new Date(`${entry.date}T00:00:00`).getDay();
+          if (day === emp.weeklyOffDay) {
+            const shiftType = employeeLookupMaps.shiftTypeById.get(entry.shiftTypeId);
+            if (shiftType?.code !== 'X') {
+              throw new Error(`ไม่สามารถจัดกะวันที่ ${entry.date} ได้ (วันหยุดประจำสัปดาห์)`);
+            }
           }
         }
       }

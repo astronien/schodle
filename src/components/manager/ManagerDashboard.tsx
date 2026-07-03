@@ -51,7 +51,7 @@ interface ManagerDashboardProps {
   updateRecurringSchedule: (recurring: RecurringSchedule) => Promise<void>;
   deleteRecurringSchedule: (id: string) => Promise<void>;
   applyRecurringSchedules: (month: Date, employeeIds?: string[]) => Promise<{ count: number; message: string }>;
-  updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
+  updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean, skipWeeklyOffValidation?: boolean) => Promise<void>;
   swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
   deleteSchedulesByMonth: (month: Date) => Promise<void>;
@@ -265,7 +265,7 @@ export function ManagerDashboard({
 
       const originalSchedule = schedules.find((s) => s.employeeId === employeeId && s.date === originalDate);
       if (originalSchedule) {
-        await updateSchedule({ ...originalSchedule, shiftTypeId, status: 'approved', createdBy: 'manager' });
+        await updateSchedule({ ...originalSchedule, shiftTypeId, status: 'approved', createdBy: 'manager' }, false, true);
       } else {
         await updateSchedule({
           id: crypto.randomUUID(),
@@ -275,7 +275,7 @@ export function ManagerDashboard({
           status: 'approved',
           requestType: 'shift_change',
           createdBy: 'manager',
-        });
+        }, false, true);
       }
 
       const newDateSchedule = schedules.find((s) => s.employeeId === employeeId && s.date === newDate);
