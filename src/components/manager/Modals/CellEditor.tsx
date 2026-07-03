@@ -49,10 +49,6 @@ export function CellEditor({
 
   if (!open) return null;
 
-  const isOffDay =
-    typeof employee?.weeklyOffDay === 'number' &&
-    new Date(`${date}T00:00:00`).getDay() === employee.weeklyOffDay;
-
   const handleAssign = (shiftTypeId: string) => {
     setSelectedTmp(shiftTypeId);
     onAssign(shiftTypeId);
@@ -112,18 +108,14 @@ export function CellEditor({
               .filter((t) => t.isVisible)
               .map((type) => {
                 const isSelected = currentShiftId === type.id;
-                const isDisabled = isOffDay && type.code !== 'X';
                 return (
                   <button
                     key={type.id}
-                    disabled={isDisabled}
                     onClick={() => handleAssign(type.id)}
                     className={cn(
                       'flex items-center justify-between p-3 rounded-xl border transition-all active:scale-[0.98]',
                       isSelected
                         ? 'border-brand bg-brand/15 ring-1 ring-brand/30'
-                        : isDisabled
-                        ? 'border-border-solid bg-bg-elevated opacity-50 cursor-not-allowed'
                         : 'border-border-solid bg-white/50 hover:bg-white/80 hover:border-brand/40',
                     )}
                   >
@@ -135,12 +127,7 @@ export function CellEditor({
                         {type.code}
                       </div>
                       <div className="text-left min-w-0">
-                        <p
-                          className={cn(
-                            'font-semibold text-sm truncate',
-                            isDisabled ? 'text-text-quaternary' : 'text-text-primary',
-                          )}
-                        >
+                        <p className="font-semibold text-sm truncate text-text-primary">
                           {type.name}
                         </p>
                         <p className="text-xs text-text-tertiary font-medium">

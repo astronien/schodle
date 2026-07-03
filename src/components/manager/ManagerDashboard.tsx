@@ -199,7 +199,7 @@ export function ManagerDashboard({
     try {
       const existing = schedules.find((s) => s.employeeId === employeeId && s.date === date);
       if (existing) {
-        await updateSchedule({ ...existing, shiftTypeId, status: 'approved', createdBy: 'manager' });
+        await updateSchedule({ ...existing, shiftTypeId, status: 'approved', createdBy: 'manager' }, false, true);
       } else {
         await updateSchedule({
           id: crypto.randomUUID(),
@@ -209,7 +209,7 @@ export function ManagerDashboard({
           status: 'approved',
           requestType: 'shift_change',
           createdBy: 'manager',
-        });
+        }, false, true);
       }
       setEditingCell(null);
       toast.success('บันทึกกะงานเรียบร้อย');
