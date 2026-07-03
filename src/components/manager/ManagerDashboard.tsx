@@ -255,7 +255,7 @@ export function ManagerDashboard({
     }
   };
 
-  const handleMoveOffDay = async (employeeId: string, originalDate: string, newDate: string) => {
+  const handleMoveOffDay = async (employeeId: string, originalDate: string, newDate: string, shiftTypeId: string) => {
     try {
       const xShift = shiftTypes.find((t) => t.code === 'X');
       if (!xShift) {
@@ -265,7 +265,17 @@ export function ManagerDashboard({
 
       const originalSchedule = schedules.find((s) => s.employeeId === employeeId && s.date === originalDate);
       if (originalSchedule) {
-        await deleteSchedule(originalSchedule.id);
+        await updateSchedule({ ...originalSchedule, shiftTypeId, status: 'approved', createdBy: 'manager' });
+      } else {
+        await updateSchedule({
+          id: crypto.randomUUID(),
+          employeeId,
+          date: originalDate,
+          shiftTypeId,
+          status: 'approved',
+          requestType: 'shift_change',
+          createdBy: 'manager',
+        });
       }
 
       const newDateSchedule = schedules.find((s) => s.employeeId === employeeId && s.date === newDate);

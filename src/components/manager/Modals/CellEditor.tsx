@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { X, CheckCircle2, AlertTriangle, AlertCircle, ArrowRightLeft } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../../lib/utils';
 import { validateAssignShift } from '../../../lib/conflict-validator';
 import type { Employee, ScheduleEntry, ShiftType } from '../../../types';
+import { MoveOffDayModal } from './MoveOffDayModal';
 
 interface CellEditorProps {
   open: boolean;
@@ -17,7 +18,7 @@ interface CellEditorProps {
   onAssign: (shiftTypeId: string) => void;
   onClear: () => void;
   onClose: () => void;
-  onMoveOffDay?: (originalDate: string, newDate: string) => void;
+  onMoveOffDay?: (originalDate: string, newDate: string, shiftTypeId: string) => void;
 }
 
 export function CellEditor({
@@ -34,18 +35,12 @@ export function CellEditor({
   onMoveOffDay,
 }: CellEditorProps) {
   const [selectedTmp, setSelectedTmp] = useState<string | null>(null);
-  const [showMoveDatePicker, setShowMoveDatePicker] = useState(false);
+  const [showMoveOffDayModal, setShowMoveOffDayModal] = useState(false);
 
   const selectedId = selectedTmp || currentShiftId || null;
 
   const xShift = shiftTypes.find((t) => t.code === 'X');
   const isCurrentShiftOffDay = currentShiftId === xShift?.id;
-
-  const daysInMonth = useMemo(() => {
-    if (!date) return [];
-    const d = new Date(`${date}T00:00:00`);
-    return eachDayOfInterval({ start: startOfMonth(d), end: endOfMonth(d) });
-  }, [date]);
 
   const warnings = useMemo(() => {
     if (!selectedId || !employee) return [];
@@ -170,58 +165,28 @@ export function CellEditor({
 
           {isCurrentShiftOffDay && onMoveOffDay && (
             <button
-              onClick={() => setShowMoveDatePicker(!showMoveDatePicker)}
+              onClick={() => setShowMoveOffDayModal(true)}
               className="mt-2 w-full py-3 bg-warn/10 text-warn border border-warn/20 rounded-xl text-sm font-semibold hover:bg-warn/20 transition-colors shrink-0 flex items-center justify-center gap-2"
             >
               <ArrowRightLeft className="w-4 h-4" />
               ย้ายวันหยุดไปวันอื่น
             </button>
           )}
-
-          {showMoveDatePicker && (
-            <div className="mt-3 p-3 bg-bg-surface rounded-xl border border-border-solid shrink-0">
-              <p className="text-xs font-semibold text-text-tertiary mb-2">เลือกวันที่ต้องการย้ายไป:</p>
-              <div className="grid grid-cols-7 gap-1">
-                {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((d) => (
-                  <div key={d} className="text-center text-[10px] font-bold text-text-quaternary py-1">
-                    {d}
-                  </div>
-                ))}
-                {daysInMonth.map((day) => {
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const isCurrentDate = dateStr === date;
-                  const hasSchedule = schedules.some(
-                    (s) => s.employeeId === employee?.id && s.date === dateStr && s.status === 'approved'
-                  );
-                  return (
-                    <button
-                      key={dateStr}
-                      disabled={isCurrentDate}
-                      onClick={() => {
-                        onMoveOffDay?.(date, dateStr);
-                        setShowMoveDatePicker(false);
-                      }}
-                      className={cn(
-                        'aspect-square rounded-lg text-xs font-semibold transition-colors flex items-center justify-center',
-                        isCurrentDate
-                          ? 'bg-brand/20 text-brand cursor-not-allowed'
-                          : hasSchedule
-                          ? 'bg-warn/10 text-warn hover:bg-warn/20'
-                          : 'bg-bg-elevated text-text-primary hover:bg-brand/10 hover:text-brand'
-                      )}
-                    >
-                      {format(day, 'd')}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-text-quaternary mt-2 text-center">
-                วันที่มีกะแล้ว (สีเหลือง) จะถูกแทนที่ด้วยกะหยุด
-              </p>
-            </div>
-          )}
         </div>
       </div>
+
+      <MoveOffDayModal
+        open={showMoveOffDayModal}
+        employee={employee}
+        originalDate={date}
+        shiftTypes={shiftTypes}
+        schedules={schedules}
+        onConfirm={(originalDate, newDate, shiftTypeId) => {
+          setShowMoveOffDayModal(false);
+          onMoveOffDay?.(originalDate, newDate, shiftTypeId);
+        }}
+        onClose={() => setShowMoveOffDayModal(false)}
+      />
     </div>
   );
 }
