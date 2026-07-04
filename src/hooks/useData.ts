@@ -161,6 +161,7 @@ export function useData() {
         (groupRes.data || []).map((g) => ({
           id: g.id,
           name: g.name,
+          enforceBalance: g.enforce_balance ?? false,
         })),
       );
 
@@ -333,7 +334,7 @@ export function useData() {
       })));
     }
     if (groupRes.data) {
-      setPositionGroups(groupRes.data.map((g) => ({ id: g.id, name: g.name })));
+      setPositionGroups(groupRes.data.map((g) => ({ id: g.id, name: g.name, enforceBalance: g.enforce_balance ?? false })));
     }
   }, []);
 
@@ -825,7 +826,7 @@ export function useData() {
 
   const createPositionGroup = useCallback(
     async (group: Omit<PositionGroup, 'id'>) => {
-      const { error: insErr } = await dbInsert('position_groups', { name: group.name });
+      const { error: insErr } = await dbInsert('position_groups', { name: group.name, enforce_balance: group.enforceBalance ?? false });
       if (insErr) throw insErr;
       await fetchAll(true);
     },
@@ -834,7 +835,7 @@ export function useData() {
 
   const updatePositionGroup = useCallback(
     async (group: PositionGroup) => {
-      const { error: updErr } = await dbUpdate('position_groups', { name: group.name }, { id: group.id });
+      const { error: updErr } = await dbUpdate('position_groups', { name: group.name, enforce_balance: group.enforceBalance ?? false }, { id: group.id });
       if (updErr) throw updErr;
       await fetchAll(true);
     },

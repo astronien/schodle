@@ -1,9 +1,17 @@
 import { useState, useMemo } from 'react';
-import { X, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { X, CheckCircle2, ArrowRight, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../../lib/utils';
 import type { Employee, ScheduleEntry, ShiftType } from '../../../types';
+
+interface CoverageGap {
+  shiftCode: string;
+  shiftName: string;
+  current: number;
+  target: number;
+  color: string;
+}
 
 interface MoveOffDayModalProps {
   open: boolean;
@@ -39,6 +47,41 @@ export function MoveOffDayModal({
     const d = new Date(`${originalDate}T00:00:00`);
     return getDay(startOfMonth(d));
   }, [originalDate]);
+
+  const coverageGaps = useMemo<CoverageGap[]>(() => {
+    if (!selectedNewDate || !employee) return [];
+
+    const daySchedules = schedules.filter(
+      (s) => s.date === selectedNewDate && s.status === 'approved' && s.employeeId !== employee.id
+    );
+
+    return shiftTypes
+      .filter((t) => t.targetStaff && t.targetStaff > 0 && t.code !== 'X')
+      .map((type) => {
+        const count = new Set(
+          daySchedules.filter((s) => s.shiftTypeId === type.id).map((s) => s.employeeId)
+        ).size;
+        const target = type.targetStaff || 0;
+        return {
+          shiftCode: type.code,
+          shiftName: type.name,
+          current: count,
+          target,
+          color: type.color,
+        };
+      })
+      .filter((g) => g.current < g.target);
+  }, [selectedNewDate, employee, schedules, shiftTypes]);
+
+  const employeeCurrentShiftOnNewDate = useMemo(() => {
+    if (!selectedNewDate || !employee) return null;
+    const entry = schedules.find(
+      (s) => s.employeeId === employee.id && s.date === selectedNewDate && s.status === 'approved'
+    );
+    if (!entry) return null;
+    const st = shiftTypes.find((t) => t.id === entry.shiftTypeId);
+    return st && st.code !== 'X' ? st : null;
+  }, [selectedNewDate, employee, schedules, shiftTypes]);
 
   if (!open) return null;
 
@@ -221,13 +264,57 @@ export function MoveOffDayModal({
               </div>
 
               {selectedNewDate && (
-                <div className="mt-3 p-3 bg-brand/5 rounded-xl border border-brand/20 shrink-0">
-                  <p className="text-xs text-text-primary">
-                    <span className="font-semibold text-brand">สรุป:</span> ย้ายวันหยุดจาก{' '}
-                    <span className="font-semibold">{format(new Date(`${originalDate}T00:00:00`), 'd MMM', { locale: th })}</span>{' '}
-                    ไปยัง{' '}
-                    <span className="font-semibold">{format(new Date(`${selectedNewDate}T00:00:00`), 'd MMM', { locale: th })}</span>
-                  </p>
+                <div className="mt-3 space-y-2 shrink-0">
+                  <div className="p-3 bg-brand/5 rounded-xl border border-brand/20">
+                    <p className="text-xs text-text-primary">
+                      <span className="font-semibold text-brand">สรุป:</span> ย้ายวันหยุดจาก{' '}
+                      <span className="font-semibold">{format(new Date(`${originalDate}T00:00:00`), 'd MMM', { locale: th })}</span>{' '}
+                      ไปยัง{' '}
+                      <span className="font-semibold">{format(new Date(`${selectedNewDate}T00:00:00`), 'd MMM', { locale: th })}</span>
+                    </p>
+                    {employeeCurrentShiftOnNewDate && (
+                      <p className="text-[11px] text-warn font-medium mt-1">
+                        พนักงานเคยทำกะ {employeeCurrentShiftOnNewDate.code} ในวันนี้ — กะจะถูกแทนด้วยวันหยุด
+                      </p>
+                    )}
+                  </div>
+
+                  {coverageGaps.length > 0 && (
+                    <div className="p-3 bg-danger/5 rounded-xl border border-danger/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-4 h-4 text-danger shrink-0" />
+                        <p className="text-xs font-bold text-danger">พนักงานไม่พอในวันที่ย้ายไป</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {coverageGaps.map((g) => (
+                          <div key={g.shiftCode} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-white"
+                                style={{ backgroundColor: g.color }}
+                              >
+                                {g.shiftCode}
+                              </span>
+                              <span className="text-text-tertiary font-medium">{g.shiftName}</span>
+                            </div>
+                            <span className="font-bold text-danger">
+                              {g.current}/{g.target} คน
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-text-quaternary mt-2">
+                        หากย้ายวันหยุดไปวันนี้ กะข้างต้นจะขาดพนักงาน
+                      </p>
+                    </div>
+                  )}
+
+                  {coverageGaps.length === 0 && employeeCurrentShiftOnNewDate && (
+                    <div className="p-2.5 bg-success/5 rounded-xl border border-success/20 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                      <p className="text-[11px] text-success font-medium">พนักงานเพียงพอในวันที่ย้ายไป</p>
+                    </div>
+                  )}
                 </div>
               )}
 

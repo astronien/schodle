@@ -27,6 +27,7 @@ export type ShiftType = {
 export type PositionGroup = {
   id: string;
   name: string;
+  enforceBalance?: boolean;
 };
 
 export type Employee = {
