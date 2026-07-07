@@ -755,9 +755,6 @@ export function useData() {
 
   const updateEmployee = useCallback(
     async (employee: Employee) => {
-      const oldEmployee = employees.find((e) => e.id === employee.id);
-      const codeChanged = oldEmployee && oldEmployee.employeeCode !== employee.employeeCode;
-
       const { error: updErr } = await dbUpdate('employees', {
         employee_code: employee.employeeCode,
         full_name: employee.fullName,
@@ -774,17 +771,22 @@ export function useData() {
         throw new Error(updErr.message || 'Supabase update failed');
       }
 
-      if (codeChanged) {
+      try {
         const token = getSessionToken();
-        await supabase.functions.invoke('reset-employee-password', {
+        const { error: fnErr } = await supabase.functions.invoke<{ success: boolean }>('reset-employee-password', {
           body: { employee_id: employee.id, employee_code: employee.employeeCode },
           headers: token ? { authorization: `Bearer ${token}` } : undefined,
         });
+        if (fnErr) {
+          console.warn('[reset-employee-password] failed:', fnErr.message);
+        }
+      } catch (fnCatchErr: unknown) {
+        console.warn('[reset-employee-password] function not available:', fnCatchErr instanceof Error ? fnCatchErr.message : 'unknown');
       }
 
       await fetchAll(true);
     },
-    [employees, fetchAll],
+    [fetchAll],
   );
 
   const deleteEmployee = useCallback(
