@@ -122,11 +122,20 @@ serve(async (req) => {
   if (!employee) {
     return json({ error: "รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง" }, 401);
   }
+  let passwordOk = false;
   if (!employee.password_hash) {
-    return json({ error: "บัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบ" }, 401);
+    const tempHash = await bcrypt.hash(employee.employee_code, 10);
+    passwordOk = await bcrypt.compare(password, tempHash);
+    if (passwordOk) {
+      const { error: saveErr } = await supabase
+        .from("employees")
+        .update({ password_hash: tempHash })
+        .eq("id", employee.id);
+      if (saveErr) console.error("Failed to save password hash:", saveErr);
+    }
+  } else {
+    passwordOk = await bcrypt.compare(password, employee.password_hash);
   }
-
-  const passwordOk = await bcrypt.compare(password, employee.password_hash);
   if (!passwordOk) {
     return json({ error: "รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง" }, 401);
   }
