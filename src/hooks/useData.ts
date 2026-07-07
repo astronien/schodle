@@ -404,7 +404,8 @@ export function useData() {
     const channel = supabase
       .channel('realtime:schedules')
       .on('system', { event: 'CHANNEL_ERROR' }, () => {
-        console.warn('[realtime] channel error — will refresh data and retry');
+        const token = getSessionToken();
+        if (token) console.warn('[realtime] channel error — will refresh data and retry');
         void fetchAll(true);
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(() => {
@@ -412,7 +413,7 @@ export function useData() {
         }, 5000);
       })
       .on('system', { event: 'TIMED_OUT' }, () => {
-        console.warn('[realtime] timed out — refreshing');
+        if (getSessionToken()) console.warn('[realtime] timed out — refreshing');
         void fetchAll(true);
       })
       .on(
