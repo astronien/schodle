@@ -8,7 +8,7 @@ import {
   subWeeks,
 } from 'date-fns';
 
-import type { Employee, ScheduleEntry, ShiftType } from '../types';
+import type { Employee, PositionGroup, ScheduleEntry, ShiftType } from '../types';
 import {
   DEFAULT_LATE_SHIFT_CODES,
   DEFAULT_EARLY_SHIFT_CODES,
@@ -43,6 +43,7 @@ export type SmartScheduleOptions = {
   newId?: () => string;
   /** Shuffle employees each day — defaults to true. Disable for deterministic tests. */
   shuffleEmployees?: boolean;
+  positionGroups?: PositionGroup[];
 };
 
 type ShiftCategory = 'morning' | 'afternoon' | 'other';
@@ -136,6 +137,7 @@ export function generateSmartSchedule({
   prevMonthSchedules = [],
   newId,
   shuffleEmployees = true,
+  positionGroups,
 }: SmartScheduleOptions): SmartScheduleResult {
   const warnings: string[] = [];
   const idFactory = newId ?? (() => crypto.randomUUID());
@@ -187,6 +189,15 @@ export function generateSmartSchedule({
     }
     return best;
   };
+
+  const enforceBalanceGroupMembers = new Map<string, Set<string>>();
+  if (positionGroups) {
+    const enforceGroups = positionGroups.filter((g) => g.enforceBalance);
+    for (const group of enforceGroups) {
+      const members = employees.filter((e) => e.groupId === group.id).map((e) => e.id);
+      enforceBalanceGroupMembers.set(group.id, new Set(members));
+    }
+  }
 
   const entries: SmartScheduleDraft[] = [];
 
@@ -276,6 +287,27 @@ export function generateSmartSchedule({
       shiftTypeId: string,
       lateEarly: LateEarlyStrictness,
     ): boolean => {
+      const nextShiftTypeForGroup = shiftTypes.find((t) => t.id === shiftTypeId);
+      const nextCategory = (nextShiftTypeForGroup?.category || 'other') as ShiftCategory;
+      if (nextCategory !== 'other') {
+        for (const [, memberIds] of enforceBalanceGroupMembers.entries()) {
+          if (memberIds.has(employeeId)) {
+            for (const otherId of memberIds) {
+              if (otherId === employeeId) continue;
+              if (!assignedThisDay.has(otherId)) continue;
+              const otherEntry = entries.find(
+                (e) => e.employeeId === otherId && e.date === dateStr
+              );
+              if (!otherEntry) continue;
+              const otherShiftType = shiftTypes.find((t) => t.id === otherEntry.shiftTypeId);
+              const otherCategory = otherShiftType?.category || 'other';
+              if (otherCategory !== 'other' && otherCategory === nextCategory) {
+                return false;
+              }
+            }
+          }
+        }
+      }
       if (assignedThisDay.has(employeeId)) return false;
       const existingKey = `${employeeId}:${dateStr}`;
       if (existingByEmployeeDate.has(existingKey)) return false;
@@ -509,6 +541,31 @@ export function generateSmartSchedule({
       if (!chosen) continue;
       // Skip if employee already has this shift today (shouldn't happen)
       if (dayCounts.get(chosen.id)?.has(emp.id)) continue;
+      // Group balance check
+      const nextShiftTypeForGroup = shiftTypes.find((t) => t.id === chosen.id);
+      const nextCategory = (nextShiftTypeForGroup?.category || 'other') as ShiftCategory;
+      if (nextCategory !== 'other') {
+        let groupConflict = false;
+        for (const [, memberIds] of enforceBalanceGroupMembers.entries()) {
+          if (!memberIds.has(emp.id)) continue;
+          for (const otherId of memberIds) {
+            if (otherId === emp.id) continue;
+            if (!assignedThisDay.has(otherId)) continue;
+            const otherEntry = entries.find(
+              (e) => e.employeeId === otherId && e.date === dateStr
+            );
+            if (!otherEntry) continue;
+            const otherShiftType = shiftTypes.find((t) => t.id === otherEntry.shiftTypeId);
+            const otherCategory = otherShiftType?.category || 'other';
+            if (otherCategory !== 'other' && otherCategory === nextCategory) {
+              groupConflict = true;
+              break;
+            }
+          }
+          if (groupConflict) break;
+        }
+        if (groupConflict) continue;
+      }
       // Late→early check
       if (!canAssignBalance(emp, day, chosen, entries, existingEntries, shiftTypes, lateCodes, earlyCodes)) continue;
 

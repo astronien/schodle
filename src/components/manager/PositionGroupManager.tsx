@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, Save, X, Tag, Users, UserMinus } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Tag, Users, UserMinus, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { AdminPageHeader } from './AdminSidebar';
 import { ConfirmModal } from '../ConfirmModal';
@@ -29,6 +29,7 @@ export function PositionGroupManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<PositionGroup | null>(null);
+  const [newEnforceBalance, setNewEnforceBalance] = useState(false);
 
   const toast = useToast();
   const showError = (err: unknown, fallback: string) =>
@@ -37,9 +38,10 @@ export function PositionGroupManager({
   const handleCreate = async () => {
     if (!newName.trim()) return;
     try {
-      await createGroup({ name: newName });
+      await createGroup({ name: newName, enforceBalance: newEnforceBalance });
       toast.success('สร้างกลุ่มสำเร็จ', newName);
       setNewName('');
+      setNewEnforceBalance(false);
       setIsAdding(false);
     } catch (err: unknown) {
       showError(err, 'สร้างกลุ่มไม่สำเร็จ');
@@ -67,6 +69,14 @@ export function PositionGroupManager({
 
   const getMemberCount = (groupId: string) =>
     employees.filter((e) => e.groupId === groupId).length;
+
+  const toggleEnforceBalance = async (group: PositionGroup) => {
+    try {
+      await updateGroup({ ...group, enforceBalance: !group.enforceBalance });
+    } catch (err: unknown) {
+      showError(err, 'อัปเดตกลุ่มไม่สำเร็จ');
+    }
+  };
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -97,38 +107,54 @@ export function PositionGroupManager({
         </div>
 
         {isAdding && (
-          <div className="glass-cell rounded-2xl p-3 mb-3 flex items-center gap-2 animate-slide-down">
-            <input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate();
-                if (e.key === 'Escape') {
+          <div className="glass-cell rounded-2xl p-3 mb-3 flex flex-col gap-2 animate-slide-down">
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate();
+                  if (e.key === 'Escape') {
+                    setIsAdding(false);
+                    setNewName('');
+                    setNewEnforceBalance(false);
+                  }
+                }}
+                placeholder="ชื่อกลุ่ม เช่น กะเช้า A"
+                className="input-field flex-1"
+              />
+              <button
+                onClick={handleCreate}
+                className="p-2.5 text-white bg-brand rounded-lg hover:bg-brand-hover"
+                aria-label="บันทึก"
+              >
+                <Save className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
                   setIsAdding(false);
                   setNewName('');
-                }
-              }}
-              placeholder="ชื่อกลุ่ม เช่น กะเช้า A"
-              className="input-field flex-1"
-            />
-            <button
-              onClick={handleCreate}
-              className="p-2.5 text-white bg-brand rounded-lg hover:bg-brand-hover"
-              aria-label="บันทึก"
-            >
-              <Save className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                setIsAdding(false);
-                setNewName('');
-              }}
-              className="p-2.5 text-text-tertiary bg-bg-surface rounded-lg border border-border-solid"
-              aria-label="ยกเลิก"
-            >
-              <X className="w-4 h-4" />
-            </button>
+                  setNewEnforceBalance(false);
+                }}
+                className="p-2.5 text-text-tertiary bg-bg-surface rounded-lg border border-border-solid"
+                aria-label="ยกเลิก"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setNewEnforceBalance((v) => !v)}
+                className="text-text-quaternary hover:text-brand transition-colors"
+              >
+                {newEnforceBalance ? <ToggleRight className="w-5 h-5 text-brand" /> : <ToggleLeft className="w-5 h-5" />}
+              </button>
+              <span className="text-[10px] font-semibold text-text-quaternary">
+                บังคับให้คนในกลุ่มอยู่คนละกะ (เช้า/บ่าย)
+              </span>
+            </label>
           </div>
         )}
 
@@ -165,54 +191,65 @@ export function PositionGroupManager({
                       className="input-field flex-1 py-1.5 px-3 text-sm"
                     />
                   ) : (
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-text-primary truncate">
-                        {group.name}
-                      </p>
-                      <p className="text-[10px] text-text-tertiary font-semibold flex items-center gap-1 mt-0.5">
-                        <Users className="w-3 h-3" />
-                        {count} คน
-                      </p>
-                    </div>
-                  )}
-                  {isEditing ? (
-                    <>
-                      <button
-                        onClick={() => handleUpdate(group.id)}
-                        className="p-2 text-white bg-brand rounded-lg hover:bg-brand-hover"
-                        aria-label="บันทึก"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="p-2 text-text-tertiary bg-bg-surface rounded-lg border border-border-solid"
-                        aria-label="ยกเลิก"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          setEditingId(group.id);
-                          setEditName(group.name);
-                        }}
-                        className="p-2 text-text-tertiary hover:text-text-primary hover:bg-white/60 rounded-lg"
-                        aria-label="แก้ไข"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(group)}
-                        className="p-2 text-danger bg-danger/10 hover:bg-danger/15 rounded-lg"
-                        aria-label="ลบ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-text-primary truncate">
+                      {group.name}
+                    </p>
+                    <p className="text-[10px] text-text-tertiary font-semibold flex items-center gap-1 mt-0.5">
+                      <Users className="w-3 h-3" />
+                      {count} คน
+                    </p>
+                  </div>
+                )}
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={() => handleUpdate(group.id)}
+                      className="p-2 text-white bg-brand rounded-lg hover:bg-brand-hover"
+                      aria-label="บันทึก"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="p-2 text-text-tertiary bg-bg-surface rounded-lg border border-border-solid"
+                      aria-label="ยกเลิก"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleEnforceBalance(group)}
+                      className="p-2 text-text-quaternary hover:text-brand transition-colors"
+                      title={group.enforceBalance ? 'เปิดใช้: คนในกลุ่มอยู่คนละกะ' : 'ปิด: คนในกลุ่มอยู่กะเดียวกันได้'}
+                    >
+                      {group.enforceBalance ? (
+                        <ToggleRight className="w-4 h-4 text-brand" />
+                      ) : (
+                        <ToggleLeft className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingId(group.id);
+                        setEditName(group.name);
+                      }}
+                      className="p-2 text-text-tertiary hover:text-text-primary hover:bg-white/60 rounded-lg"
+                      aria-label="แก้ไข"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(group)}
+                      className="p-2 text-danger bg-danger/10 hover:bg-danger/15 rounded-lg"
+                      aria-label="ลบ"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
                 </div>
               );
             })}

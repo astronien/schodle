@@ -169,6 +169,7 @@ function AppShell() {
       month: currentMonth,
       employees,
       shiftTypes,
+      positionGroups,
       existingEntries: schedules,
       prevMonthSchedules: schedules.filter(
         (s) =>

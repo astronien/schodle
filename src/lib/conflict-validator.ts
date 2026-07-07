@@ -1,11 +1,11 @@
 import { addDays, format } from 'date-fns';
-import type { Employee, ScheduleEntry, ShiftType } from '../types';
+import type { Employee, PositionGroup, ScheduleEntry, ShiftType } from '../types';
 import { DEFAULT_LATE_SHIFT_CODES, DEFAULT_EARLY_SHIFT_CODES, OVERSTAFFED_THRESHOLD_MULTIPLIER } from '../config/constants';
 
 export type ConflictSeverity = 'error' | 'warning' | 'info';
 
 export type Conflict = {
-  type: 'late_to_early' | 'weekly_off' | 'staffing_shortage' | 'staffing_over' | 'imbalance' | 'double_shift';
+  type: 'late_to_early' | 'weekly_off' | 'staffing_shortage' | 'staffing_over' | 'imbalance' | 'double_shift' | 'group_balance';
   severity: ConflictSeverity;
   message: string;
   date: string;
@@ -176,17 +176,84 @@ function checkStaffingConflicts(
 /**
  * ตรวจสอบการขัดแย้งทั้งหมด
  */
+function checkGroupBalanceConflicts(
+  schedules: ScheduleEntry[],
+  employees: Employee[],
+  shiftTypes: ShiftType[],
+  positionGroups: PositionGroup[],
+): Conflict[] {
+  const conflicts: Conflict[] = [];
+  const approved = schedules.filter((s) => s.status === 'approved');
+  if (approved.length === 0 || positionGroups.length === 0) return conflicts;
+
+  const empMap = new Map(employees.map((e) => [e.id, e]));
+  const shiftTypeMap = new Map(shiftTypes.map((t) => [t.id, t]));
+  const enforceGroups = new Set(positionGroups.filter((g) => g.enforceBalance).map((g) => g.id));
+  const groupNameMap = new Map(positionGroups.map((g) => [g.id, g.name]));
+
+  const byDate = new Map<string, ScheduleEntry[]>();
+  for (const entry of approved) {
+    const arr = byDate.get(entry.date);
+    if (arr) arr.push(entry);
+    else byDate.set(entry.date, [entry]);
+  }
+
+  for (const [date, daily] of byDate) {
+    const groupEntries = new Map<string, { employeeId: string; name: string; category: string }[]>();
+
+    for (const entry of daily) {
+      const emp = empMap.get(entry.employeeId);
+      if (!emp?.groupId) continue;
+      if (!enforceGroups.has(emp.groupId)) continue;
+
+      const cat = shiftTypeMap.get(entry.shiftTypeId)?.category;
+      if (!cat || cat === 'other') continue;
+
+      const arr = groupEntries.get(emp.groupId);
+      if (arr) arr.push({ employeeId: entry.employeeId, name: emp.fullName, category: cat });
+      else groupEntries.set(emp.groupId, [{ employeeId: entry.employeeId, name: emp.fullName, category: cat }]);
+    }
+
+    for (const [groupId, empShifts] of groupEntries) {
+      const morning = empShifts.filter((es) => es.category === 'morning');
+      const afternoon = empShifts.filter((es) => es.category === 'afternoon');
+      const groupName = groupNameMap.get(groupId) || groupId;
+
+      if (morning.length >= 2) {
+        conflicts.push({
+          type: 'group_balance',
+          severity: 'warning',
+          date,
+          message: `วันที่ ${date} กลุ่ม ${groupName} มีพนักงานกะเช้าหลายคน (${morning.map((e) => e.name).join(', ')})`,
+        });
+      }
+      if (afternoon.length >= 2) {
+        conflicts.push({
+          type: 'group_balance',
+          severity: 'warning',
+          date,
+          message: `วันที่ ${date} กลุ่ม ${groupName} มีพนักงานกะบ่ายหลายคน (${afternoon.map((e) => e.name).join(', ')})`,
+        });
+      }
+    }
+  }
+
+  return conflicts;
+}
+
 export function validateAllConflicts(
   schedules: ScheduleEntry[],
   employees: Employee[],
   shiftTypes: ShiftType[],
   lateCodes: string[] = [...DEFAULT_LATE_SHIFT_CODES],
   earlyCodes: string[] = [...DEFAULT_EARLY_SHIFT_CODES],
+  positionGroups: PositionGroup[] = [],
 ): Conflict[] {
   return [
     ...checkLateToEarlyConflicts(schedules, employees, shiftTypes, lateCodes, earlyCodes),
     ...checkWeeklyOffConflicts(schedules, employees, shiftTypes),
     ...checkStaffingConflicts(schedules, shiftTypes),
+    ...checkGroupBalanceConflicts(schedules, employees, shiftTypes, positionGroups),
   ].sort((a, b) => a.date.localeCompare(b.date));
 }
 

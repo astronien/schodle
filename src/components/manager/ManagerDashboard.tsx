@@ -424,8 +424,8 @@ export function ManagerDashboard({
   );
 
   const allConflicts = useMemo(
-    () => validateAllConflicts(schedules, employees, shiftTypes),
-    [schedules, employees, shiftTypes],
+    () => validateAllConflicts(schedules, employees, shiftTypes, undefined, undefined, positionGroups),
+    [schedules, employees, shiftTypes, positionGroups],
   );
 
   const filteredRequests = (requestViewMode === 'pending' ? pendingRequests : resolvedRequests).filter((request) => {
