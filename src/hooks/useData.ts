@@ -122,6 +122,9 @@ export function useData() {
   }, [shouldSendPush]);
 
   const fetchSchedulesOnly = useCallback(async (): Promise<ScheduleEntry[]> => {
+    const token = getSessionToken();
+    if (!token) return [];
+
     const { data, error: schedErr } = await dbSelect<any>('schedules', undefined, '*', { column: 'date', ascending: true });
     if (schedErr) throw schedErr;
     return (data || []).map(mapScheduleRow);
@@ -130,6 +133,13 @@ export function useData() {
   const fetchAll = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
     setError(null);
+
+    const token = getSessionToken();
+    if (!token) {
+      if (!silent) setLoading(false);
+      return;
+    }
+
     try {
       const [posRes, empRes, shiftRes, groupRes, schedRes, recurringRes, settingsRes] = await Promise.all([
         dbSelect<any>('positions', undefined, '*', { column: 'code', ascending: true }),
