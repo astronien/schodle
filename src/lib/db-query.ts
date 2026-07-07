@@ -37,7 +37,10 @@ interface QueryOptions {
 export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ data: T | null; error: Error | null }> {
   const token = getSessionToken();
   if (!token) {
-    window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+    const wasLoggedIn = localStorage.getItem('schodle_auth_employee_id');
+    if (wasLoggedIn) {
+      window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+    }
     return { data: null, error: new Error('Session expired') };
   }
 
