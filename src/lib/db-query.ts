@@ -8,6 +8,7 @@
 
 import { supabase } from './supabase';
 import { getSessionToken } from './session';
+import { AUTH_EXPIRED_EVENT } from '../config/constants';
 
 interface FilterCondition {
   eq?: unknown;
@@ -36,6 +37,7 @@ interface QueryOptions {
 export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ data: T | null; error: Error | null }> {
   const token = getSessionToken();
   if (!token) {
+    window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
     return { data: null, error: new Error('Session expired') };
   }
 
