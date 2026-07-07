@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { clearSessionToken, getSessionToken, setSessionToken } from '../lib/session';
-import { AUTH_EXPIRED_EVENT } from '../config/constants';
 import type { Employee } from '../types';
 
 const AUTH_KEY = 'schodle_auth_employee_id';
@@ -129,12 +128,6 @@ export function useAuth() {
     setCurrentEmployee(null);
     window.location.reload();
   }, []);
-
-  useEffect(() => {
-    const handleAuthExpired = () => logout();
-    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
-  }, [logout]);
 
   const refreshProfile = useCallback(async () => {
     if (!currentEmployee) return;
