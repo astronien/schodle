@@ -786,6 +786,46 @@ export function useData() {
     [employees, fetchAll],
   );
 
+  const resetEmployeePassword = useCallback(
+    async (employee: Employee) => {
+      const token = getSessionToken();
+      if (!token) {
+        throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke<{ success?: boolean; error?: string }>(
+        'reset-employee-password',
+        {
+          body: { employee_id: employee.id, employee_code: employee.employeeCode },
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (fnError) {
+        const errBody = (fnError as { context?: Response }).context;
+        let serverMsg: string | null = null;
+        if (errBody && typeof errBody.json === 'function') {
+          try {
+            const parsed = (await errBody.json()) as { error?: string };
+            serverMsg = parsed?.error ?? null;
+          } catch { /* ignore */ }
+        }
+        const msg = serverMsg ?? (data as { error?: string } | null)?.error ?? fnError.message;
+        if (errBody?.status === 401 || msg.includes('401') || msg.includes('expired') || msg.includes('Invalid')) {
+          window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+          throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        }
+        throw new Error(msg);
+      }
+      if (data && data.error) {
+        throw new Error(data.error);
+      }
+
+      await refreshEmployees();
+    },
+    [refreshEmployees],
+  );
+
   const deleteEmployee = useCallback(
     async (id: string) => {
       // Delete related schedules first to avoid foreign key constraint
@@ -1135,6 +1175,7 @@ export function useData() {
     settings,
     createEmployee,
     updateEmployee,
+    resetEmployeePassword,
     deleteEmployee,
     createPosition,
     updatePosition,

@@ -35,6 +35,7 @@ interface ManagerDashboardProps {
   positions: Position[];
   createEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (employee: Employee) => Promise<void>;
+  resetEmployeePassword: (employee: Employee) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
   createShiftType: (shiftType: Omit<ShiftType, 'id'>) => Promise<void>;
   updateShiftType: (shiftType: ShiftType) => Promise<void>;
@@ -76,6 +77,7 @@ export function ManagerDashboard({
   positions,
   createEmployee,
   updateEmployee,
+  resetEmployeePassword,
   deleteEmployee,
   createShiftType,
   updateShiftType,
@@ -754,6 +756,7 @@ export function ManagerDashboard({
               onOpenWeeklyOff={handleOpenWeeklyOffDay}
               onDeleteEmployee={deleteEmployee}
               createEmployee={createEmployee}
+              resetEmployeePassword={resetEmployeePassword}
               shiftTypes={shiftTypes}
               createShiftType={createShiftType}
               updateShiftType={updateShiftType}

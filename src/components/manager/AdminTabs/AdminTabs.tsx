@@ -25,6 +25,7 @@ interface AdminTabsProps {
   onOpenWeeklyOff: (employeeId: string) => void;
   onDeleteEmployee: (id: string) => Promise<void>;
   createEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
+  resetEmployeePassword: (employee: Employee) => Promise<void>;
 
   // Shifts
   shiftTypes: ShiftType[];
@@ -75,6 +76,7 @@ export function AdminTabs({
   onOpenWeeklyOff,
   onDeleteEmployee,
   createEmployee,
+  resetEmployeePassword,
   shiftTypes,
   createShiftType,
   updateShiftType,
@@ -141,6 +143,7 @@ export function AdminTabs({
               onDeleteEmployee={onDeleteEmployee}
               createEmployee={createEmployee}
               updateEmployee={updateEmployee}
+              resetEmployeePassword={resetEmployeePassword}
             />
           )}
 

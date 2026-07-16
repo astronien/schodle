@@ -102,6 +102,7 @@ function AppShell() {
     swapScheduleShifts,
     createEmployee,
     updateEmployee,
+    resetEmployeePassword,
     deleteEmployee,
     createPosition,
     updatePosition,
@@ -617,6 +618,7 @@ function AppShell() {
                 positions={positions}
                 createEmployee={createEmployee}
                 updateEmployee={updateEmployee}
+                resetEmployeePassword={resetEmployeePassword}
                 deleteEmployee={deleteEmployee}
                 createShiftType={createShiftType}
                 updateShiftType={updateShiftType}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, Trash2, Calendar, Users, MoreVertical, Pencil, CheckSquare, Square, UserCog } from 'lucide-react';
+import { Search, Plus, Trash2, Calendar, Users, MoreVertical, Pencil, CheckSquare, Square, UserCog, KeyRound } from 'lucide-react';
 import { WEEKLY_OFF_DAYS } from '../Modals/WeeklyOffDayEditor';
 import { CreateEmployeeModal, EditEmployeeModal } from '../Modals/CreationModals';
 import { getDiceBearAvatar } from '../../../lib/validators';
@@ -21,6 +21,7 @@ interface EmployeesTabProps {
   onDeleteEmployee: (id: string) => Promise<void>;
   createEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (employee: Employee) => Promise<void>;
+  resetEmployeePassword: (employee: Employee) => Promise<void>;
 }
 
 export function EmployeesTab({
@@ -33,6 +34,7 @@ export function EmployeesTab({
   onDeleteEmployee,
   createEmployee,
   updateEmployee,
+  resetEmployeePassword,
 }: EmployeesTabProps) {
   const toast = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -45,6 +47,7 @@ export function EmployeesTab({
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
+  const [resetPasswordEmployee, setResetPasswordEmployee] = useState<Employee | null>(null);
 
   const filtered = employees.filter((emp) => {
     const haystack = [emp.fullName, emp.employeeCode, emp.email]
@@ -368,6 +371,16 @@ export function EmployeesTab({
                         </button>
                         <button
                           onClick={() => {
+                            setResetPasswordEmployee(emp);
+                            setMenuOpenId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:bg-white/60 rounded-lg"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          รีเซ็ตรหัสผ่าน
+                        </button>
+                        <button
+                          onClick={() => {
                             setSingleDeleteId(emp.id);
                             setMenuOpenId(null);
                           }}
@@ -453,6 +466,13 @@ export function EmployeesTab({
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => setResetPasswordEmployee(emp)}
+                      className="p-2 text-warn bg-warn/10 rounded-lg"
+                      aria-label="รีเซ็ตรหัสผ่าน"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => setSingleDeleteId(emp.id)}
                       className="p-2 text-danger bg-danger/10 rounded-lg"
                       aria-label="ลบ"
@@ -491,6 +511,24 @@ export function EmployeesTab({
         variant="danger"
         onConfirm={handleBulkDelete}
         onCancel={() => setBulkDeleteConfirm(false)}
+      />
+
+      <ConfirmModal
+        open={Boolean(resetPasswordEmployee)}
+        title="รีเซ็ตรหัสผ่าน"
+        message={`รีเซ็ตรหัสผ่านของ "${resetPasswordEmployee?.fullName || ''}"?\n\nรหัสผ่านใหม่จะเป็นรหัสพนักงาน (${resetPasswordEmployee?.employeeCode || ''}) และระบบจะให้ตั้งรหัสผ่านใหม่เมื่อเข้าสู่ระบบครั้งถัดไป`}
+        confirmLabel="รีเซ็ต"
+        variant="warning"
+        onConfirm={async () => {
+          if (!resetPasswordEmployee) return;
+          try {
+            await resetEmployeePassword(resetPasswordEmployee);
+            toast.success('รีเซ็ตรหัสผ่านสำเร็จ', `${resetPasswordEmployee.fullName} ใช้รหัสพนักงาน ${resetPasswordEmployee.employeeCode} เป็นรหัสผ่าน`);
+          } catch (err: unknown) {
+            toast.error('รีเซ็ตรหัสผ่านไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+          }
+        }}
+        onCancel={() => setResetPasswordEmployee(null)}
       />
 
       <ConfirmModal
