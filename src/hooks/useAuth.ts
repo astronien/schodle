@@ -22,7 +22,17 @@ async function callVerifyPassword(employeeCode: string, password: string): Promi
     body: { employee_code: employeeCode, password },
   });
   if (error) {
-    const message = (data as { error?: string } | null)?.error ?? error.message;
+    // On non-2xx responses `data` is null; the server's message is in the
+    // Response object attached to FunctionsHttpError as `context`.
+    let serverMsg: string | null = null;
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === 'function') {
+      try {
+        const parsed = (await ctx.json()) as { error?: string };
+        serverMsg = parsed?.error ?? null;
+      } catch { /* ignore */ }
+    }
+    const message = serverMsg ?? (data as { error?: string } | null)?.error ?? error.message;
     throw new Error(message);
   }
   if (!data) {

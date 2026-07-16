@@ -109,35 +109,50 @@ serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  const { data: employee, error: lookupError } = await supabase
+  // Employee codes are matched case-insensitively; escape ilike wildcards
+  // so codes containing % or _ still match literally.
+  const escapedCode = employeeCode.replace(/[\\%_]/g, (m) => `\\${m}`);
+  const { data: candidates, error: lookupError } = await supabase
     .from("employees")
     .select("id, employee_code, full_name, position_id, role, password_hash, must_change_password")
-    .eq("employee_code", employeeCode)
-    .maybeSingle();
+    .ilike("employee_code", escapedCode)
+    .limit(2);
 
   if (lookupError) {
     console.error("Lookup error:", lookupError);
     return json({ error: "ไม่สามารถตรวจสอบผู้ใช้ได้" }, 500);
   }
+  // If two codes differ only by case, only an exact match is unambiguous.
+  const employee =
+    candidates?.find((c) => c.employee_code === employeeCode) ??
+    (candidates?.length === 1 ? candidates[0] : undefined);
   if (!employee) {
     return json({ error: "รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง" }, 401);
   }
+
+  // Accounts with no hash yet, or flagged must_change_password, are in the
+  // default-password state: the password is the employee code itself.
+  const inDefaultPasswordState = !employee.password_hash || !!employee.must_change_password;
   let passwordOk = false;
-  if (!employee.password_hash) {
-    const tempHash = await bcrypt.hash(employee.employee_code, 10);
-    passwordOk = await bcrypt.compare(password, tempHash);
-    if (passwordOk) {
+  if (employee.password_hash) {
+    passwordOk = await bcrypt.compare(password, employee.password_hash);
+  }
+  if (!passwordOk && inDefaultPasswordState) {
+    passwordOk = password.toUpperCase() === employee.employee_code.toUpperCase();
+    if (passwordOk && !employee.password_hash) {
       const { error: saveErr } = await supabase
         .from("employees")
-        .update({ password_hash: tempHash })
+        .update({ password_hash: await bcrypt.hash(employee.employee_code, 10) })
         .eq("id", employee.id);
       if (saveErr) console.error("Failed to save password hash:", saveErr);
     }
-  } else {
-    passwordOk = await bcrypt.compare(password, employee.password_hash);
   }
   if (!passwordOk) {
-    return json({ error: "รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง" }, 401);
+    return json({
+      error: inDefaultPasswordState
+        ? "รหัสผ่านไม่ถูกต้อง — บัญชีนี้อยู่ในสถานะรหัสผ่านเริ่มต้น ให้ใช้รหัสพนักงานของคุณเป็นรหัสผ่าน แล้วระบบจะให้ตั้งรหัสผ่านใหม่"
+        : "รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง",
+    }, 401);
   }
 
   const { data: position, error: positionError } = await supabase

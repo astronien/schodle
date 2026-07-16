@@ -106,7 +106,7 @@ serve(async (req) => {
     .maybeSingle();
   if (lookupError || !employee) return json({ error: "ไม่พบพนักงาน" }, 404);
 
-  if (employee.employee_code !== employeeCode) {
+  if (employee.employee_code.toUpperCase() !== employeeCode.toUpperCase()) {
     return json({ error: "รหัสพนักงานในระบบไม่ตรงกับที่ส่งมา" }, 409);
   }
 

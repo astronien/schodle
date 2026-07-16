@@ -135,10 +135,14 @@ serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
+  // Duplicate check is case-insensitive to match the login lookup;
+  // escape ilike wildcards so codes containing % or _ compare literally.
+  const escapedCode = employeeCode.replace(/[\\%_]/g, (m) => `\\${m}`);
   const { data: existing, error: dupError } = await supabase
     .from("employees")
     .select("id")
-    .eq("employee_code", employeeCode)
+    .ilike("employee_code", escapedCode)
+    .limit(1)
     .maybeSingle();
   if (dupError) {
     console.error("Duplicate check failed:", dupError);
