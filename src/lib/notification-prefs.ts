@@ -39,7 +39,9 @@ export function setNotificationPrefs(employeeId: string, prefs: NotificationPref
     const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     all[employeeId] = prefs;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-  } catch {}
+  } catch {
+    // localStorage unavailable — ignore
+  }
 }
 
 export function shouldNotify(employeeId: string, type: NotificationType): boolean {

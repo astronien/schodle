@@ -1,7 +1,7 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { clearSessionToken, getSessionToken, setSessionToken } from '../lib/session';
+import { invokeEdgeFunction } from '../lib/edge-functions';
 import type { Employee } from '../types';
 
 const AUTH_KEY = 'schodle_auth_employee_id';
@@ -18,23 +18,11 @@ interface SessionPayload {
 }
 
 async function callVerifyPassword(employeeCode: string, password: string): Promise<SessionPayload> {
-  const { data, error } = await supabase.functions.invoke<SessionPayload>('verify-password', {
-    body: { employee_code: employeeCode, password },
-  });
-  if (error) {
-    // On non-2xx responses `data` is null; the server's message is in the
-    // Response object attached to FunctionsHttpError as `context`.
-    let serverMsg: string | null = null;
-    const ctx = (error as { context?: Response }).context;
-    if (ctx && typeof ctx.json === 'function') {
-      try {
-        const parsed = (await ctx.json()) as { error?: string };
-        serverMsg = parsed?.error ?? null;
-      } catch { /* ignore */ }
-    }
-    const message = serverMsg ?? (data as { error?: string } | null)?.error ?? error.message;
-    throw new Error(message);
-  }
+  const data = await invokeEdgeFunction<SessionPayload & { error?: string }>(
+    'verify-password',
+    { employee_code: employeeCode, password },
+    { requireAuth: false },
+  );
   if (!data) {
     throw new Error('ไม่ได้รับข้อมูลจากเซิร์ฟเวอร์');
   }
@@ -111,7 +99,9 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    void restoreSession();
+    // Deferred to a microtask so restoreSession's synchronous setState calls
+    // don't run inside the effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => { void restoreSession(); });
   }, [restoreSession]);
 
   const login = useCallback(async (employeeCode: string, password: string) => {

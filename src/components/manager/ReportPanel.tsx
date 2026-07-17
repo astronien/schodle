@@ -41,7 +41,9 @@ export function ReportPanel({
           }
           setConfirmations(map);
         }
-      } catch {}
+      } catch {
+        // Non-critical: confirmations column just stays empty
+      }
     })();
     return () => { cancelled = true; };
   }, [monthKey]);

@@ -1,13 +1,11 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 
-import { Clock, Calendar, Briefcase, ChevronRight, XCircle } from 'lucide-react';
-import { format, eachDayOfInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import type { UserRole, Employee } from './types/index';
-
 
 import { useData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
+import { useSmartSchedule } from './hooks/useSmartSchedule';
+import { useWeeklyOffDay } from './hooks/useWeeklyOffDay';
 import { Header } from './components/layout/Header';
 import { MobileNav } from './components/layout/MobileNav';
 import { LoginPage } from './components/auth/LoginPage';
@@ -15,14 +13,13 @@ import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
 import { OfflineBanner } from './components/OfflineBanner';
+import { FullScreenLoader, FullScreenError } from './components/FullScreenStatus';
+import { MyRequestsTab } from './components/employee/MyRequestsTab';
+import { EmployeeSettingsTab } from './components/employee/EmployeeSettingsTab';
 import { ToastProvider, useToast } from './lib/toast';
 import { ThemeProvider } from './lib/theme';
-import { th } from 'date-fns/locale';
-import { cn } from './lib/utils';
-import { generateSmartSchedule as runSmartSchedule } from './lib/schedule-generator';
-import { WeeklyOffDayEditor, WEEKLY_OFF_DAYS } from './components/manager/Modals/WeeklyOffDayEditor';
+import { WeeklyOffDayEditor } from './components/manager/Modals/WeeklyOffDayEditor';
 import { ConfirmModal } from './components/ConfirmModal';
-import { getEmployeeMonthlyStats } from './lib/schedule-utils';
 import { SW_UPDATE_INTERVAL_MS, AUTH_EXPIRED_EVENT } from './config/constants';
 import { useRealtime } from './hooks/useRealtime';
 
@@ -72,8 +69,8 @@ function AppShell() {
       localStorage.removeItem('schodle_session_token');
       logout();
     };
-      window.addEventListener(AUTH_EXPIRED_EVENT, handler);
-      return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
+    window.addEventListener(AUTH_EXPIRED_EVENT, handler);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
   }, [logout]);
 
   const [role, setRole] = useState<UserRole>('employee');
@@ -130,6 +127,24 @@ function AppShell() {
     role: currentEmployee?.role || '',
   });
 
+  const { generateSmartSchedule } = useSmartSchedule({
+    employees,
+    shiftTypes,
+    positionGroups,
+    schedules,
+    currentMonth,
+    createSchedulesBulk,
+    refresh,
+  });
+
+  const { applyWeeklyOffDay } = useWeeklyOffDay({
+    schedules,
+    shiftTypes,
+    currentMonth,
+    updateEmployee,
+    updateSchedule,
+  });
+
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       const interval = setInterval(() => {
@@ -141,113 +156,18 @@ function AppShell() {
     }
   }, []);
 
-  useEffect(() => {
-    if (effectiveRole === 'manager' && activeMobileTab !== 'schedule') {
-      setActiveMobileTab('schedule');
-    }
-  }, [effectiveRole, activeMobileTab]);
-
-  const generateSmartSchedule = async () => {
-    if (employees.length === 0) {
-      toast.warning('ไม่มีพนักงาน', 'กรุณาเพิ่มพนักงานก่อนรัน AI');
-      return;
-    }
-    const xShift = shiftTypes.find((t) => t.code === 'X');
-    if (!xShift) {
-      toast.error('ไม่พบประเภทกะ X', 'กรุณาสร้างกะ X (กะหยุด) ก่อนรัน AI');
-      return;
-    }
-    const targetShifts = shiftTypes.filter((t) => (t.targetStaff || 0) > 0);
-    if (targetShifts.length === 0) {
-      toast.warning(
-        'ไม่มีกะที่ตั้งเป้าไว้',
-        'ไปที่ "ตั้งค่า → ประเภทกะ" แล้วตั้งค่า target_staff (> 0) ให้กะที่ต้องการจัด'
-      );
-      return;
-    }
-
-    const { entries, warnings } = runSmartSchedule({
-      month: currentMonth,
-      employees,
-      shiftTypes,
-      positionGroups,
-      existingEntries: schedules,
-      prevMonthSchedules: schedules.filter(
-        (s) =>
-          s.date.startsWith(format(subMonths(currentMonth, 1), 'yyyy-MM')) &&
-          s.status === 'approved' &&
-          s.createdBy === 'system',
-      ),
-    });
-
-    if (entries.length === 0) {
-      console.warn('[generateSmartSchedule] no entries — shiftTypes:', shiftTypes);
-      toast.error(
-        'ไม่สามารถจัดตารางได้',
-        'ตรวจสอบว่าพนักงานมี position_id และไม่ขัดกับกะดึก-เช้า'
-      );
-      return;
-    }
-
-    let failed = 0;
-    try {
-      const result = await createSchedulesBulk(entries);
-      failed = result.failed;
-    } catch (err) {
-      console.error('[generateSmartSchedule] bulk insert failed:', err);
-      failed = entries.length;
-    }
-    await refresh();
-    if (warnings.length > 0) {
-      console.warn('[generateSmartSchedule] warnings:', warnings);
-    }
-    if (failed > 0) {
-      toast.warning(
-        `จัดตารางสำเร็จ ${entries.length - failed} รายการ`,
-        `มี ${failed} รายการล้มเหลว (ดู Console)`
-      );
-    } else {
-      toast.success(
-        `จัดตารางอัตโนมัติสำเร็จ ${entries.length} รายการ`,
-        'ระบบได้ตรวจสอบเงื่อนไขกะดึก-เช้าเรียบร้อยแล้ว'
-      );
-    }
+  const handleToggleRole = () => {
+    const nextRole = effectiveRole === 'employee' ? 'manager' : 'employee';
+    // Manager view only has the schedule tab, so reset the mobile tab.
+    if (nextRole === 'manager') setActiveMobileTab('schedule');
+    setRole(nextRole);
   };
 
   const handleSaveWeeklyOffDay = useCallback(async () => {
     if (!currentEmployee) return;
     setIsSavingWeeklyOffDay(true);
     try {
-      await updateEmployee({
-        ...currentEmployee,
-        weeklyOffDay: typeof selectedWeeklyOffDay === 'number' ? selectedWeeklyOffDay : undefined,
-      });
-      if (typeof selectedWeeklyOffDay === 'number') {
-        const xShift = shiftTypes.find((t) => t.code === 'X');
-        if (xShift) {
-          const daysInMonth = eachDayOfInterval({
-            start: startOfMonth(currentMonth),
-            end: endOfMonth(currentMonth),
-          });
-          const offDates = daysInMonth
-            .filter((d) => d.getDay() === selectedWeeklyOffDay)
-            .map((d) => format(d, 'yyyy-MM-dd'));
-          for (const date of offDates) {
-            const existing = schedules.find((s) => s.employeeId === currentEmployee.id && s.date === date);
-            if (existing) {
-              if (existing.shiftTypeId !== xShift.id) {
-                await updateSchedule({ ...existing, shiftTypeId: xShift.id, status: 'approved', createdBy: 'employee' });
-              }
-            } else {
-              await updateSchedule({
-                id: crypto.randomUUID(), employeeId: currentEmployee.id, date,
-                shiftTypeId: xShift.id, status: 'approved',
-                requestType: 'shift_change', createdBy: 'employee',
-              });
-            }
-          }
-        }
-      }
+      await applyWeeklyOffDay(currentEmployee, selectedWeeklyOffDay, 'employee');
       setEditingWeeklyOffDay(false);
       toast.success('ตั้งวันหยุดประจำสัปดาห์เรียบร้อย');
     } catch (err: unknown) {
@@ -255,17 +175,10 @@ function AppShell() {
     } finally {
       setIsSavingWeeklyOffDay(false);
     }
-  }, [currentEmployee, selectedWeeklyOffDay, updateEmployee, updateSchedule, shiftTypes, currentMonth, schedules]);
+  }, [currentEmployee, selectedWeeklyOffDay, applyWeeklyOffDay, toast]);
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-text-tertiary">กำลังโหลด...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader message="กำลังโหลด..." />;
   }
 
   if (!isLoggedIn) {
@@ -281,38 +194,20 @@ function AppShell() {
   } as Employee);
 
   if (loading && employees.length === 0) {
-    return (
-      <div
-        className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans"
-        role="status"
-        aria-busy="true"
-        aria-live="polite"
-      >
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-text-tertiary">กำลังโหลดข้อมูล...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader message="กำลังโหลดข้อมูล..." />;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen w-full bg-bg-primary flex items-center justify-center text-text-secondary font-sans">
-        <div className="text-center space-y-3">
-          <p className="text-danger font-medium">โหลดข้อมูลไม่สำเร็จ</p>
-          <p className="text-sm text-text-tertiary">{error}</p>
-          <button
-            onClick={() => {
-              refresh();
-              toast.info('กำลังรีเฟรชข้อมูล...');
-            }}
-            className="btn btn-primary text-sm"
-          >
-            ลองใหม่
-          </button>
-        </div>
-      </div>
+      <FullScreenError
+        title="โหลดข้อมูลไม่สำเร็จ"
+        detail={error}
+        retryLabel="ลองใหม่"
+        onRetry={() => {
+          refresh();
+          toast.info('กำลังรีเฟรชข้อมูล...');
+        }}
+      />
     );
   }
 
@@ -322,7 +217,7 @@ function AppShell() {
         currentUser={currentUser}
         role={effectiveRole}
         isManager={isManager}
-        onToggleRole={() => setRole(effectiveRole === 'employee' ? 'manager' : 'employee')}
+        onToggleRole={handleToggleRole}
         onLogout={logout}
         appName={settings.appName}
       />
@@ -353,262 +248,26 @@ function AppShell() {
                   </>
                 )}
                 {activeMobileTab === 'requests' && (
-                  <div className="space-y-4 pb-24">
-                    <div className="px-4 pt-2">
-                      <h2 className="text-xl font-bold text-text-primary">ระบบขอลา</h2>
-                      <p className="text-xs text-text-tertiary">ติดตามสถานะคำขอลาและวันหยุดของคุณ</p>
-                    </div>
-
-                    {(() => {
-                      const myRequests = schedules
-                        .filter(
-                          (s) =>
-                            s.employeeId === currentUser?.id &&
-                            s.createdBy === 'employee' &&
-                            (s.status === 'approved' || s.status === 'pending' || s.status === 'rejected'),
-                        )
-                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-                      if (myRequests.length === 0) {
-                        return (
-                          <div className="card p-10 text-center mx-4">
-                            <div className="w-16 h-16 bg-bg-surface rounded-full flex items-center justify-center mx-auto mb-4 text-text-quaternary">
-                              <Clock className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-lg font-medium text-text-primary mb-1">ยังไม่มีรายการ</h3>
-                            <p className="text-sm text-text-tertiary">คุณยังไม่ได้ส่งคำขอลาหรือวันหยุดในขณะนี้</p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="space-y-3 px-4">
-                          {myRequests.map((s) => {
-                            const sType = shiftTypes.find((t) => t.id === s.shiftTypeId);
-                            const isApproved = s.status === 'approved';
-
-                            return (
-                              <div
-                                key={s.id}
-                                className={cn(
-                                  'p-4 rounded-2xl border transition-all duration-200 animate-fade-in',
-                                  isApproved
-                                    ? 'bg-success/10 border-success/30'
-                                    : 'bg-warn/10 border-warn/30',
-                                )}
-                              >
-                                <div className="flex justify-between items-start mb-3">
-                                  <div className="flex items-center gap-3">
-                                    <div
-                                      className={cn(
-                                        'w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm',
-                                        isApproved ? 'bg-success' : s.status === 'rejected' ? 'bg-danger' : 'bg-warn',
-                                      )}
-                                    >
-                                      {sType?.code || '??'}
-                                    </div>
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-text-primary">{sType?.name || 'ไม่ทราบประเภท'}</span>
-                                        {s.requestType === 'late_scan' && (
-                                          <span className="text-[10px] font-bold text-danger bg-danger/10 px-2 py-0.5 rounded-full">
-                                            มาสาย/ลืมแสกน
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="text-[10px] text-text-tertiary font-medium">
-                                        {format(new Date(s.date), 'eeee d MMMM yyyy', { locale: th })}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div
-                                    className={cn(
-                                      'text-[10px] font-bold px-2 py-1 rounded-lg',
-                                      isApproved ? 'bg-success/20 text-success' : s.status === 'rejected' ? 'bg-danger/20 text-danger' : 'bg-warn/20 text-warn',
-                                    )}
-                                  >
-                                    {isApproved ? 'อนุมัติแล้ว' : s.status === 'rejected' ? 'ปฏิเสธ' : 'รออนุมัติ'}
-                                  </div>
-                                </div>
-
-                                {s.status === 'pending' && (
-                                  <button
-                                    onClick={() => setCancelRequestId(s.id)}
-                                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-danger/30 text-danger text-xs font-bold hover:bg-danger/5 transition-colors"
-                                  >
-                                    <XCircle className="w-3.5 h-3.5" />
-                                    ยกเลิกคำขอ
-                                  </button>
-                                )}
-
-                                {(s.employeeNote || s.managerRemark) && (
-                                  <div className="space-y-2 mt-3 pt-3 border-t border-border-solid">
-                                    {s.employeeNote && (
-                                      <div className="flex gap-2">
-                                        <div className="text-[10px] font-bold text-text-quaternary uppercase shrink-0">คำขอ:</div>
-                                        <div className="text-xs text-text-secondary italic">&ldquo;{s.employeeNote}&rdquo;</div>
-                                      </div>
-                                    )}
-                                    {s.managerRemark && (
-                                      <div className="flex gap-2">
-                                        <div className="text-[10px] font-bold text-text-quaternary uppercase shrink-0">เหตุผล:</div>
-                                        <div className="text-xs text-text-primary font-medium">{s.managerRemark}</div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  <MyRequestsTab
+                    currentUserId={currentUser.id}
+                    schedules={schedules}
+                    shiftTypes={shiftTypes}
+                    onCancelRequest={setCancelRequestId}
+                  />
                 )}
-                {activeMobileTab === 'settings' && (() => {
-                  const stats = getEmployeeMonthlyStats(
-                    currentUser?.id || '',
-                    schedules.filter((s) => {
-                      const d = new Date(s.date);
-                      return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
-                    }),
-                    shiftTypes,
-                  );
-                  const weeklyOffLabel = typeof currentUser?.weeklyOffDay === 'number'
-                    ? WEEKLY_OFF_DAYS.find((d) => d.value === currentUser.weeklyOffDay)?.label || 'ไม่ระบุ'
-                    : 'ยังไม่ได้ตั้ง';
-                  const totalLeaveDays = Object.values(stats.counts).reduce((a, b) => a + b, 0);
-                  const position = positions.find((p) => p.id === currentUser?.positionId);
-                  const leaveTypesWithQuota = shiftTypes.filter((t) => t.isLeave && t.annualQuota && t.annualQuota > 0);
-                  const currentYear = currentMonth.getFullYear();
-                  const yearLeaveApproved = schedules.filter(
-                    (s) =>
-                      s.employeeId === currentUser?.id &&
-                      s.status === 'approved' &&
-                      new Date(s.date).getFullYear() === currentYear &&
-                      shiftTypes.find((t) => t.id === s.shiftTypeId)?.isLeave
-                  );
-                  const usedLeaveByType = new Map<string, number>();
-                  yearLeaveApproved.forEach((s) => {
-                    usedLeaveByType.set(s.shiftTypeId, (usedLeaveByType.get(s.shiftTypeId) || 0) + 1);
-                  });
-
-                  return (
-                    <div className="space-y-4 pb-24">
-                      {/* Profile */}
-                      <div className="card p-5 rounded-2xl">
-                        <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 rounded-full bg-brand/15 flex items-center justify-center text-brand font-bold text-lg">
-                            {currentUser?.fullName?.charAt(0) || '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-base font-bold text-text-primary truncate">{currentUser?.fullName}</p>
-                            <p className="text-xs text-text-tertiary">{currentUser?.employeeCode} · {position?.name || ''}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Weekly Off Day */}
-                      <div className="card p-5 rounded-2xl">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-brand" />
-                            <h3 className="text-sm font-bold text-text-primary">วันหยุดประจำสัปดาห์</h3>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setSelectedWeeklyOffDay(typeof currentUser?.weeklyOffDay === 'number' ? currentUser.weeklyOffDay : null);
-                              setEditingWeeklyOffDay(true);
-                            }}
-                            className="text-xs font-semibold text-brand hover:text-brand-hover transition-colors flex items-center gap-1"
-                          >
-                            แก้ไข <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <div className={cn(
-                          'p-3 rounded-xl border',
-                          typeof currentUser?.weeklyOffDay === 'number'
-                            ? 'bg-success/10 border-success/20'
-                            : 'bg-bg-surface border-border-solid',
-                        )}>
-                          <p className={cn(
-                            'text-sm font-bold',
-                            typeof currentUser?.weeklyOffDay === 'number' ? 'text-success' : 'text-text-tertiary',
-                          )}>
-                            {typeof currentUser?.weeklyOffDay === 'number'
-                              ? 'หยุดทุกวัน' + weeklyOffLabel
-                              : 'ยังไม่ได้ตั้งวันหยุด'}
-                          </p>
-                          <p className="text-[10px] text-text-quaternary mt-1">กะงาน X จะถูกจัดให้อัตโนมัติทุกสัปดาห์</p>
-                        </div>
-                      </div>
-
-                      {/* Leave Stats */}
-                      <div className="card p-5 rounded-2xl">
-                        <div className="flex items-center gap-2 mb-4">
-                          <Briefcase className="w-4 h-4 text-brand" />
-                          <h3 className="text-sm font-bold text-text-primary">
-                            สรุปวันลา เดือน{format(currentMonth, 'MMMM', { locale: th })}
-                          </h3>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                          <div className="p-3 bg-bg-surface rounded-xl text-center">
-                            <p className="text-xl font-bold text-text-primary">{totalLeaveDays}</p>
-                            <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">ลาทั้งหมด</p>
-                          </div>
-                          {shiftTypes.filter((t) => t.isLeave).slice(0, 4).map((t) => {
-                            const count = stats.counts[t.code] || 0;
-                            return (
-                              <div key={t.id} className="p-3 bg-bg-surface rounded-xl text-center">
-                                <p className="text-xl font-bold" style={{ color: t.color || 'var(--color-text-primary)' }}>{count}</p>
-                                <p className="text-[10px] text-text-tertiary font-semibold mt-0.5">{t.name}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {totalLeaveDays === 0 && (
-                          <p className="text-[10px] text-text-quaternary text-center mb-4">เดือนนี้ยังไม่มีวันลา</p>
-                        )}
-
-                        {/* Annual leave balance */}
-                        {leaveTypesWithQuota.length > 0 && (
-                          <div className="border-t border-border-solid pt-4">
-                            <h4 className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-3">
-                              คงเหลือปี {currentYear}
-                            </h4>
-                            <div className="space-y-2.5">
-                              {leaveTypesWithQuota.map((t) => {
-                                const used = usedLeaveByType.get(t.id) || 0;
-                                const quota = t.annualQuota || 0;
-                                const remaining = Math.max(quota - used, 0);
-                                const pct = quota > 0 ? (used / quota) * 100 : 0;
-                                return (
-                                  <div key={t.id}>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-xs font-bold text-text-primary">{t.name}</span>
-                                      <span className="text-[10px] text-text-tertiary">
-                                        {remaining} / {quota} วัน
-                                      </span>
-                                    </div>
-                                    <div className="w-full h-2 bg-bg-elevated rounded-full overflow-hidden">
-                                      <div
-                                        className={cn(
-                                          'h-full rounded-full transition-all',
-                                          pct >= 80 ? 'bg-danger' : pct >= 50 ? 'bg-warn' : 'bg-success',
-                                        )}
-                                        style={{ width: `${Math.min(pct, 100)}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
+                {activeMobileTab === 'settings' && (
+                  <EmployeeSettingsTab
+                    currentUser={currentUser}
+                    schedules={schedules}
+                    shiftTypes={shiftTypes}
+                    positions={positions}
+                    currentMonth={currentMonth}
+                    onEditWeeklyOffDay={() => {
+                      setSelectedWeeklyOffDay(typeof currentUser?.weeklyOffDay === 'number' ? currentUser.weeklyOffDay : null);
+                      setEditingWeeklyOffDay(true);
+                    }}
+                  />
+                )}
               </>
             ) : isManager ? (
               <ManagerDashboard

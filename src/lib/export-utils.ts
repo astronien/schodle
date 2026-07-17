@@ -86,7 +86,7 @@ export function printSchedule(
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-  let tableRows = employees
+  const tableRows = employees
     .map((emp) => {
       const dayCells = days
         .map((d) => {

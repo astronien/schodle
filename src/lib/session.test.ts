@@ -6,28 +6,70 @@ import {
   setSessionToken,
 } from './session';
 
-function withThrowingSessionStorage<T>(fn: () => T): T {
-  const original = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
-  Object.defineProperty(window, 'sessionStorage', {
-    configurable: true,
-    get: () => {
-      throw new Error('SecurityError');
-    },
-  });
+const originalGetItem = Storage.prototype.getItem;
+const originalSetItem = Storage.prototype.setItem;
+const originalRemoveItem = Storage.prototype.removeItem;
+
+function withThrowingStorage<T>(fn: () => T): T {
+  Storage.prototype.getItem = () => {
+    throw new Error('SecurityError');
+  };
+  Storage.prototype.setItem = () => {
+    throw new Error('SecurityError');
+  };
+  Storage.prototype.removeItem = () => {
+    throw new Error('SecurityError');
+  };
   try {
     return fn();
   } finally {
-    if (original) Object.defineProperty(window, 'sessionStorage', original);
+    Storage.prototype.getItem = originalGetItem;
+    Storage.prototype.setItem = originalSetItem;
+    Storage.prototype.removeItem = originalRemoveItem;
+  }
+}
+
+function setInStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    sessionStorage.setItem(key, value);
+  }
+}
+
+function getFromStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return sessionStorage.getItem(key);
   }
 }
 
 describe('session token helpers', () => {
   beforeEach(() => {
-    sessionStorage.clear();
+    try {
+      localStorage.clear();
+    } catch {
+      // ignore
+    }
+    try {
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
   });
 
   afterEach(() => {
-    sessionStorage.clear();
+    try {
+      localStorage.clear();
+    } catch {
+      // ignore
+    }
+    try {
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
   });
 
   describe('getSessionToken', () => {
@@ -36,38 +78,39 @@ describe('session token helpers', () => {
     });
 
     it('returns the stored token', () => {
-      sessionStorage.setItem(SESSION_TOKEN_KEY, 'eyJhbGc.foo.bar');
+      setInStorage(SESSION_TOKEN_KEY, 'eyJhbGc.foo.bar');
       expect(getSessionToken()).toBe('eyJhbGc.foo.bar');
     });
 
-    it('returns null when sessionStorage throws', () => {
-      expect(withThrowingSessionStorage(() => getSessionToken())).toBeNull();
+    it('returns null when storage throws', () => {
+      expect(withThrowingStorage(() => getSessionToken())).toBeNull();
     });
   });
 
   describe('setSessionToken', () => {
     it('stores the token', () => {
       setSessionToken('token-abc');
-      expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe('token-abc');
+      expect(getFromStorage(SESSION_TOKEN_KEY)).toBe('token-abc');
     });
 
-    it('does not throw when sessionStorage is unavailable', () => {
+    it('does not throw when storage is unavailable', () => {
       expect(() =>
-        withThrowingSessionStorage(() => setSessionToken('token-abc')),
+        withThrowingStorage(() => setSessionToken('token-abc')),
       ).not.toThrow();
     });
   });
 
   describe('clearSessionToken', () => {
     it('removes the token', () => {
-      sessionStorage.setItem(SESSION_TOKEN_KEY, 'old');
+      setInStorage(SESSION_TOKEN_KEY, 'old');
       clearSessionToken();
-      expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
+      expect(getFromStorage(SESSION_TOKEN_KEY)).toBeNull();
     });
 
-    it('does not throw when sessionStorage is unavailable', () => {
-      sessionStorage.setItem(SESSION_TOKEN_KEY, 'old');
-      expect(() => withThrowingSessionStorage(() => clearSessionToken())).not.toThrow();
+    it('does not throw when storage is unavailable', () => {
+      setInStorage(SESSION_TOKEN_KEY, 'old');
+      expect(() => withThrowingStorage(() => clearSessionToken())).not.toThrow();
     });
   });
 });
+

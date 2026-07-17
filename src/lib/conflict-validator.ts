@@ -149,8 +149,6 @@ function checkStaffingConflicts(
     }
 
     // Check morning/afternoon imbalance
-    let morningCount = 0;
-    let afternoonCount = 0;
     const morningSet = new Set<string>();
     const afternoonSet = new Set<string>();
     for (const s of daily) {
@@ -158,8 +156,8 @@ function checkStaffingConflicts(
       if (cat === 'morning') morningSet.add(s.employeeId);
       else if (cat === 'afternoon') afternoonSet.add(s.employeeId);
     }
-    morningCount = morningSet.size;
-    afternoonCount = afternoonSet.size;
+    const morningCount = morningSet.size;
+    const afternoonCount = afternoonSet.size;
     if (Math.abs(morningCount - afternoonCount) > 1) {
       conflicts.push({
         type: 'imbalance',

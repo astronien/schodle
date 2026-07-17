@@ -66,6 +66,9 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
 /**
  * Fallback: execute query directly using the Supabase client (user's JWT, RLS applies).
  */
+/* eslint-disable @typescript-eslint/no-explicit-any --
+   Supabase's query-builder generics change type on every chained call;
+   typing them here adds noise without real safety. */
 async function fallbackQuery<T>(options: QueryOptions): Promise<{ data: T | null; error: Error | null }> {
   const { table, operation, data, filter, select, order } = options;
 

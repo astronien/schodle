@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useToast } from '../../../lib/toast';
-import { useTheme } from '../../../lib/theme';
+import { useTheme } from '../../../lib/theme-context';
 import { AdminPageHeader } from '../AdminSidebar';
 import { ConfirmModal } from '../../ConfirmModal';
 import {
@@ -61,10 +61,14 @@ export function SettingsTab({
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
-  // Sync local state when parent settings change (e.g., after fetchAll)
-  useEffect(() => {
+  // Sync local state when parent settings change (e.g., after fetchAll).
+  // Done during render with a prev-value check instead of an effect —
+  // https://react.dev/learn/you-might-not-need-an-effect
+  const [prevSettings, setPrevSettings] = useState(settings);
+  if (settings !== prevSettings) {
+    setPrevSettings(settings);
     if (!isDirty) setLocal(settings);
-  }, [settings, isDirty]);
+  }
 
   const update = (patch: Partial<AppSettings>) => {
     setLocal((prev) => ({ ...prev, ...patch }));
@@ -100,8 +104,9 @@ export function SettingsTab({
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refreshDiagnostic();
+    // Deferred to a microtask so setState isn't called synchronously in the
+    // effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => { void refreshDiagnostic(); });
   }, [refreshDiagnostic]);
 
   const handleTestPush = async () => {

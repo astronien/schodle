@@ -35,5 +35,7 @@ export function clearAllCaches() {
   try {
     const keys = Object.keys(localStorage).filter((k) => k.startsWith(CACHE_PREFIX));
     keys.forEach((k) => localStorage.removeItem(k));
-  } catch {}
+  } catch {
+    // localStorage unavailable — ignore
+  }
 }

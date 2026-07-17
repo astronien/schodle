@@ -4,7 +4,7 @@ import { subscribeToNotifications } from '../../lib/push';
 import { useState } from 'react';
 import { useToast } from '../../lib/toast';
 import { cn } from '../../lib/utils';
-import { useTheme } from '../../lib/theme';
+import { useTheme } from '../../lib/theme-context';
 import {
   getNotificationPrefs,
   setNotificationPrefs,

@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+# Schodle — Shift Scheduler
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+เว็บแอปจัดตารางกะพนักงานสำหรับหน้าร้าน (PWA) — พนักงานดูตาราง/ขอลา/สลับกะจากมือถือ ผู้จัดการจัดตาราง อนุมัติคำขอ และดูรายงานได้จากหน้าเดียว
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS 4 (PWA ผ่าน `vite-plugin-pwa`)
+- **Backend:** Supabase (Postgres + RLS, Edge Functions, Realtime, Storage)
+- **Auth:** ระบบล็อกอินด้วยรหัสพนักงาน + รหัสผ่าน (bcrypt ใน Edge Function, session เป็น HMAC-signed JWT)
+- **ทดสอบ:** Vitest (unit) + Playwright (e2e)
 
-## React Compiler
+## ฟีเจอร์หลัก
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- ตารางกะรายเดือนแบบ realtime (Supabase Realtime + polling fallback)
+- พนักงาน: ดูตาราง, ขอลา/สลับกะพร้อมแนบหลักฐาน, ตั้งวันหยุดประจำสัปดาห์, ยืนยันรับทราบตาราง
+- ผู้จัดการ: จัดกะแบบ drag & drop, อนุมัติ/ปฏิเสธคำขอ, จัดตารางอัตโนมัติ (smart schedule), ตารางซ้ำรายสัปดาห์, template, รายงาน + export PDF/ปฏิทิน
+- Push notification (Web Push + VAPID)
+- ใช้งาน offline ได้บางส่วน (service worker + local cache)
 
-## Expanding the ESLint configuration
+## เริ่มต้นพัฒนา
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cp .env.example .env   # ใส่ค่า VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_VAPID_PUBLIC_KEY
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+คำสั่งที่ใช้บ่อย:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| คำสั่ง | ทำอะไร |
+|---|---|
+| `npm run dev` | dev server |
+| `npm run verify` | typecheck + lint + build + unit tests (รันก่อน commit) |
+| `npm test` | unit tests (Vitest) |
+| `npm run e2e` | e2e tests (Playwright) |
+| `npm run deploy:functions` | deploy Supabase Edge Functions |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## โครงสร้างโค้ด
+
 ```
+src/
+├── components/
+│   ├── auth/        # login, เปลี่ยนรหัสผ่าน
+│   ├── employee/    # dashboard พนักงาน, ปฏิทิน, ขอลา, ตั้งค่า
+│   ├── manager/     # dashboard ผู้จัดการ, coverage grid, อนุมัติคำขอ, admin tabs
+│   │   └── hooks/   # handlers ของ manager dashboard
+│   └── layout/      # header, mobile nav, update prompt
+├── hooks/
+│   ├── useData.ts   # facade รวม data hooks ทั้งหมด (ดู hooks/data/)
+│   ├── data/        # useCoreData, mutations แยกตาม domain, realtime, push
+│   ├── useAuth.ts   # session + login/logout
+│   └── ...
+├── lib/             # utilities: dates, validators, schedule generator, exports ฯลฯ
+└── types/           # TypeScript types
+
+supabase/
+├── functions/       # Edge Functions (verify-password, db-query, send-push ฯลฯ)
+└── migrations/      # SQL migrations — ดู supabase/migrations/README.md
+```
+
+## เอกสารเพิ่มเติม
+
+- [DEPLOY.md](DEPLOY.md) — ขั้นตอน deploy
+- [RLS_MIGRATION_GUIDE.md](RLS_MIGRATION_GUIDE.md) — คู่มือ migration RLS (016a/016b)
+- [supabase/migrations/README.md](supabase/migrations/README.md) — ลำดับและหมายเหตุของ migrations

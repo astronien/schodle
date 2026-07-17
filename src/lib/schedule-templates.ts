@@ -13,7 +13,14 @@ export type ScheduleTemplate = {
   createdAt: string;
 };
 
-function mapRow(row: any): ScheduleTemplate {
+type TemplateRow = {
+  id: string;
+  name: string;
+  patterns: ShiftPattern[] | null;
+  created_at: string;
+};
+
+function mapRow(row: TemplateRow): ScheduleTemplate {
   return {
     id: row.id,
     name: row.name,
@@ -23,7 +30,7 @@ function mapRow(row: any): ScheduleTemplate {
 }
 
 export async function loadTemplates(): Promise<ScheduleTemplate[]> {
-  const { data, error } = await dbSelect<any>('schedule_templates', undefined, '*', { column: 'created_at', ascending: false });
+  const { data, error } = await dbSelect<TemplateRow>('schedule_templates', undefined, '*', { column: 'created_at', ascending: false });
   if (error) {
     console.warn('[schedule-templates] DB load failed, falling back to empty:', error.message);
     return [];
@@ -60,7 +67,7 @@ export async function createTemplateFromSchedules(
     patterns.push({ employeeId, shiftsByDay });
   });
 
-  const { data, error } = await dbInsert<any>('schedule_templates', {
+  const { data, error } = await dbInsert<TemplateRow>('schedule_templates', {
     name,
     patterns,
   });

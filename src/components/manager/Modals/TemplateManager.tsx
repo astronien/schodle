@@ -40,11 +40,16 @@ export function TemplateManager({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoading(true);
-    loadTemplatesAsync()
-      .then((data) => { if (!cancelled) setTemplates(data); })
-      .catch(() => { if (!cancelled) setTemplates([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    // Deferred to a microtask so setState isn't called synchronously in the
+    // effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      loadTemplatesAsync()
+        .then((data) => { if (!cancelled) setTemplates(data); })
+        .catch(() => { if (!cancelled) setTemplates([]); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    });
     return () => { cancelled = true; };
   }, [open]);
 

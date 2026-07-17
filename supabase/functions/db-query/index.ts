@@ -120,6 +120,7 @@ serve(async (req) => {
     let query;
 
     // Helper function to apply filters
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query-builder generics
     const applyFilters = (q: any, filter?: Record<string, unknown | FilterCondition>) => {
       if (!filter) return q;
       

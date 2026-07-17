@@ -16,6 +16,18 @@ type AuditEntry = {
   created_at: string;
 };
 
+type AuditLogRow = {
+  id: string;
+  employee_id: string;
+  action: string;
+  table_name: string;
+  record_id: string | null;
+  old_data: Record<string, unknown> | null;
+  new_data: Record<string, unknown> | null;
+  created_at: string;
+  employees: { full_name: string | null } | null;
+};
+
 const ACTION_LABELS: Record<string, string> = {
   create: 'สร้าง',
   update: 'แก้ไข',
@@ -76,7 +88,7 @@ export function AuditTab() {
 
       if (fetchErr) throw fetchErr;
 
-      setLogs((data || []).map((row: any) => ({
+      setLogs(((data || []) as unknown as AuditLogRow[]).map((row) => ({
         id: row.id,
         employee_id: row.employee_id,
         employee_name: row.employees?.full_name || null,
@@ -96,7 +108,9 @@ export function AuditTab() {
   }, [tableFilter, actionFilter]);
 
   useEffect(() => {
-    void fetchLogs();
+    // Deferred to a microtask so fetchLogs' synchronous setState calls don't
+    // run inside the effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => { void fetchLogs(); });
   }, [fetchLogs]);
 
   return (

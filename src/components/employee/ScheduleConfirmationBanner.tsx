@@ -20,8 +20,12 @@ export function ScheduleConfirmationBanner({ employeeId, currentMonth }: Props) 
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    (async () => {
+    // Deferred to a microtask so setState isn't called synchronously in the
+    // effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      void (async () => {
       try {
         const { data, error } = await supabase.rpc('get_my_confirmation', {
           p_month_key: monthKey,
@@ -39,7 +43,8 @@ export function ScheduleConfirmationBanner({ employeeId, currentMonth }: Props) 
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+      })();
+    });
     return () => { cancelled = true; };
   }, [employeeId, monthKey]);
 

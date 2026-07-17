@@ -1,8 +1,6 @@
-/* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { getSessionToken } from '../../lib/session';
+import { invokeEdgeFunction } from '../../lib/edge-functions';
 import { cn } from '../../lib/utils';
 
 interface ChangePasswordModalProps {
@@ -12,25 +10,20 @@ interface ChangePasswordModalProps {
   onSuccess: () => void;
 }
 
-export function ChangePasswordModal({ open, force, onClose, onSuccess }: ChangePasswordModalProps) {
+// The form unmounts whenever the modal closes, so its state resets naturally
+// on reopen — no reset-on-close effect needed.
+export function ChangePasswordModal({ open, ...formProps }: ChangePasswordModalProps) {
+  if (!open) return null;
+  return <ChangePasswordForm {...formProps} />;
+}
+
+function ChangePasswordForm({ force, onClose, onSuccess }: Omit<ChangePasswordModalProps, 'open'>) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setError(null);
-      setSuccess(false);
-    }
-  }, [open]);
-
-  if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,32 +42,12 @@ export function ChangePasswordModal({ open, force, onClose, onSuccess }: ChangeP
       return;
     }
 
-    const token = getSessionToken();
-    if (!token) {
-      setError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke<{ success: boolean; error?: string }>(
-        'change-password',
-        {
-          body: {
-            new_password: newPassword,
-            current_password: force ? undefined : currentPassword,
-          },
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      if (fnError) {
-        throw new Error((data as { error?: string } | null)?.error ?? fnError.message);
-      }
-      if (data && data.error) {
-        throw new Error(data.error);
-      }
+      await invokeEdgeFunction<{ success?: boolean; error?: string }>('change-password', {
+        new_password: newPassword,
+        current_password: force ? undefined : currentPassword,
+      });
       setSuccess(true);
       setTimeout(() => onSuccess(), 800);
     } catch (err: unknown) {
