@@ -65,7 +65,7 @@ export function EmployeeDashboard({
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const getDaySchedule = (date: Date) =>
-    userSchedules.find((s) => isSameDay(new Date(s.date), date));
+    userSchedules.find((s) => isSameDay(new Date(`${s.date}T00:00:00`), date));
 
   // All days in the visible month for the pill selector
   const today = startOfDay(new Date());

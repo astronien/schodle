@@ -192,7 +192,7 @@ export function ShiftEditor({
                   const isSelected = selectedShiftId === type.id;
                   const count = schedules.filter(
                     (s) =>
-                      isSameDay(new Date(s.date), selectedDate) &&
+                      isSameDay(new Date(`${s.date}T00:00:00`), selectedDate) &&
                       s.shiftTypeId === type.id &&
                       s.status !== 'rejected'
                   ).length;
@@ -202,7 +202,7 @@ export function ShiftEditor({
                       s.employeeId === currentUser.id &&
                       s.status === 'approved' &&
                       s.shiftTypeId === type.id &&
-                      new Date(s.date).getFullYear() === new Date().getFullYear() &&
+                      new Date(`${s.date}T00:00:00`).getFullYear() === new Date().getFullYear() &&
                       type.isLeave
                   ).length;
                   const remaining = type.isLeave && type.annualQuota ? type.annualQuota - yearApproved : null;

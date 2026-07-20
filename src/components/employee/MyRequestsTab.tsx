@@ -73,7 +73,7 @@ export function MyRequestsTab({ currentUserId, schedules, shiftTypes, onCancelRe
                         )}
                       </div>
                       <div className="text-[10px] text-text-tertiary font-medium">
-                        {format(new Date(s.date), 'eeee d MMMM yyyy', { locale: th })}
+                        {format(new Date(`${s.date}T00:00:00`), 'eeee d MMMM yyyy', { locale: th })}
                       </div>
                     </div>
                   </div>

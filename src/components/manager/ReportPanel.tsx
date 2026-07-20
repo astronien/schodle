@@ -50,7 +50,7 @@ export function ReportPanel({
 
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthSchedules = schedules.filter((s) => {
-    const d = new Date(s.date);
+    const d = new Date(`${s.date}T00:00:00`);
     return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth);
   });
 
@@ -173,7 +173,7 @@ export function ReportPanel({
             if (leaveTypes.length === 0) return null;
             const year = currentMonth.getFullYear();
             const empYearApproved = schedules.filter(
-              (s) => s.employeeId === emp.id && s.status === 'approved' && new Date(s.date).getFullYear() === year
+              (s) => s.employeeId === emp.id && s.status === 'approved' && new Date(`${s.date}T00:00:00`).getFullYear() === year
             );
             return (
               <div className="mb-6 p-4 bg-bg-surface rounded-xl">
@@ -352,7 +352,7 @@ export function ReportPanel({
         if (leaveTypes.length === 0) return null;
         const year = currentMonth.getFullYear();
         const yearApproved = schedules.filter(
-          (s) => s.status === 'approved' && new Date(s.date).getFullYear() === year
+          (s) => s.status === 'approved' && new Date(`${s.date}T00:00:00`).getFullYear() === year
         );
         return (
           <div className="card p-4 sm:p-5 rounded-xl">

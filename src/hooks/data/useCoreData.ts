@@ -1,6 +1,7 @@
 // Core data state: fetch-all, targeted refreshers, and the offline-cache
 // fallback. Mutation hooks receive the pieces they need from here.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { addMonths, endOfYear, format, startOfYear, subMonths } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { getSessionToken } from '../../lib/session';
 import { dbSelect } from '../../lib/db-query';
@@ -33,7 +34,13 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function useCoreData() {
+/**
+ * @param currentMonth month being viewed — schedules are fetched for a window
+ * of [Dec of previous year .. Jan of next year] relative to this month's year,
+ * so yearly reports, prev-month rotation, and cross-month conflict checks all
+ * have the data they need without shipping the entire table forever.
+ */
+export function useCoreData(currentMonth: Date = new Date()) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
@@ -44,14 +51,25 @@ export function useCoreData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const scheduleWindow = useMemo(() => {
+    const from = format(subMonths(startOfYear(currentMonth), 1), 'yyyy-MM-dd');
+    const to = format(addMonths(endOfYear(currentMonth), 1), 'yyyy-MM-dd');
+    return { from, to };
+  }, [currentMonth]);
+
   const fetchSchedulesOnly = useCallback(async (): Promise<ScheduleEntry[]> => {
     const token = getSessionToken();
     if (!token) return [];
 
-    const { data, error: schedErr } = await dbSelect<any>('schedules', undefined, '*', { column: 'date', ascending: true });
+    const { data, error: schedErr } = await dbSelect<any>(
+      'schedules',
+      { date: { gte: scheduleWindow.from, lte: scheduleWindow.to } },
+      '*',
+      { column: 'date', ascending: true },
+    );
     if (schedErr) throw schedErr;
     return (data || []).map(mapScheduleRow);
-  }, []);
+  }, [scheduleWindow]);
 
   const fetchAll = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
@@ -69,7 +87,7 @@ export function useCoreData() {
         dbSelect<any>('employees', undefined, EMPLOYEE_COLUMNS, { column: 'full_name', ascending: true }),
         dbSelect<any>('shift_types', undefined, '*', { column: 'code', ascending: true }),
         dbSelect<any>('position_groups', undefined, '*', { column: 'name', ascending: true }),
-        dbSelect<any>('schedules', undefined, '*', { column: 'date', ascending: true }),
+        dbSelect<any>('schedules', { date: { gte: scheduleWindow.from, lte: scheduleWindow.to } }, '*', { column: 'date', ascending: true }),
         dbSelect<any>('recurring_schedules', undefined, '*', { column: 'created_at', ascending: true }),
         dbSelect<any>('settings'),
       ]);
@@ -119,7 +137,7 @@ export function useCoreData() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scheduleWindow]);
 
   useEffect(() => {
     // Deferred to a microtask so fetchAll's synchronous setState calls don't

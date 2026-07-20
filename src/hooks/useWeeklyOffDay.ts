@@ -1,9 +1,11 @@
 // Shared "save weekly off day" logic used by both the employee settings
 // (App.tsx) and the manager dashboard. Saves the employee's weeklyOffDay and
-// auto-assigns X (off) shifts on matching days of the current month.
-// Previously this ~40-line block was duplicated in both places.
+// applies X (off) shifts on matching days of the current AND next month in a
+// single bulk upsert (previously: one awaited network call per date, current
+// month only — slow, and future months that already had schedules never got
+// their off days updated).
 import { useCallback } from 'react';
-import { eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns';
+import { addMonths, eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns';
 import type { Employee, ScheduleEntry, ShiftType } from '../types';
 
 interface WeeklyOffDayDeps {
@@ -11,7 +13,7 @@ interface WeeklyOffDayDeps {
   shiftTypes: ShiftType[];
   currentMonth: Date;
   updateEmployee: (employee: Employee) => Promise<void>;
-  updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean, skipWeeklyOffValidation?: boolean) => Promise<void>;
+  upsertSchedulesBulk: (entries: ScheduleEntry[]) => Promise<void>;
 }
 
 export interface ApplyWeeklyOffDayResult {
@@ -24,7 +26,7 @@ export function useWeeklyOffDay({
   shiftTypes,
   currentMonth,
   updateEmployee,
-  updateSchedule,
+  upsertSchedulesBulk,
 }: WeeklyOffDayDeps) {
   const applyWeeklyOffDay = useCallback(
     async (
@@ -42,22 +44,24 @@ export function useWeeklyOffDay({
       const xShift = shiftTypes.find((t) => t.code === 'X');
       if (!xShift) return { xShiftMissing: true };
 
-      const daysInMonth = eachDayOfInterval({
-        start: startOfMonth(currentMonth),
-        end: endOfMonth(currentMonth),
-      });
-      const offDates = daysInMonth
+      // Apply to the viewed month AND the following month so an already
+      // generated next month picks up the new off day too.
+      const days = [currentMonth, addMonths(currentMonth, 1)].flatMap((m) =>
+        eachDayOfInterval({ start: startOfMonth(m), end: endOfMonth(m) }),
+      );
+      const offDates = days
         .filter((d) => d.getDay() === selectedDay)
         .map((d) => format(d, 'yyyy-MM-dd'));
 
+      const entries: ScheduleEntry[] = [];
       for (const date of offDates) {
         const existing = schedules.find((s) => s.employeeId === employee.id && s.date === date);
         if (existing) {
           if (existing.shiftTypeId !== xShift.id) {
-            await updateSchedule({ ...existing, shiftTypeId: xShift.id, status: 'approved', createdBy });
+            entries.push({ ...existing, shiftTypeId: xShift.id, status: 'approved', createdBy });
           }
         } else {
-          await updateSchedule({
+          entries.push({
             id: crypto.randomUUID(),
             employeeId: employee.id,
             date,
@@ -69,9 +73,10 @@ export function useWeeklyOffDay({
         }
       }
 
+      await upsertSchedulesBulk(entries);
       return { xShiftMissing: false };
     },
-    [schedules, shiftTypes, currentMonth, updateEmployee, updateSchedule],
+    [schedules, shiftTypes, currentMonth, updateEmployee, upsertSchedulesBulk],
   );
 
   return { applyWeeklyOffDay };

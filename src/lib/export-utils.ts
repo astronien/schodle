@@ -14,7 +14,7 @@ export function exportCSV(
 ) {
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthSchedules = schedules.filter((s) => {
-    const d = new Date(s.date);
+    const d = new Date(`${s.date}T00:00:00`);
     return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth);
   });
 
@@ -73,7 +73,7 @@ export function printSchedule(
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthStr = format(currentMonth, 'MMMM yyyy');
   const monthSchedules = schedules.filter((s) => {
-    const d = new Date(s.date);
+    const d = new Date(`${s.date}T00:00:00`);
     return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth);
   });
 
@@ -210,7 +210,7 @@ export function exportTextSummary(
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthStr = format(currentMonth, 'MMMM yyyy');
   const monthSchedules = schedules.filter((s) => {
-    const d = new Date(s.date);
+    const d = new Date(`${s.date}T00:00:00`);
     return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth);
   });
 
@@ -245,7 +245,7 @@ export async function exportPDF(
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthStr = format(currentMonth, 'MMMM yyyy', { locale: undefined });
   const monthSchedules = schedules.filter((s) => {
-    const d = new Date(s.date);
+    const d = new Date(`${s.date}T00:00:00`);
     return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth) && s.status === 'approved';
   });
 

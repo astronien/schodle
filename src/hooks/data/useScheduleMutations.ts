@@ -130,6 +130,22 @@ export function useScheduleMutations({
     [fetchAll],
   );
 
+  // Bulk upsert (single round-trip + single refetch) for callers that need to
+  // both create and overwrite rows, e.g. applying weekly off days.
+  const upsertSchedulesBulk = useCallback(
+    async (entries: ScheduleEntry[]): Promise<void> => {
+      if (entries.length === 0) return;
+      const rows = entries.map((e) => ({
+        ...scheduleEntryToRow(e),
+        updated_at: new Date().toISOString(),
+      }));
+      const { error } = await dbUpsert('schedules', rows);
+      if (error) throw error;
+      await fetchAll(true);
+    },
+    [fetchAll],
+  );
+
   const deleteSchedulesByMonth = useCallback(
     async (month: Date) => {
       const { format, startOfMonth, endOfMonth } = await import('date-fns');
@@ -166,6 +182,7 @@ export function useScheduleMutations({
       const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
       const newEntries: ScheduleEntry[] = [];
+      const batchSeen = new Set<string>(); // dedupe when two recurring rows overlap
       const xShift = shiftTypes.find((t) => t.code === 'X');
 
       for (const recurring of targetEmployees) {
@@ -185,6 +202,8 @@ export function useScheduleMutations({
           if (endDate && day > endDate) continue;
 
           // Check if already has schedule
+          const batchKey = `${recurring.employeeId}:${dateStr}`;
+          if (batchSeen.has(batchKey)) continue;
           const existing = schedules.find((s) => s.employeeId === recurring.employeeId && s.date === dateStr);
           if (existing) continue;
 
@@ -197,6 +216,7 @@ export function useScheduleMutations({
             }
           }
 
+          batchSeen.add(batchKey);
           newEntries.push({
             id: crypto.randomUUID(),
             employeeId: recurring.employeeId,
@@ -261,6 +281,7 @@ export function useScheduleMutations({
     updateSchedule,
     deleteSchedule,
     createSchedulesBulk,
+    upsertSchedulesBulk,
     deleteSchedulesByMonth,
     deleteSchedulesBeforeDate,
     applyRecurringSchedules,

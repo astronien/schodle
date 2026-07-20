@@ -15,8 +15,8 @@ import { useScheduleMutations } from './data/useScheduleMutations';
 import { useEmployeeMutations } from './data/useEmployeeMutations';
 import { useCatalogMutations } from './data/useCatalogMutations';
 
-export function useData() {
-  const core = useCoreData();
+export function useData(currentMonth?: Date) {
+  const core = useCoreData(currentMonth);
   const { sendPush, sendPushRole, recentNotificationRef, pruneRecentNotifications } = usePushNotifier();
 
   useRealtimeSchedules({

@@ -57,6 +57,8 @@ interface ManagerDashboardProps {
   deleteRecurringSchedule: (id: string) => Promise<void>;
   applyRecurringSchedules: (month: Date, employeeIds?: string[]) => Promise<{ count: number; message: string }>;
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean, skipWeeklyOffValidation?: boolean) => Promise<void>;
+  createSchedulesBulk: (entries: ScheduleEntry[]) => Promise<{ inserted: number; failed: number }>;
+  upsertSchedulesBulk: (entries: ScheduleEntry[]) => Promise<void>;
   swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
   deleteSchedulesByMonth: (month: Date) => Promise<void>;
@@ -99,6 +101,8 @@ export function ManagerDashboard({
   deleteRecurringSchedule,
   applyRecurringSchedules,
   updateSchedule,
+  createSchedulesBulk,
+  upsertSchedulesBulk,
   deleteSchedule,
   deleteSchedulesByMonth,
   deleteSchedulesBeforeDate,
@@ -150,6 +154,7 @@ export function ManagerDashboard({
     updateSchedule,
     deleteSchedule,
     swapScheduleShifts,
+    createSchedulesBulk,
   });
 
   const { applyWeeklyOffDay } = useWeeklyOffDay({
@@ -157,7 +162,7 @@ export function ManagerDashboard({
     shiftTypes,
     currentMonth,
     updateEmployee,
-    updateSchedule,
+    upsertSchedulesBulk,
   });
 
   const handleEnableNotifications = async () => {
@@ -231,7 +236,7 @@ export function ManagerDashboard({
 
   const currentMonthSchedules = useMemo(
     () => schedules.filter((s) => {
-      const d = new Date(s.date);
+      const d = new Date(`${s.date}T00:00:00`);
       return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear() && s.status === 'approved';
     }),
     [schedules, currentMonth],

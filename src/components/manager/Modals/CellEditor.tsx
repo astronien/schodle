@@ -68,7 +68,7 @@ export function CellEditor({
               <h3 className="text-base font-bold text-text-primary">แก้ไขกะงาน</h3>
               <p className="text-xs font-semibold text-brand-accent mt-0.5 truncate">
                 {employee?.fullName ?? ''} ·{' '}
-                {format(new Date(date), 'EEEE ที่ d MMM yyyy', { locale: th })}
+                {format(new Date(`${date}T00:00:00`), 'EEEE ที่ d MMM yyyy', { locale: th })}
               </p>
             </div>
             <button

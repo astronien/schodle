@@ -94,6 +94,7 @@ function AppShell() {
     updateSchedule,
     deleteSchedule,
     createSchedulesBulk,
+    upsertSchedulesBulk,
     deleteSchedulesByMonth,
     deleteSchedulesBeforeDate,
     swapScheduleShifts,
@@ -119,7 +120,7 @@ function AppShell() {
     settings,
     updateSettings,
     uploadFile,
-  } = useData();
+  } = useData(currentMonth);
 
   const { activeEditors, syncedAt, isLive } = useRealtime({
     employeeId: currentEmployee?.id || '',
@@ -142,7 +143,7 @@ function AppShell() {
     shiftTypes,
     currentMonth,
     updateEmployee,
-    updateSchedule,
+    upsertSchedulesBulk,
   });
 
   useEffect(() => {
@@ -295,6 +296,8 @@ function AppShell() {
                 deleteRecurringSchedule={deleteRecurringSchedule}
                 applyRecurringSchedules={applyRecurringSchedules}
                 updateSchedule={updateSchedule}
+                createSchedulesBulk={createSchedulesBulk}
+                upsertSchedulesBulk={upsertSchedulesBulk}
                 deleteSchedule={deleteSchedule}
                 deleteSchedulesByMonth={deleteSchedulesByMonth}
                 deleteSchedulesBeforeDate={deleteSchedulesBeforeDate}

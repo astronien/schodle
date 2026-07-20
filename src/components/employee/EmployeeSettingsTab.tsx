@@ -28,7 +28,7 @@ export function EmployeeSettingsTab({
   const stats = getEmployeeMonthlyStats(
     currentUser?.id || '',
     schedules.filter((s) => {
-      const d = new Date(s.date);
+      const d = new Date(`${s.date}T00:00:00`);
       return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
     }),
     shiftTypes,
@@ -44,7 +44,7 @@ export function EmployeeSettingsTab({
     (s) =>
       s.employeeId === currentUser?.id &&
       s.status === 'approved' &&
-      new Date(s.date).getFullYear() === currentYear &&
+      new Date(`${s.date}T00:00:00`).getFullYear() === currentYear &&
       shiftTypes.find((t) => t.id === s.shiftTypeId)?.isLeave
   );
   const usedLeaveByType = new Map<string, number>();

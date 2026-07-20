@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { format, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { useToast } from '../../../lib/toast';
+import { buildWeeklyOffDayEntries } from '../../../lib/weekly-off';
 import type { Employee, ScheduleEntry, ShiftType } from '../../../types';
 
 export interface EditingCell {
@@ -21,6 +22,7 @@ interface ManagerScheduleActionDeps {
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean, skipWeeklyOffValidation?: boolean) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
   swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
+  createSchedulesBulk: (entries: ScheduleEntry[]) => Promise<{ inserted: number; failed: number }>;
 }
 
 export function useManagerScheduleActions({
@@ -31,6 +33,7 @@ export function useManagerScheduleActions({
   updateSchedule,
   deleteSchedule,
   swapScheduleShifts,
+  createSchedulesBulk,
 }: ManagerScheduleActionDeps) {
   const toast = useToast();
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -243,29 +246,74 @@ export function useManagerScheduleActions({
     }
   };
 
-  const doCopyPrevMonth = (prevMonthSchedules: ScheduleEntry[], currentMonthStr: string) => {
+  const doCopyPrevMonth = async (prevMonthSchedules: ScheduleEntry[], currentMonthStr: string) => {
     const prevMonth = subMonths(currentMonth, 1);
-    let copiedCount = 0;
+    const [yearStr, monthStr] = currentMonthStr.split('-');
+    const daysInTargetMonth = new Date(Number(yearStr), Number(monthStr), 0).getDate();
+    const xShift = shiftTypes.find((t) => t.code === 'X');
+    const empById = new Map(employees.map((e) => [e.id, e]));
+
+    const newEntries: ScheduleEntry[] = [];
+    const seen = new Set<string>();
     for (const prevSchedule of prevMonthSchedules) {
-      const day = prevSchedule.date.split('-')[2];
-      const newDate = `${currentMonthStr}-${day}`;
+      // Skip X (off) shifts — they follow the weekly off day, which shifts
+      // weekday across months; they're re-filled correctly below.
+      if (xShift && prevSchedule.shiftTypeId === xShift.id) continue;
+
+      const day = Number(prevSchedule.date.split('-')[2]);
+      // Skip days that don't exist in the target month (e.g. 31 → Feb).
+      if (day > daysInTargetMonth) continue;
+      const newDate = `${currentMonthStr}-${String(day).padStart(2, '0')}`;
+
+      // Skip shifts landing on the employee's weekly off day in the new month.
+      const emp = empById.get(prevSchedule.employeeId);
+      if (
+        typeof emp?.weeklyOffDay === 'number' &&
+        new Date(`${newDate}T00:00:00`).getDay() === emp.weeklyOffDay
+      ) continue;
+
+      const key = `${prevSchedule.employeeId}:${newDate}`;
+      if (seen.has(key)) continue;
       const exists = schedules.some(
         (s) => s.date === newDate && s.employeeId === prevSchedule.employeeId && s.status === 'approved'
       );
-      if (!exists) {
-        updateSchedule({
-          ...prevSchedule,
-          date: newDate,
-          status: 'approved',
-        });
-        copiedCount++;
-      }
+      if (exists) continue;
+      seen.add(key);
+      newEntries.push({
+        ...prevSchedule,
+        id: crypto.randomUUID(), // NEW id — never reuse the old row's id
+        date: newDate,
+        status: 'approved',
+        createdBy: 'manager',
+      });
     }
 
-    if (copiedCount > 0) {
-      toast.success(`คัดลอกตารางสำเร็จ ${copiedCount} รายการ`, `จากเดือน ${format(prevMonth, 'MMMM yyyy', { locale: th })}`);
-    } else {
+    // Fill X shifts on each employee's weekly off day for the new month.
+    newEntries.push(
+      ...buildWeeklyOffDayEntries({
+        month: currentMonth,
+        employees,
+        shiftTypes,
+        existingSchedules: [...schedules, ...newEntries],
+        createdBy: 'manager',
+      }),
+    );
+
+    if (newEntries.length === 0) {
       toast.info('ไม่มีรายการใหม่ให้คัดลอก');
+      return;
+    }
+
+    try {
+      const { inserted, failed } = await createSchedulesBulk(newEntries);
+      if (failed > 0) {
+        toast.warning(`คัดลอกสำเร็จ ${inserted} รายการ`, `ล้มเหลว ${failed} รายการ`);
+      } else {
+        toast.success(`คัดลอกตารางสำเร็จ ${inserted} รายการ`, `จากเดือน ${format(prevMonth, 'MMMM yyyy', { locale: th })}`);
+      }
+    } catch (err) {
+      console.error('[doCopyPrevMonth] failed:', err);
+      toast.error('คัดลอกตารางไม่สำเร็จ');
     }
   };
 
@@ -300,16 +348,18 @@ export function useManagerScheduleActions({
   };
 
   const handleApplyTemplate = async (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => {
-    for (const a of assignments) {
-      await updateSchedule({
-        id: crypto.randomUUID(),
-        employeeId: a.employeeId,
-        date: a.date,
-        shiftTypeId: a.shiftTypeId,
-        status: 'approved',
-        requestType: 'shift_change',
-        createdBy: 'manager',
-      });
+    const entries: ScheduleEntry[] = assignments.map((a) => ({
+      id: crypto.randomUUID(),
+      employeeId: a.employeeId,
+      date: a.date,
+      shiftTypeId: a.shiftTypeId,
+      status: 'approved',
+      requestType: 'shift_change',
+      createdBy: 'manager',
+    }));
+    const { failed } = await createSchedulesBulk(entries);
+    if (failed > 0) {
+      toast.warning(`ใช้เทมเพลตสำเร็จบางส่วน`, `ล้มเหลว ${failed} รายการ`);
     }
   };
 
