@@ -5,7 +5,7 @@ import {
   format,
   startOfMonth,
   startOfWeek,
-  subWeeks,
+  subMonths,
 } from 'date-fns';
 
 import type { Employee, PositionGroup, ScheduleEntry, ShiftType } from '../types';
@@ -81,9 +81,12 @@ function getRotationStart(
     return Math.random() < 0.5 ? 'morning' : 'afternoon';
   }
 
-  // Find first Monday of previous month
-  const prevMonth = subWeeks(startOfMonth(currentMonth), 4);
-  const firstMondayOfPrev = getMondayOfWeek(prevMonth);
+  // Find the first Monday that falls INSIDE the previous month.
+  const prevMonthStart = startOfMonth(subMonths(currentMonth, 1));
+  let firstMondayOfPrev = getMondayOfWeek(prevMonthStart);
+  if (firstMondayOfPrev < prevMonthStart) {
+    firstMondayOfPrev = addDays(firstMondayOfPrev, 7);
+  }
 
   // Filter prev month schedules to week 1 (Mon-Sun starting from firstMondayOfPrev)
   const week1End = addDays(firstMondayOfPrev, 6);
@@ -206,8 +209,9 @@ export function generateSmartSchedule({
   // getting all the shifts while others sit idle.
   const monthlyAssignedCount = new Map<string, number>();
   for (const e of employees) monthlyAssignedCount.set(e.id, 0);
+  const monthPrefix = format(month, 'yyyy-MM');
   for (const entry of existingEntries) {
-    if (entry.status === 'approved') {
+    if (entry.status === 'approved' && entry.date.startsWith(monthPrefix)) {
       monthlyAssignedCount.set(
         entry.employeeId,
         (monthlyAssignedCount.get(entry.employeeId) || 0) + 1,

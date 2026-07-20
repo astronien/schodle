@@ -283,3 +283,39 @@ describe('generateSmartSchedule — balance', () => {
     }
   });
 });
+
+describe('generateSmartSchedule — cross-month fairness (regression)', () => {
+  it('ignores other months when counting fairness', () => {
+    const month = new Date('2026-08-01');
+    // e1 has a huge pile of approved shifts in JULY — must not affect August.
+    const prevMonthLoad = Array.from({ length: 25 }, (_, i) => ({
+      id: `prev-${i}`,
+      employeeId: 'e1',
+      date: `2026-07-${String((i % 28) + 1).padStart(2, '0')}`,
+      shiftTypeId: 'st-morning',
+      status: 'approved' as const,
+      requestType: 'shift_change' as const,
+    }));
+
+    const { entries } = generateSmartSchedule({
+      month,
+      employees,
+      shiftTypes: shiftTypes.filter((t) => t.targetStaff),
+      existingEntries: prevMonthLoad,
+      shuffleEmployees: false,
+    });
+
+    const counts = new Map<string, number>();
+    for (const e of employees) counts.set(e.id, 0);
+    for (const entry of entries) {
+      if (!entry.date.startsWith('2026-08')) continue;
+      counts.set(entry.employeeId, (counts.get(entry.employeeId) || 0) + 1);
+    }
+    const values = Array.from(counts.values());
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    // Without the month filter, e1 would get starved (min ≈ 0).
+    expect(min).toBeGreaterThan(0);
+    expect(max - min).toBeLessThanOrEqual(8);
+  });
+});

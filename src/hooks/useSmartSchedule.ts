@@ -52,11 +52,13 @@ export function useSmartSchedule({
       shiftTypes,
       positionGroups,
       existingEntries: schedules,
+      // Use ALL approved entries of the previous month (manual edits and
+      // template shifts included) so rotation detection reflects what people
+      // actually worked instead of falling back to random.
       prevMonthSchedules: schedules.filter(
         (s) =>
           s.date.startsWith(format(subMonths(currentMonth, 1), 'yyyy-MM')) &&
-          s.status === 'approved' &&
-          s.createdBy === 'system',
+          s.status === 'approved',
       ),
     });
 
