@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone, Calendar, CheckSquare, X } from 'lucide-react';
+import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone, Calendar, CheckSquare, X, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
@@ -67,6 +67,17 @@ export function CoverageGrid({
   const [pdfLoading, setPdfLoading] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
+  // "Fit month" — squeeze all days of the month into the viewport width
+  // (no horizontal scroll). Preference persisted across sessions.
+  const [fitMonth, setFitMonth] = useState<boolean>(() => {
+    try { return localStorage.getItem('schodle_fit_month') !== '0'; } catch { return true; }
+  });
+  const toggleFitMonth = () => {
+    setFitMonth((v) => {
+      try { localStorage.setItem('schodle_fit_month', v ? '0' : '1'); } catch { /* ignore */ }
+      return !v;
+    });
+  };
   const [selectedCells, setSelectedCells] = useState<Map<string, { employeeId: string; date: string }>>(new Map());
   const toast = useToast();
 
@@ -163,6 +174,14 @@ export function CoverageGrid({
             >
               <CheckSquare className="w-4 h-4" />
               {multiSelectMode ? `เลือกอยู่ (${selectedCells.size})` : 'เลือกหลายวัน'}
+            </button>
+            <button
+              onClick={toggleFitMonth}
+              className={cn('btn text-xs px-3 py-2', fitMonth ? 'bg-brand text-white' : 'btn-ghost')}
+              title={fitMonth ? 'กลับเป็นแบบเลื่อนดู (ช่องใหญ่ขึ้น)' : 'ย่อให้เห็นทั้งเดือนโดยไม่ต้องเลื่อน'}
+            >
+              {fitMonth ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {fitMonth ? 'พอดีจอ' : 'เต็มเดือน'}
             </button>
             <button
               onClick={() => { setSwapMode(!swapMode); setSwapFirst(null); setMultiSelectMode(false); setSelectedCells(new Map()); }}
@@ -296,10 +315,10 @@ export function CoverageGrid({
         ref={tableScrollRef}
         className="overflow-auto custom-scrollbar grow border-t border-success/20"
       >
-        <table className="w-full border-separate border-spacing-0">
+        <table className={cn('w-full border-separate border-spacing-0', fitMonth && 'table-fixed')}>
           <thead>
             <tr>
-              <th className="sticky top-0 left-0 z-30 bg-bg-panel p-3 sm:p-4 text-left border-b border-success/20 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
+              <th className={cn('sticky top-0 left-0 z-30 bg-bg-panel text-left border-b border-success/20 shadow-[2px_0_0_rgba(0,0,0,0.04)]', fitMonth ? 'p-2 w-[110px] min-w-[110px] max-w-[110px]' : 'p-3 sm:p-4 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px]')}>
                 <span className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider">พนักงาน</span>
               </th>
               {daysInMonth.map((day) => {
@@ -320,19 +339,21 @@ export function CoverageGrid({
                 return (
                   <th
                     key={day.toString()}
-                    className="sticky top-0 z-20 bg-bg-panel p-2 sm:p-3 text-center border-b border-success/20 min-w-[48px] sm:min-w-[56px]"
+                    className={cn('sticky top-0 z-20 bg-bg-panel text-center border-b border-success/20', fitMonth ? 'p-0.5 min-w-0' : 'p-2 sm:p-3 min-w-[48px] sm:min-w-[56px]')}
                   >
                     <div className="flex flex-col items-center gap-1">
-                      <span className="text-[9px] font-bold text-text-quaternary uppercase tracking-wider">
+                      <span className={cn('font-bold text-text-quaternary uppercase', fitMonth ? 'text-[7px] tracking-tight' : 'text-[9px] tracking-wider')}>
                         {format(day, 'EEE', { locale: th })}
                       </span>
-                      <span className="text-sm font-bold text-text-primary">{format(day, 'd')}</span>
+                      <span className={cn('font-bold text-text-primary', fitMonth ? 'text-[11px]' : 'text-sm')}>{format(day, 'd')}</span>
                       {isImbalanced && (
                         <div className="mt-1 flex flex-col items-center gap-0.5">
                           <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></div>
-                          <span className="text-[7px] font-bold text-danger uppercase tracking-tighter bg-danger/10 px-1 rounded">
-                            เช้า {morningCount} / บ่าย {afternoonCount}
-                          </span>
+                          {!fitMonth && (
+                            <span className="text-[7px] font-bold text-danger uppercase tracking-tighter bg-danger/10 px-1 rounded">
+                              เช้า {morningCount} / บ่าย {afternoonCount}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -344,7 +365,7 @@ export function CoverageGrid({
           <tbody>
             {employees.map((employee) => (
               <tr key={employee.id} className="group hover:bg-bg-panel/50 transition-colors">
-                <td className="sticky left-0 z-10 bg-bg-surface group-hover:bg-bg-panel p-3 sm:p-4 border-b border-white/[0.03] w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)]">
+                <td className={cn('sticky left-0 z-10 bg-bg-surface group-hover:bg-bg-panel border-b border-white/[0.03] shadow-[2px_0_0_rgba(0,0,0,0.04)]', fitMonth ? 'p-2 w-[110px] min-w-[110px] max-w-[110px]' : 'p-3 sm:p-4 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px]')}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden bg-bg-surface border border-surface-200 shrink-0">
                       <img
@@ -381,7 +402,7 @@ export function CoverageGrid({
                     <td
                       key={day.toString()}
                       className={cn(
-                        'p-1 border-b border-white/[0.03] transition-colors',
+                        fitMonth ? 'p-[1px] border-b border-white/[0.03] transition-colors' : 'p-1 border-b border-white/[0.03] transition-colors',
                         (swapMode || multiSelectMode) && 'cursor-pointer',
                         isSwapFirst && 'bg-brand/20 ring-2 ring-brand ring-inset',
                         isMultiSelected && 'bg-brand/20 ring-2 ring-brand ring-inset',
@@ -409,7 +430,9 @@ export function CoverageGrid({
                             )
                           }
                           className={cn(
-                            'w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing',
+                            fitMonth
+                              ? 'w-full h-6 rounded flex items-center justify-center text-[8px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing'
+                              : 'w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing',
                             !swapMode && 'hover:scale-105',
                             swapMode && 'hover:ring-2 hover:ring-white/60',
                           )}
@@ -421,7 +444,9 @@ export function CoverageGrid({
                         <div
                           onClick={() => handleCellClick(employee.id, dateStr)}
                           className={cn(
-                            'w-full h-7 sm:h-9 rounded-md border border-dashed cursor-pointer transition-colors',
+                            fitMonth
+                              ? 'w-full h-6 rounded border border-dashed cursor-pointer transition-colors'
+                              : 'w-full h-7 sm:h-9 rounded-md border border-dashed cursor-pointer transition-colors',
                             swapMode
                               ? 'border-brand/40 bg-brand/5 hover:bg-brand/10'
                               : 'border-surface-200 bg-bg-panel hover:bg-bg-surface',
@@ -437,7 +462,7 @@ export function CoverageGrid({
 
           <tfoot>
             <tr>
-              <td className="sticky left-0 z-20 bg-bg-panel p-3 sm:p-4 text-left border-t border-success/20 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px] shadow-[2px_0_0_rgba(0,0,0,0.04)] align-top">
+              <td className={cn('sticky left-0 z-20 bg-bg-panel text-left border-t border-success/20 shadow-[2px_0_0_rgba(0,0,0,0.04)] align-top', fitMonth ? 'p-2 w-[110px] min-w-[110px] max-w-[110px]' : 'p-3 sm:p-4 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px]')}>
                 <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider leading-none">
                   สรุปจำนวนคนรายกะ
                 </span>
@@ -461,14 +486,14 @@ export function CoverageGrid({
                 return (
                   <td
                     key={day.toString()}
-                    className="p-2 sm:p-3 text-center border-t border-success/20 min-w-[48px] sm:min-w-[56px] align-top"
+                    className={cn('text-center border-t border-success/20 align-top', fitMonth ? 'p-0.5 min-w-0' : 'p-2 sm:p-3 min-w-[48px] sm:min-w-[56px]')}
                   >
                     <div className="flex flex-col gap-1.5">
                       <div className="flex flex-col items-center gap-1">
                         <div className="text-[10px] font-bold text-text-tertiary">รวม {totalCount}</div>
                         {isImbalanced && (
-                          <div className="text-[9px] font-bold text-danger bg-danger/10 px-1.5 py-0.5 rounded border border-danger/20">
-                            เช้า {morningCount} / บ่าย {afternoonCount}
+                          <div className={cn('font-bold text-danger bg-danger/10 rounded border border-danger/20', fitMonth ? 'text-[7px] px-0.5' : 'text-[9px] px-1.5 py-0.5')}>
+                            {fitMonth ? `${morningCount}/${afternoonCount}` : `เช้า ${morningCount} / บ่าย ${afternoonCount}`}
                           </div>
                         )}
                       </div>
