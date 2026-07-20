@@ -124,7 +124,9 @@ export function printSchedule(
   <title>ตารางกะงาน - ${safe(storeName)}</title>
   <style>
     @page { size: A4 landscape; margin: 4mm; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Keep background colors in print preview / printed page.
+       Browsers strip backgrounds by default to save ink. */
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { font-family: 'Sarabun','Sarabun PSK','Noto Sans Thai','Tahoma',sans-serif; color: #1a1a2e; font-size: 8px; }
     .header { text-align: center; margin-bottom: 3px; padding-bottom: 3px; border-bottom: 2px double #1a1a2e; }
     .header h1 { font-size: 14px; margin-bottom: 1px; }
@@ -142,7 +144,7 @@ export function printSchedule(
     tr:nth-child(even) { background: #fafafa; }
     .footer { margin-top: 3px; text-align: center; font-size: 7px; color: #999; }
     @media print {
-      body { padding: 0; }
+      body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .no-print { display: none; }
     }
   </style>
