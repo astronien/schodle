@@ -219,9 +219,10 @@ export function generateSmartSchedule({
     }
   }
 
-  // Compute weekly preferred category per (employee, week) using rotation start.
+  // Compute weekly preferred category per week using rotation start.
   // week 0 of this month follows rotationStart; week 1 flips; week 2 flips back; etc.
-  // Per-employee offset (based on id parity) gives variety within the same week.
+  // The whole team rotates together — target quotas still guarantee both
+  // morning and afternoon coverage via the fallback pool in tryFillShift.
   const getWeeklyPreferredFor = (employeeId: string, date: Date): ShiftCategory => {
     const emp = employees.find((e) => e.id === employeeId);
     if (!emp) return rotationStart;
@@ -230,17 +231,9 @@ export function generateSmartSchedule({
       return 'other';
     }
     const weekIdx = weekIndexFromFirstMonday(date, firstMondayOfMonth);
-    // Employee offset: even id → rotationStart when even week, opposite when odd
-    const isEvenId = (parseInt(emp.id.replace(/\D/g, ''), 10) || 0) % 2 === 0;
-    const baseCategory: ShiftCategory =
-      weekIdx % 2 === 0
-        ? isEvenId
-          ? rotationStart
-          : opposite(rotationStart)
-        : isEvenId
-          ? opposite(rotationStart)
-          : rotationStart;
-    return baseCategory;
+    // Whole-team rotation: everyone follows the same category each week and
+    // flips together the next week (morning ↔ afternoon).
+    return weekIdx % 2 === 0 ? rotationStart : opposite(rotationStart);
   };
 
   for (let dayIdx = 0; dayIdx < days.length; dayIdx += 1) {
