@@ -103,6 +103,31 @@ serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
+  // ── Authorization ─────────────────────────────────────────────
+  // The service role bypasses RLS, so enforce access rules here.
+  const ALLOWED_TABLES = new Set([
+    "positions", "position_groups", "shift_types", "schedules",
+    "recurring_schedules", "settings", "employees", "schedule_templates",
+    "push_subscriptions",
+  ]);
+  const SAFE_EMPLOYEE_COLUMNS =
+    "id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at, positions!employees_position_id_fkey(code, name)";
+  const EMPLOYEE_SELF_UPDATE_FIELDS = new Set(["weekly_off_day", "phone", "email", "avatar"]);
+
+  // Look up the requester fresh (role may have changed since login).
+  const { data: requester, error: requesterErr } = await supabase
+    .from("employees")
+    .select("id, role, positions!employees_position_id_fkey(code)")
+    .eq("id", session.sub)
+    .maybeSingle();
+  if (requesterErr || !requester) return json({ error: "Unknown session subject" }, 403);
+  const posRaw = (requester as { positions?: unknown }).positions;
+  const posCode = (Array.isArray(posRaw) ? posRaw[0] : posRaw) as { code?: string } | null;
+  const isManager =
+    ["manager", "admin"].includes((requester as { role?: string }).role ?? "") ||
+    ["BSM", "ABSM"].includes(posCode?.code ?? "");
+
+
   let body: QueryRequest;
   try {
     body = (await req.json()) as QueryRequest;
@@ -114,6 +139,50 @@ serve(async (req) => {
 
   if (!table || !operation) {
     return json({ error: "Missing table or operation" }, 400);
+  }
+
+  if (!ALLOWED_TABLES.has(table)) {
+    return json({ error: `Table not allowed: ${table}` }, 403);
+  }
+
+  // Never expose password_hash, even to managers.
+  let effectiveSelect = select;
+  if (table === "employees" && operation === "select") {
+    effectiveSelect = SAFE_EMPLOYEE_COLUMNS;
+  }
+
+  let effectiveData = data;
+  let effectiveFilter = filter;
+  if (!isManager) {
+    const isWrite = operation !== "select";
+    if (isWrite) {
+      if (table === "schedules" || table === "push_subscriptions") {
+        // Employees may only write their own rows.
+        const rows = Array.isArray(effectiveData) ? effectiveData : effectiveData ? [effectiveData] : [];
+        for (const row of rows) {
+          if ((row as Record<string, unknown>).employee_id !== session.sub) {
+            return json({ error: "Forbidden: can only write own rows" }, 403);
+          }
+        }
+        if (operation === "update" || operation === "delete") {
+          effectiveFilter = { ...(effectiveFilter ?? {}), employee_id: session.sub };
+        }
+      } else if (table === "employees" && operation === "update") {
+        // Self-profile update only, restricted fields only.
+        effectiveFilter = { ...(effectiveFilter ?? {}), id: session.sub };
+        const src = (effectiveData ?? {}) as Record<string, unknown>;
+        const cleaned: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(src)) {
+          if (EMPLOYEE_SELF_UPDATE_FIELDS.has(k)) cleaned[k] = v;
+        }
+        if (Object.keys(cleaned).length === 0) {
+          return json({ error: "Forbidden: no permitted fields to update" }, 403);
+        }
+        effectiveData = cleaned;
+      } else {
+        return json({ error: "Forbidden: managers only" }, 403);
+      }
+    }
   }
 
   try {
@@ -145,29 +214,29 @@ serve(async (req) => {
 
     switch (operation) {
       case "select":
-        query = supabase.from(table).select(select || "*");
-        query = applyFilters(query, filter);
+        query = supabase.from(table).select(effectiveSelect || "*");
+        query = applyFilters(query, effectiveFilter);
         if (order) {
           query = query.order(order.column, { ascending: order.ascending ?? true });
         }
         break;
 
       case "insert":
-        query = supabase.from(table).insert(data as Record<string, unknown>);
+        query = supabase.from(table).insert(effectiveData as Record<string, unknown>);
         break;
 
       case "update":
-        query = supabase.from(table).update(data as Record<string, unknown>);
-        query = applyFilters(query, filter);
+        query = supabase.from(table).update(effectiveData as Record<string, unknown>);
+        query = applyFilters(query, effectiveFilter);
         break;
 
       case "upsert":
-        query = supabase.from(table).upsert(data as Record<string, unknown>);
+        query = supabase.from(table).upsert(effectiveData as Record<string, unknown>);
         break;
 
       case "delete":
         query = supabase.from(table).delete();
-        query = applyFilters(query, filter);
+        query = applyFilters(query, effectiveFilter);
         break;
 
       default:

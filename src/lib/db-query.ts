@@ -49,9 +49,15 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
     });
 
     if (error) {
-      // Edge Function returned an error — fall back
-      console.warn(`[db-query] Edge Function error, falling back to direct query: ${error.message}`);
-      return fallbackQuery<T>(options);
+      // Only fall back on transport-level failures (function unreachable /
+      // not deployed). An explicit HTTP error (401, 403, 500) is a real
+      // answer — falling back would silently bypass authorization.
+      const name = (error as Error).name || '';
+      if (name === 'FunctionsFetchError' || name === 'FunctionsRelayError') {
+        console.warn(`[db-query] Edge Function unreachable, falling back: ${error.message}`);
+        return fallbackQuery<T>(options);
+      }
+      return { data: null, error: new Error(error.message || 'Edge Function error') };
     }
 
     return { data: data?.data ?? null, error: null };
