@@ -135,7 +135,7 @@ export function CoverageGrid({
 
   return (
     <div className="card rounded-none sm:rounded-xl flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
-      <div className="p-4 sm:p-6 border-b border-success/20 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4 shrink-0">
+      <div className="p-4 sm:p-6 border-b border-success/20 flex flex-wrap justify-between items-end gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1.5 h-6 bg-brand rounded-full"></div>
@@ -148,7 +148,7 @@ export function CoverageGrid({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 min-w-0">
           {imbalancedDays.length > 0 && (
             <div className="flex items-center gap-2 px-4 py-2.5 bg-danger/10 border border-danger/20 rounded-xl shadow-sm">
               <AlertTriangle className="w-4 h-4 text-danger" />
@@ -290,7 +290,7 @@ export function CoverageGrid({
             )}
           </div>
 
-          <div className="flex gap-2 p-1.5 bg-bg-panel rounded-xl border border-success/20">
+          <div className="flex flex-wrap gap-2 p-1.5 bg-bg-panel rounded-xl border border-success/20 min-w-0 max-w-full">
             {shiftTypes
               .filter((t) => t.isVisible)
               .map((type) => (
