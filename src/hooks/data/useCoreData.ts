@@ -139,6 +139,18 @@ export function useCoreData(currentMonth: Date = new Date()) {
     }
   }, [scheduleWindow]);
 
+  // Targeted schedules refresh — the hot path after schedule mutations.
+  // Refetches ONLY the schedules table instead of all 7 tables.
+  const refreshSchedules = useCallback(async () => {
+    try {
+      const fresh = await fetchSchedulesOnly();
+      setSchedules(fresh);
+    } catch (err) {
+      console.warn('[refreshSchedules] failed, falling back to fetchAll:', err);
+      await fetchAll(true);
+    }
+  }, [fetchSchedulesOnly, fetchAll]);
+
   useEffect(() => {
     // Deferred to a microtask so fetchAll's synchronous setState calls don't
     // run inside the effect body (react-hooks/set-state-in-effect).
@@ -184,6 +196,7 @@ export function useCoreData(currentMonth: Date = new Date()) {
     setSchedules,
     fetchAll,
     fetchSchedulesOnly,
+    refreshSchedules,
     refreshEmployees,
     refreshPositions,
     refreshShiftTypes,

@@ -13,7 +13,8 @@ interface ScheduleMutationDeps {
   shiftTypes: ShiftType[];
   schedules: ScheduleEntry[];
   recurringSchedules: RecurringSchedule[];
-  fetchAll: (silent?: boolean) => Promise<void>;
+  refreshSchedules: () => Promise<void>;
+  setSchedules: React.Dispatch<React.SetStateAction<ScheduleEntry[]>>;
   sendPush: (employeeId: string, title: string, body: string, url?: string, notifType?: NotifType) => Promise<void>;
   sendPushRole: (role: string, title: string, body: string, url?: string) => Promise<void>;
   recentNotificationRef: React.RefObject<Map<string, number>>;
@@ -24,7 +25,8 @@ export function useScheduleMutations({
   shiftTypes,
   schedules,
   recurringSchedules,
-  fetchAll,
+  refreshSchedules,
+  setSchedules,
   sendPush,
   sendPushRole,
   recentNotificationRef,
@@ -51,14 +53,29 @@ export function useScheduleMutations({
         }
       }
 
+      const oldEntry = scheduleById.current.get(entry.id);
+
+      // Optimistic: reflect the change locally right away; resync from the
+      // server on failure.
+      setSchedules((prev) => {
+        const idx = prev.findIndex((s) => s.id === entry.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = entry;
+          return next;
+        }
+        return [...prev, entry];
+      });
+
       const { error: upsertErr } = await dbUpsert('schedules', {
         ...scheduleEntryToRow(entry),
         updated_at: new Date().toISOString(),
       });
 
-      if (upsertErr) throw upsertErr;
-
-      const oldEntry = scheduleById.current.get(entry.id);
+      if (upsertErr) {
+        await refreshSchedules(); // revert optimistic state
+        throw upsertErr;
+      }
       const statusChanged = oldEntry && oldEntry.status !== entry.status;
       const isNewPending = (!oldEntry || oldEntry.status !== 'pending') && entry.status === 'pending';
 
@@ -90,18 +107,23 @@ export function useScheduleMutations({
         }
       }
 
-      await fetchAll(true);
+      await refreshSchedules();
     },
-    [employeeLookupMaps.employeeById, employeeLookupMaps.shiftTypeById, fetchAll, sendPush, sendPushRole, recentNotificationRef],
+    [employeeLookupMaps.employeeById, employeeLookupMaps.shiftTypeById, refreshSchedules, setSchedules, sendPush, sendPushRole, recentNotificationRef],
   );
 
   const deleteSchedule = useCallback(
     async (id: string) => {
+      const removed = scheduleById.current.get(id);
+      if (removed) setSchedules((prev) => prev.filter((s) => s.id !== id)); // optimistic
       const { error: delErr } = await dbDelete('schedules', { id });
-      if (delErr) throw delErr;
-      await fetchAll(true);
+      if (delErr) {
+        await refreshSchedules(); // revert optimistic state
+        throw delErr;
+      }
+      await refreshSchedules();
     },
-    [fetchAll],
+    [refreshSchedules, setSchedules],
   );
 
   // Bulk insert for AI-generated schedules. Falls back to per-row insert if
@@ -113,7 +135,7 @@ export function useScheduleMutations({
       const rows = entries.map(scheduleEntryToRow);
       const { error } = await dbInsert('schedules', rows);
       if (!error) {
-        await fetchAll(true);
+        await refreshSchedules();
         return { inserted: entries.length, failed: 0 };
       }
       // Fallback: insert one at a time so partial success is possible
@@ -124,10 +146,10 @@ export function useScheduleMutations({
         if (rowErr) failed += 1;
         else inserted += 1;
       }
-      await fetchAll(true);
+      await refreshSchedules();
       return { inserted, failed };
     },
-    [fetchAll],
+    [refreshSchedules],
   );
 
   // Bulk upsert (single round-trip + single refetch) for callers that need to
@@ -141,9 +163,9 @@ export function useScheduleMutations({
       }));
       const { error } = await dbUpsert('schedules', rows);
       if (error) throw error;
-      await fetchAll(true);
+      await refreshSchedules();
     },
-    [fetchAll],
+    [refreshSchedules],
   );
 
   const deleteSchedulesByMonth = useCallback(
@@ -155,9 +177,9 @@ export function useScheduleMutations({
         date: { gte: monthStart, lte: monthEnd }
       });
       if (delErr) throw delErr;
-      await fetchAll(true);
+      await refreshSchedules();
     },
-    [fetchAll],
+    [refreshSchedules],
   );
 
   const deleteSchedulesBeforeDate = useCallback(
@@ -166,9 +188,9 @@ export function useScheduleMutations({
         date: { lt: beforeDate }
       });
       if (delErr) throw delErr;
-      await fetchAll(true);
+      await refreshSchedules();
     },
-    [fetchAll],
+    [refreshSchedules],
   );
 
   const applyRecurringSchedules = useCallback(
@@ -260,10 +282,10 @@ export function useScheduleMutations({
       );
 
       if (bulkErr) throw bulkErr;
-      await fetchAll(true);
+      await refreshSchedules();
       return { count: newEntries.length, message: `เพิ่มตารางจากตารางซ้ำ ${newEntries.length} รายการ` };
     },
-    [recurringSchedules, shiftTypes, employees, schedules, fetchAll],
+    [recurringSchedules, shiftTypes, employees, schedules, refreshSchedules],
   );
 
   const swapScheduleShifts = useCallback(
@@ -272,9 +294,9 @@ export function useScheduleMutations({
         requester_id: requesterId,
         target_id: targetId,
       });
-      await fetchAll(true);
+      await refreshSchedules();
     },
-    [fetchAll],
+    [refreshSchedules],
   );
 
   return {
