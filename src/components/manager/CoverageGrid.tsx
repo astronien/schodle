@@ -535,6 +535,7 @@ export function CoverageGrid({
           currentMonth={currentMonth}
           schedules={schedules}
           employees={employees}
+          shiftTypes={shiftTypes}
           onApply={onApplyTemplate}
         />
       )}

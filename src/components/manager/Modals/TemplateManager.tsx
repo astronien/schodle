@@ -10,7 +10,8 @@ import {
   deleteTemplate as deleteTemplateAsync,
 } from '../../../lib/schedule-templates';
 import type { ScheduleTemplate } from '../../../lib/schedule-templates';
-import type { ScheduleEntry, Employee } from '../../../types';
+import type { ScheduleEntry, Employee, ShiftType } from '../../../types';
+import { buildWeeklyOffDayEntries } from '../../../lib/weekly-off';
 
 interface TemplateManagerProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface TemplateManagerProps {
   currentMonth: Date;
   schedules: ScheduleEntry[];
   employees: Employee[];
+  shiftTypes: ShiftType[];
   onApply: (assignments: { employeeId: string; date: string; shiftTypeId: string }[]) => void;
 }
 
@@ -27,6 +29,7 @@ export function TemplateManager({
   currentMonth,
   schedules,
   employees,
+  shiftTypes,
   onApply,
 }: TemplateManagerProps) {
   const toast = useToast();
@@ -71,7 +74,33 @@ export function TemplateManager({
   const handleApply = async (template: ScheduleTemplate) => {
     setIsApplying(template.id);
     try {
-      const assignments = applyTemplateToMonth(template, currentMonth, schedules);
+      let assignments = applyTemplateToMonth(template, currentMonth, schedules);
+
+      // Preset weekly off days win over template shifts: drop non-X template
+      // shifts that land on an employee's off day, then fill X on off days.
+      const xShift = shiftTypes.find((t) => t.code === 'X');
+      if (xShift) {
+        assignments = assignments.filter((a) => {
+          const emp = employees.find((e) => e.id === a.employeeId);
+          if (typeof emp?.weeklyOffDay !== 'number') return true;
+          const dayOfWeek = new Date(`${a.date}T00:00:00`).getDay();
+          return dayOfWeek !== emp.weeklyOffDay || a.shiftTypeId === xShift.id;
+        });
+        const covered = new Set(assignments.map((a) => `${a.employeeId}:${a.date}`));
+        const offEntries = buildWeeklyOffDayEntries({
+          month: currentMonth,
+          employees,
+          shiftTypes,
+          existingSchedules: schedules,
+          createdBy: 'manager',
+        });
+        for (const e of offEntries) {
+          if (!covered.has(`${e.employeeId}:${e.date}`)) {
+            assignments.push({ employeeId: e.employeeId, date: e.date, shiftTypeId: e.shiftTypeId });
+          }
+        }
+      }
+
       if (assignments.length === 0) {
         toast.info('ไม่มีรายการใหม่ให้ใช้ — ทุกวันมีตารางอยู่แล้ว');
         return;

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { dbInsert, dbUpsert, dbDelete } from '../../lib/db-query';
 import { invokeEdgeFunction } from '../../lib/edge-functions';
 import { createEmployeeLookupMaps } from '../../lib/schedule-utils';
+import { buildWeeklyOffDayEntries } from '../../lib/weekly-off';
 import type { Employee, RecurringSchedule, ScheduleEntry, ShiftType } from '../../types';
 import { scheduleEntryToRow } from './mappers';
 import type { NotifType } from './usePushNotifier';
@@ -208,6 +209,18 @@ export function useScheduleMutations({
           });
         }
       }
+
+      // Carry over preset weekly off days: fill X shifts for the month so
+      // off days appear even when the schedule is built from recurring rows.
+      newEntries.push(
+        ...buildWeeklyOffDayEntries({
+          month,
+          employees,
+          shiftTypes,
+          existingSchedules: [...schedules, ...newEntries],
+          employeeIds,
+        }),
+      );
 
       if (newEntries.length === 0) {
         return { count: 0, message: 'ไม่มีรายการใหม่ที่ต้องเพิ่ม' };
