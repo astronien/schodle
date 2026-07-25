@@ -47,11 +47,18 @@ export function useManagerScheduleActions({
         const requesterId = request.employeeId;
         const targetId = request.swapWithId;
         const date = request.date;
-        const requesterShift = schedules.find((s) => s.employeeId === requesterId && s.date === date);
-        const targetShift = schedules.find((s) => s.employeeId === targetId && s.date === date);
-        if (requesterShift && targetShift) {
-          await swapScheduleShifts(requesterShift.id, targetShift.id);
+        const requesterShift = schedules.find(
+          (s) => s.employeeId === requesterId && s.date === date && s.status !== 'rejected'
+        );
+        const targetShift = schedules.find(
+          (s) => s.employeeId === targetId && s.date === date && s.status !== 'rejected'
+        );
+        // Previously a missing row silently skipped the swap but still showed
+        // a success toast — surface it instead of pretending it worked.
+        if (!requesterShift || !targetShift) {
+          throw new Error('ไม่พบตารางกะของคู่สลับในวันดังกล่าว (อาจถูกลบหรือแก้ไปแล้ว)');
         }
+        await swapScheduleShifts(requesterShift.id, targetShift.id);
         toast.success('อนุมัติและสลับกะสำเร็จ');
       } else if (status === 'rejected' && request.revertShiftTypeId) {
         await updateSchedule({

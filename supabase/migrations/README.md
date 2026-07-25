@@ -1,7 +1,7 @@
 # Migrations
 
 Migration ทั้งหมดรันด้วยมือผ่าน **Supabase Dashboard → SQL Editor** (ไม่ได้ใช้ `supabase db push`)
-รันตามลำดับเลขไฟล์: `001 → 002 → … → 023`
+รันตามลำดับเลขไฟล์: `001 → 002 → … → 024`
 
 ## หมายเหตุเรื่องเลขไฟล์
 
@@ -12,6 +12,9 @@ Migration ทั้งหมดรันด้วยมือผ่าน **Supa
   - `016a` สร้าง helper functions + RPC (รันได้ทันที ไม่ block อะไร)
   - `016b` tighten RLS (รันหลัง deploy client ที่ใช้ Edge Functions แล้วเท่านั้น — ดู `RLS_MIGRATION_GUIDE.md`)
 - **`023`** แก้ RPC `swap_schedule_shifts` ที่เวอร์ชันใน `_APPLY_PENDING.sql` เขียนผิด (ใช้คอลัมน์ `shift_id` ที่ไม่มีจริง)
+- **`024`** แก้ RPC `swap_schedule_shifts` อีกรอบ — `RETURNS TABLE (id, …)` ทำให้ชื่อคอลัมน์กลายเป็นตัวแปรใน scope
+  ของฟังก์ชัน ทำให้ `where id = …` ที่ไม่ได้ qualify กำกวม (`column reference "id" is ambiguous`) และผู้จัดการกดอนุมัติ
+  คำขอสลับกะไม่ได้ แก้โดย qualify ทุกคอลัมน์ด้วย alias + `#variable_conflict use_column`
 
 ## `archive/`
 
@@ -23,6 +26,6 @@ Migration ทั้งหมดรันด้วยมือผ่าน **Supa
 
 ## การเพิ่ม migration ใหม่
 
-1. ตั้งชื่อไฟล์เลขถัดไป (ปัจจุบันคือ `024_…`) พร้อมคำอธิบายสั้น ๆ
+1. ตั้งชื่อไฟล์เลขถัดไป (ปัจจุบันคือ `025_…`) พร้อมคำอธิบายสั้น ๆ
 2. เขียนให้ idempotent เท่าที่ทำได้ (`IF NOT EXISTS`, `DROP … IF EXISTS`, `CREATE OR REPLACE`)
 3. รันใน SQL Editor ของ production แล้ว commit ไฟล์ทันที
