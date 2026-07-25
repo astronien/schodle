@@ -271,9 +271,16 @@ export function ShiftEditor({
               })()}
             </div>
 
-            {getDaySchedule(selectedDate) && !isSwapping && (
+            {/* Swap and "late scan" are two separate, mutually-exclusive
+                requests — only one can be active at a time so employees
+                don't end up submitting the wrong one by mistake. */}
+            {getDaySchedule(selectedDate) && !isSwapping && !isLateScan && (
               <button
-                onClick={() => setIsSwapping(true)}
+                onClick={() => {
+                  setIsSwapping(true);
+                  setIsLateScan(false);
+                  setAttachment(null);
+                }}
                 className="mt-3 w-full p-3.5 bg-brand/15 border border-brand/30 rounded-lg flex items-center justify-between group hover:bg-brand/20 transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -287,6 +294,65 @@ export function ShiftEditor({
                 </div>
                 <ChevronRight className="w-5 h-5 text-text-tertiary" />
               </button>
+            )}
+
+            {getDaySchedule(selectedDate) && !isSwapping && (
+              <div className="mt-3 flex items-center justify-between p-3.5 bg-bg-surface rounded-lg border border-border-solid">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      'p-2 rounded-md transition-colors',
+                      isLateScan ? 'bg-warn/20 text-warn' : 'bg-bg-elevated text-text-tertiary border border-border-solid'
+                    )}
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-text-primary">มาสาย / ลืมแสกนนิ้ว</p>
+                    <p className="text-[10px] text-text-tertiary">ต้องแนบหลักฐานเพื่อยืนยัน</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsLateScan(!isLateScan);
+                    setAttachment(null);
+                  }}
+                  className={cn(
+                    'w-11 h-6 rounded-full transition-colors relative shrink-0',
+                    isLateScan ? 'bg-warn' : 'bg-bg-elevated'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all',
+                      isLateScan ? 'right-1' : 'left-1'
+                    )}
+                  ></div>
+                </button>
+              </div>
+            )}
+
+            {isLateScan && (
+              <div className="mt-3 p-4 bg-brand/15 border border-dashed border-brand/30 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="evidence"
+                  className="hidden"
+                  onChange={(e) => setAttachment(e.target.files ? e.target.files[0] : null)}
+                />
+                <label htmlFor="evidence" className="flex flex-col items-center cursor-pointer group">
+                  <div className="p-2.5 bg-bg-surface rounded-full shadow-sm text-brand-accent mb-1 group-hover:scale-110 transition-transform border border-border-solid">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-semibold text-brand-accent uppercase tracking-wide">
+                    {attachment ? attachment.name : 'แนบหลักฐานรูปภาพ'}
+                  </span>
+                  <span className="text-[10px] text-text-tertiary mt-1">
+                    ต้องแนบรูปภาพเพื่อยืนยัน
+                  </span>
+                </label>
+              </div>
             )}
 
             {isSwapping && (
@@ -350,12 +416,13 @@ export function ShiftEditor({
             )}
 
             <div className="space-y-3 mt-5">
-              {shiftType && (
+              {shiftType && !isLateScan && (
                 <>
-                  {(shiftType.requiresEvidence || isLateScan) && (
+                  {shiftType.requiresEvidence && (
                     <div className="p-4 bg-brand/15 border border-dashed border-brand/30 rounded-lg flex flex-col items-center gap-2 animate-fade-in">
                       <input
                         type="file"
+                        accept="image/*"
                         id="evidence"
                         className="hidden"
                         onChange={(e) => setAttachment(e.target.files ? e.target.files[0] : null)}
@@ -390,37 +457,6 @@ export function ShiftEditor({
                   )}
                 </>
               )}
-
-              <div className="flex items-center justify-between p-3.5 bg-bg-surface rounded-lg border border-border-solid">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      'p-2 rounded-md transition-colors',
-                      isLateScan ? 'bg-warn/20 text-warn' : 'bg-bg-elevated text-text-tertiary border border-border-solid'
-                    )}
-                  >
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-text-primary">มาสาย / ลืมแสกนนิ้ว</p>
-                    <p className="text-[10px] text-text-tertiary">ต้องแนบหลักฐานเพื่อยืนยัน</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsLateScan(!isLateScan)}
-                  className={cn(
-                    'w-11 h-6 rounded-full transition-colors relative',
-                    isLateScan ? 'bg-warn' : 'bg-bg-elevated'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all',
-                      isLateScan ? 'right-1' : 'left-1'
-                    )}
-                  ></div>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -431,16 +467,16 @@ export function ShiftEditor({
             <button
               disabled={
                 isUpdating ||
-                Boolean(shiftType?.requiresReason && !requestReason) ||
-                Boolean(shiftType?.requiresEvidence && !attachment) ||
+                Boolean(!isLateScan && shiftType?.requiresReason && !requestReason) ||
+                Boolean(!isLateScan && shiftType?.requiresEvidence && !attachment) ||
                 Boolean(isLateScan && !attachment)
               }
               onClick={handleConfirm}
               className={cn(
                 'flex-1 btn rounded-lg font-medium py-3.5',
                 isUpdating ||
-                  Boolean(shiftType?.requiresReason && !requestReason) ||
-                  Boolean(shiftType?.requiresEvidence && !attachment) ||
+                  Boolean(!isLateScan && shiftType?.requiresReason && !requestReason) ||
+                  Boolean(!isLateScan && shiftType?.requiresEvidence && !attachment) ||
                   Boolean(isLateScan && !attachment)
                   ? 'bg-bg-surface text-text-quaternary cursor-not-allowed'
                   : 'btn-primary'
