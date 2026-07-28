@@ -43,6 +43,12 @@ const TOGGLEABLE: Array<{
     activeColor: 'bg-danger',
     description: 'พนักงานสามารถเลือกจากเมนูขอลาได้',
   },
+  {
+    key: 'preserveOnClear',
+    label: 'ไม่ลบตอนล้างตาราง',
+    activeColor: 'bg-success',
+    description: 'กด "ล้างตารางเดือนนี้" แล้วกะนี้จะยังอยู่ (เช่น วันหยุดประจำ, AT, ออฟฟิศ)',
+  },
 ];
 
 interface ShiftTypesTabProps {

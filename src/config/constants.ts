@@ -19,6 +19,9 @@ export const DEFAULT_EARLY_SHIFT_CODES = ['M1', 'M2'];
 /** Max shift count difference between any two employees after balance. */
 export const BALANCE_TOLERANCE = 1;
 /** Max re-try iterations per day for Tier 1 strict placement. */
+/** Batch size when deleting a month's schedules, to bound the `in` list. */
+export const CLEAR_MONTH_CHUNK_SIZE = 200;
+
 export const MAX_ITERATIONS_PER_DAY_MULTIPLIER = 8;
 export const MAX_ITERATIONS_PER_DAY_BASE = 10;
 

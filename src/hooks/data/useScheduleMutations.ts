@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { dbInsert, dbUpsert, dbDelete } from '../../lib/db-query';
 import { invokeEdgeFunction } from '../../lib/edge-functions';
 import { createEmployeeLookupMaps } from '../../lib/schedule-utils';
+import { planClearMonth } from '../../lib/clear-month';
+import { CLEAR_MONTH_CHUNK_SIZE } from '../../config/constants';
 import { buildWeeklyOffDayEntries } from '../../lib/weekly-off';
 import type { Employee, RecurringSchedule, ScheduleEntry, ShiftType } from '../../types';
 import { scheduleEntryToRow } from './mappers';
@@ -168,18 +170,33 @@ export function useScheduleMutations({
     [refreshSchedules],
   );
 
+  // Clears a month, keeping approved entries whose shift type is flagged
+  // preserveOnClear (weekly off days, AT, office…). Returns how many rows
+  // were removed vs kept so the caller can report it.
   const deleteSchedulesByMonth = useCallback(
-    async (month: Date) => {
-      const { format, startOfMonth, endOfMonth } = await import('date-fns');
-      const monthStart = format(startOfMonth(month), 'yyyy-MM-dd');
-      const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd');
-      const { error: delErr } = await dbDelete('schedules', {
-        date: { gte: monthStart, lte: monthEnd }
+    async (month: Date): Promise<{ deleted: number; preserved: number }> => {
+      const { format } = await import('date-fns');
+      const monthPrefix = format(month, 'yyyy-MM');
+      const { idsToDelete, preservedCount } = planClearMonth({
+        monthPrefix,
+        schedules,
+        shiftTypes,
       });
-      if (delErr) throw delErr;
+
+      // Delete in chunks so a big month doesn't build one enormous `in` list.
+      for (let i = 0; i < idsToDelete.length; i += CLEAR_MONTH_CHUNK_SIZE) {
+        const chunk = idsToDelete.slice(i, i + CLEAR_MONTH_CHUNK_SIZE);
+        const { error: delErr } = await dbDelete('schedules', { id: { in: chunk } });
+        if (delErr) {
+          await refreshSchedules();
+          throw delErr;
+        }
+      }
+
       await refreshSchedules();
+      return { deleted: idsToDelete.length, preserved: preservedCount };
     },
-    [refreshSchedules],
+    [schedules, shiftTypes, refreshSchedules],
   );
 
   const deleteSchedulesBeforeDate = useCallback(

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
+import { planClearMonth } from '../../lib/clear-month';
 import { filterPendingRequests } from '../../lib/schedule-utils';
 import { validateAllConflicts } from '../../lib/conflict-validator';
 import { subscribeToNotifications, sendTestPushToSelf } from '../../lib/push';
@@ -61,7 +62,7 @@ interface ManagerDashboardProps {
   upsertSchedulesBulk: (entries: ScheduleEntry[]) => Promise<void>;
   swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
-  deleteSchedulesByMonth: (month: Date) => Promise<void>;
+  deleteSchedulesByMonth: (month: Date) => Promise<{ deleted: number; preserved: number }>;
   deleteSchedulesBeforeDate: (beforeDate: string) => Promise<void>;
   currentMonth: Date;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
@@ -418,40 +419,31 @@ export function ManagerDashboard({
           <ConfirmModal
             open={showClearConfirm}
             title="ล้างตารางทั้งเดือน"
-            message={`คุณต้องการลบตารางงานทั้งหมด ${currentMonthSchedules.length} รายการของเดือน ${format(currentMonth, 'MMMM yyyy', { locale: th })} ใช่หรือไม่?\n\nวันหยุดประจำสัปดาห์ของพนักงานจะถูกสร้างอัตโนมัติ (กะ X) แต่สามารถเปลี่ยนได้ในภายหลัง`}
-            confirmLabel="ลบทั้งหมด"
+            message={(() => {
+              const plan = planClearMonth({
+                monthPrefix: format(currentMonth, 'yyyy-MM'),
+                schedules,
+                shiftTypes,
+              });
+              const monthLabel = format(currentMonth, 'MMMM yyyy', { locale: th });
+              const base = `คุณต้องการลบตารางงาน ${plan.idsToDelete.length} รายการของเดือน ${monthLabel} ใช่หรือไม่?`;
+              if (plan.preservedCount === 0) {
+                return `${base}\n\nยังไม่ได้ตั้งกะที่ "ไม่ลบตอนล้างตาราง" — ตั้งได้ที่ ตั้งค่า → ประเภทกะ`;
+              }
+              return `${base}\n\nจะเก็บไว้ ${plan.preservedCount} รายการ (กะ ${plan.preservedCodes.join(', ')}) ตามที่ตั้งค่าไว้`;
+            })()}
+            confirmLabel="ลบตารางเดือนนี้"
             variant="danger"
             onConfirm={async () => {
-              await deleteSchedulesByMonth(currentMonth);
-
-              const xShift = shiftTypes.find((t) => t.code === 'X');
-              if (xShift) {
-                const days = eachDayOfInterval({
-                  start: startOfMonth(currentMonth),
-                  end: endOfMonth(currentMonth),
-                });
-
-                for (const emp of employees) {
-                  if (typeof emp.weeklyOffDay !== 'number') continue;
-
-                  for (const day of days) {
-                    if (day.getDay() !== emp.weeklyOffDay) continue;
-
-                    const dateStr = format(day, 'yyyy-MM-dd');
-                    await updateSchedule({
-                      id: crypto.randomUUID(),
-                      employeeId: emp.id,
-                      date: dateStr,
-                      shiftTypeId: xShift.id,
-                      status: 'approved',
-                      requestType: 'shift_change',
-                      createdBy: 'manager',
-                    });
-                  }
-                }
+              try {
+                const { deleted, preserved } = await deleteSchedulesByMonth(currentMonth);
+                toast.success(
+                  `ล้างตารางเดือนนี้เรียบร้อย (${deleted} รายการ)`,
+                  preserved > 0 ? `เก็บกะที่ตั้งค่าไว้ ${preserved} รายการ` : undefined,
+                );
+              } catch (err: unknown) {
+                toast.error('ล้างตารางไม่สำเร็จ', err instanceof Error ? err.message : undefined);
               }
-
-              toast.success('ล้างตารางเดือนนี้เรียบร้อย', 'สร้างวันหยุดประจำสัปดาห์อัตโนมัติ');
             }}
             onCancel={() => setShowClearConfirm(false)}
           />

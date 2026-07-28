@@ -22,6 +22,8 @@ export type ShiftType = {
   targetStaff?: number;
   category?: 'morning' | 'afternoon' | 'other';
   annualQuota?: number;
+  /** When true this shift is skipped by "ล้างตารางเดือนนี้". */
+  preserveOnClear?: boolean;
 };
 
 export type PositionGroup = {

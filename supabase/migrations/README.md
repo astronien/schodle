@@ -1,7 +1,7 @@
 # Migrations
 
 Migration ทั้งหมดรันด้วยมือผ่าน **Supabase Dashboard → SQL Editor** (ไม่ได้ใช้ `supabase db push`)
-รันตามลำดับเลขไฟล์: `001 → 002 → … → 024`
+รันตามลำดับเลขไฟล์: `001 → 002 → … → 025`
 
 ## หมายเหตุเรื่องเลขไฟล์
 
@@ -15,6 +15,8 @@ Migration ทั้งหมดรันด้วยมือผ่าน **Supa
 - **`024`** แก้ RPC `swap_schedule_shifts` อีกรอบ — `RETURNS TABLE (id, …)` ทำให้ชื่อคอลัมน์กลายเป็นตัวแปรใน scope
   ของฟังก์ชัน ทำให้ `where id = …` ที่ไม่ได้ qualify กำกวม (`column reference "id" is ambiguous`) และผู้จัดการกดอนุมัติ
   คำขอสลับกะไม่ได้ แก้โดย qualify ทุกคอลัมน์ด้วย alias + `#variable_conflict use_column`
+- **`025`** เพิ่มคอลัมน์ `shift_types.preserve_on_clear` — กะที่ติ๊กไว้จะไม่ถูกลบตอนกด "ล้างตารางเดือนนี้"
+  (ตั้งค่าได้ที่ ตั้งค่า → ประเภทกะ) ตั้ง default `true` ให้กะ `X` เพราะเดิมโค้ดลบแล้วสร้างใหม่อยู่แล้ว
 
 ## `archive/`
 
@@ -26,6 +28,6 @@ Migration ทั้งหมดรันด้วยมือผ่าน **Supa
 
 ## การเพิ่ม migration ใหม่
 
-1. ตั้งชื่อไฟล์เลขถัดไป (ปัจจุบันคือ `025_…`) พร้อมคำอธิบายสั้น ๆ
+1. ตั้งชื่อไฟล์เลขถัดไป (ปัจจุบันคือ `026_…`) พร้อมคำอธิบายสั้น ๆ
 2. เขียนให้ idempotent เท่าที่ทำได้ (`IF NOT EXISTS`, `DROP … IF EXISTS`, `CREATE OR REPLACE`)
 3. รันใน SQL Editor ของ production แล้ว commit ไฟล์ทันที

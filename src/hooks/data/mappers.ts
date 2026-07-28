@@ -91,6 +91,7 @@ export function mapShiftTypeRow(s: any): ShiftType {
     targetStaff: s.target_staff || undefined,
     category: (s.category as ShiftType['category']) || undefined,
     annualQuota: s.annual_quota || undefined,
+    preserveOnClear: s.preserve_on_clear ?? false,
   };
 }
 

@@ -87,6 +87,7 @@ export interface Database {
           is_visible: boolean;
           target_staff: number | null;
           category: 'morning' | 'afternoon' | 'other' | null;
+          preserve_on_clear: boolean;
           created_at: string;
         };
         Insert: {
@@ -102,6 +103,7 @@ export interface Database {
           is_visible?: boolean;
           target_staff?: number | null;
           category?: 'morning' | 'afternoon' | 'other' | null;
+          preserve_on_clear?: boolean;
           created_at?: string;
         };
         Update: {
@@ -117,6 +119,7 @@ export interface Database {
           is_visible?: boolean;
           target_staff?: number | null;
           category?: 'morning' | 'afternoon' | 'other' | null;
+          preserve_on_clear?: boolean;
           created_at?: string;
         };
       };
