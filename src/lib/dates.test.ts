@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NO_FIXED_TIME,
+  fromTimeInputValue,
   getDateKey,
   getDayOfWeek,
   getMonthlyOffDates,
   getMonthDays,
   getMonthSchedules,
   isOffDayForEmployee,
+  toTimeInputValue,
 } from './dates';
 
 describe('getDateKey', () => {
@@ -100,5 +103,42 @@ describe('isOffDayForEmployee', () => {
 
   it('returns false when weeklyOffDay is undefined', () => {
     expect(isOffDayForEmployee(new Date(2025, 0, 5), undefined)).toBe(false);
+  });
+});
+
+describe('shift time input helpers', () => {
+  it('passes through a well-formed time', () => {
+    expect(toTimeInputValue('09:00')).toBe('09:00');
+    expect(toTimeInputValue('23:59')).toBe('23:59');
+  });
+
+  it('pads a single-digit hour', () => {
+    expect(toTimeInputValue('9:30')).toBe('09:30');
+  });
+
+  it('drops seconds returned by Postgres time columns', () => {
+    expect(toTimeInputValue('08:00:00')).toBe('08:00');
+  });
+
+  it('returns empty for shifts with no fixed hours', () => {
+    expect(toTimeInputValue('-')).toBe('');
+    expect(toTimeInputValue('')).toBe('');
+    expect(toTimeInputValue(undefined)).toBe('');
+    expect(toTimeInputValue(null)).toBe('');
+  });
+
+  it('returns empty for out-of-range or junk values', () => {
+    expect(toTimeInputValue('24:00')).toBe('');
+    expect(toTimeInputValue('12:75')).toBe('');
+    expect(toTimeInputValue('ไม่ระบุ')).toBe('');
+  });
+
+  it('converts an input value back to storage form', () => {
+    expect(fromTimeInputValue('14:30')).toBe('14:30');
+    expect(fromTimeInputValue('')).toBe(NO_FIXED_TIME);
+  });
+
+  it('round-trips a no-fixed-hours shift without inventing a time', () => {
+    expect(fromTimeInputValue(toTimeInputValue('-'))).toBe('-');
   });
 });

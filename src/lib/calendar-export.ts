@@ -1,4 +1,5 @@
-import { format, parseISO } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
+import { toTimeInputValue } from './dates';
 import type { Employee, Position, ScheduleEntry, ShiftType } from '../types';
 
 function toICSDate(date: Date): string {
@@ -34,15 +35,27 @@ export function buildICS(events: ShiftEvent[]): string {
   ];
 
   for (const ev of events) {
-    const dtStart = `${ev.date.replace(/-/g, '')}T${ev.startTime.replace(/:/g, '')}00`;
-    const dtEnd = `${ev.date.replace(/-/g, '')}T${ev.endTime.replace(/:/g, '')}00`;
+    const day = ev.date.replace(/-/g, '');
+    const start = toTimeInputValue(ev.startTime);
+    const end = toTimeInputValue(ev.endTime);
+
+    // Shifts with no fixed hours (weekly off, leave…) store '-'. Emitting that
+    // verbatim produced an invalid DTSTART like "20260801T-00" and broke the
+    // whole file, so those become all-day events instead. DTEND is exclusive.
+    const timed = start && end;
+    const dtStartLine = timed
+      ? `DTSTART:${day}T${start.replace(':', '')}00`
+      : `DTSTART;VALUE=DATE:${day}`;
+    const dtEndLine = timed
+      ? `DTEND:${day}T${end.replace(':', '')}00`
+      : `DTEND;VALUE=DATE:${format(addDays(parseISO(ev.date), 1), 'yyyyMMdd')}`;
 
     lines.push(
       'BEGIN:VEVENT',
       `UID:${ev.uid}`,
       `DTSTAMP:${now}`,
-      `DTSTART:${dtStart}`,
-      `DTEND:${dtEnd}`,
+      dtStartLine,
+      dtEndLine,
       `SUMMARY:${escapeICS(ev.summary)}`,
       `DESCRIPTION:${escapeICS(ev.description)}`,
       `LOCATION:${escapeICS(ev.location)}`,

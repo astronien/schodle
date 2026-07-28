@@ -5,6 +5,7 @@ import { useToast } from '../../../lib/toast';
 import { CreateShiftTypeModal } from '../Modals/CreationModals';
 import { AdminPageHeader } from '../AdminSidebar';
 import { ConfirmModal } from '../../ConfirmModal';
+import { fromTimeInputValue, toTimeInputValue } from '../../../lib/dates';
 import type { ShiftType } from '../../../types';
 
 const SHIFT_CATEGORIES: Array<{ id: 'morning' | 'afternoon' | 'other'; label: string }> = [
@@ -176,6 +177,42 @@ export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: Shif
 
                 {isExpanded && (
                   <div className="px-4 pb-4 pt-1 border-t border-border-solid space-y-4 animate-slide-down">
+                    <div>
+                      <p className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-1.5">
+                        เวลาเข้า–เลิกงาน
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          aria-label={`เวลาเข้างานของกะ ${type.code}`}
+                          value={toTimeInputValue(type.startTime)}
+                          onChange={(e) =>
+                            onUpdate({
+                              ...type,
+                              startTime: fromTimeInputValue(e.target.value),
+                            }).catch(showError)
+                          }
+                          className="flex-1 min-w-0 px-3 py-1.5 bg-white/70 border border-border-solid rounded-lg text-sm font-bold text-text-primary focus:outline-none focus:border-brand"
+                        />
+                        <span className="text-text-quaternary shrink-0">–</span>
+                        <input
+                          type="time"
+                          aria-label={`เวลาเลิกงานของกะ ${type.code}`}
+                          value={toTimeInputValue(type.endTime)}
+                          onChange={(e) =>
+                            onUpdate({
+                              ...type,
+                              endTime: fromTimeInputValue(e.target.value),
+                            }).catch(showError)
+                          }
+                          className="flex-1 min-w-0 px-3 py-1.5 bg-white/70 border border-border-solid rounded-lg text-sm font-bold text-text-primary focus:outline-none focus:border-brand"
+                        />
+                      </div>
+                      <p className="text-[10px] text-text-tertiary mt-1.5">
+                        มีผลกับตารางที่จัดไปแล้วทุกเดือน · เว้นว่างไว้ได้ถ้ากะนี้ไม่มีเวลาแน่นอน
+                      </p>
+                    </div>
+
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
                         <p className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-1.5">
