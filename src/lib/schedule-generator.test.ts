@@ -438,3 +438,124 @@ describe('generateSmartSchedule — weekly shift blocks', () => {
     }
   });
 });
+
+describe('generateSmartSchedule — per-group scheduling', () => {
+  const SALES = 'grp-sales';
+  const LEAD = 'grp-lead';
+  const groups = [
+    { id: SALES, name: 'พนักงานขาย' },
+    { id: LEAD, name: 'หัวหน้า' },
+  ];
+
+  // Sales needs 2/shift, leads need 1/shift — no store-wide targetStaff.
+  const groupShiftTypes: ShiftType[] = [
+    { ...shiftTypes[0], targetStaff: 0, groupTargets: { [SALES]: 2, [LEAD]: 1 } },
+    { ...shiftTypes[1], targetStaff: 0, groupTargets: { [SALES]: 2, [LEAD]: 1 } },
+  ];
+
+  const mk = (id: string, groupId: string, positionId: string): Employee =>
+    ({ id, employeeCode: id, fullName: id, positionId, role: 'employee', groupId }) as Employee;
+
+  const roster: Employee[] = [
+    mk('s1', SALES, 'p-sales'), mk('s2', SALES, 'p-sales'),
+    mk('s3', SALES, 'p-sales'), mk('s4', SALES, 'p-sales'),
+    mk('l1', LEAD, 'p-lead'), mk('l2', LEAD, 'p-lead'),
+  ];
+  const groupOf = (employeeId: string) =>
+    roster.find((e) => e.id === employeeId)?.groupId;
+
+  const run = () =>
+    generateSmartSchedule({
+      month: new Date('2026-09-01'),
+      employees: roster,
+      shiftTypes: groupShiftTypes,
+      positionGroups: groups,
+      shuffleEmployees: false,
+    });
+
+  it('never uses one group to fill another group’s slots', () => {
+    const { entries } = run();
+    expect(entries.length).toBeGreaterThan(0);
+
+    // Per (date, shift) the headcount of each group must not exceed its target.
+    const seen = new Map<string, Map<string, number>>();
+    for (const e of entries) {
+      const key = `${e.date}|${e.shiftTypeId}`;
+      const per = seen.get(key) ?? new Map<string, number>();
+      const g = groupOf(e.employeeId)!;
+      per.set(g, (per.get(g) || 0) + 1);
+      seen.set(key, per);
+    }
+    for (const [key, per] of seen) {
+      const shiftTypeId = key.split('|')[1];
+      const st = groupShiftTypes.find((t) => t.id === shiftTypeId);
+      if (!st) continue;
+      for (const [g, count] of per) {
+        expect(count, `${key} gave group ${g} too many people`)
+          .toBeLessThanOrEqual(st.groupTargets![g] ?? 0);
+      }
+    }
+  });
+
+  it('covers both categories within each group independently', () => {
+    const { entries } = run();
+    const catOf = (id: string) => groupShiftTypes.find((t) => t.id === id)?.category;
+
+    const byDateGroup = new Map<string, Set<string>>();
+    for (const e of entries) {
+      const cat = catOf(e.shiftTypeId);
+      if (cat !== 'morning' && cat !== 'afternoon') continue;
+      const key = `${e.date}|${groupOf(e.employeeId)}`;
+      const set = byDateGroup.get(key) ?? new Set<string>();
+      set.add(cat);
+      byDateGroup.set(key, set);
+    }
+
+    expect(byDateGroup.size).toBeGreaterThan(0);
+    for (const [key, cats] of byDateGroup) {
+      expect(cats.has('morning'), `${key} had no morning cover`).toBe(true);
+      expect(cats.has('afternoon'), `${key} had no afternoon cover`).toBe(true);
+    }
+  });
+
+  it('keeps the weekly block per person inside their group', () => {
+    const { entries } = run();
+    const catOf = (id: string) => groupShiftTypes.find((t) => t.id === id)?.category;
+
+    const perEmpWeek = new Map<string, Map<string, number>>();
+    for (const e of entries) {
+      const cat = catOf(e.shiftTypeId);
+      if (cat !== 'morning' && cat !== 'afternoon') continue;
+      const d = new Date(`${e.date}T00:00:00`);
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      const key = `${e.employeeId}|${monday.toISOString().slice(0, 10)}`;
+      const counts = perEmpWeek.get(key) ?? new Map<string, number>();
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+      perEmpWeek.set(key, counts);
+    }
+    for (const [key, counts] of perEmpWeek) {
+      const m = counts.get('morning') || 0;
+      const a = counts.get('afternoon') || 0;
+      expect(Math.max(m, a) / (m + a), `week ${key} was not dominated by one category`)
+        .toBeGreaterThan(0.5);
+    }
+  });
+
+  it('falls back to the store-wide pool when no group targets are set', () => {
+    const { entries } = generateSmartSchedule({
+      month: new Date('2026-09-01'),
+      employees: roster,
+      shiftTypes: [
+        { ...shiftTypes[0], targetStaff: 2 },
+        { ...shiftTypes[1], targetStaff: 2 },
+      ],
+      positionGroups: groups,
+      shuffleEmployees: false,
+    });
+    // Legacy behaviour: both groups share one pool, so entries still appear.
+    expect(entries.length).toBeGreaterThan(0);
+    const usedGroups = new Set(entries.map((e) => groupOf(e.employeeId)));
+    expect(usedGroups.size).toBeGreaterThan(1);
+  });
+});

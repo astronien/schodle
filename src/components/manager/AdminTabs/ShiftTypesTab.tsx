@@ -6,7 +6,7 @@ import { CreateShiftTypeModal } from '../Modals/CreationModals';
 import { AdminPageHeader } from '../AdminSidebar';
 import { ConfirmModal } from '../../ConfirmModal';
 import { fromTimeInputValue, toTimeInputValue } from '../../../lib/dates';
-import type { ShiftType } from '../../../types';
+import type { PositionGroup, ShiftType } from '../../../types';
 
 const SHIFT_CATEGORIES: Array<{ id: 'morning' | 'afternoon' | 'other'; label: string }> = [
   { id: 'morning', label: 'เช้า' },
@@ -54,12 +54,19 @@ const TOGGLEABLE: Array<{
 
 interface ShiftTypesTabProps {
   shiftTypes: ShiftType[];
+  positionGroups: PositionGroup[];
   onCreate: (input: Omit<ShiftType, 'id'>) => Promise<void>;
   onUpdate: (shiftType: ShiftType) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
-export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: ShiftTypesTabProps) {
+export function ShiftTypesTab({
+  shiftTypes,
+  positionGroups,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: ShiftTypesTabProps) {
   const toast = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -234,7 +241,7 @@ export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: Shif
                       </div>
                       <div className="flex-1">
                         <p className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-1.5">
-                          เป้าคน
+                          เป้าคน (รวม)
                         </p>
                         <input
                           type="number"
@@ -249,6 +256,40 @@ export function ShiftTypesTab({ shiftTypes, onCreate, onUpdate, onDelete }: Shif
                         />
                       </div>
                     </div>
+
+                    {positionGroups.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-1.5">
+                          เป้าคนแยกตามกลุ่ม
+                        </p>
+                        <div className="space-y-1.5">
+                          {positionGroups.map((g) => (
+                            <div key={g.id} className="flex items-center gap-2">
+                              <span className="flex-1 min-w-0 text-xs font-semibold text-text-secondary truncate">
+                                {g.name}
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                aria-label={`เป้าคนกลุ่ม ${g.name} ของกะ ${type.code}`}
+                                value={type.groupTargets?.[g.id] ?? 0}
+                                onChange={(e) => {
+                                  const next = { ...(type.groupTargets ?? {}) };
+                                  const n = parseInt(e.target.value) || 0;
+                                  if (n > 0) next[g.id] = n;
+                                  else delete next[g.id];
+                                  onUpdate({ ...type, groupTargets: next }).catch(showError);
+                                }}
+                                className="w-20 shrink-0 px-3 py-1.5 bg-white/70 border border-border-solid rounded-lg text-sm font-bold text-text-primary focus:outline-none focus:border-brand"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-text-tertiary mt-1.5">
+                          ตั้งค่าไว้แล้ว AI จะจัดแยกแต่ละกลุ่ม ไม่เอาคนข้ามกลุ่มมาเติมกัน · ปล่อย 0 ทุกกลุ่มเพื่อใช้เป้ารวม
+                        </p>
+                      </div>
+                    )}
 
                     <div>
                       <p className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-1.5">

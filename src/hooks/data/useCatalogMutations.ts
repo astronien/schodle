@@ -24,6 +24,7 @@ function shiftTypeToRow(shiftType: Omit<ShiftType, 'id'>) {
     target_staff: shiftType.targetStaff || null,
     category: shiftType.category || null,
     preserve_on_clear: shiftType.preserveOnClear ?? false,
+    group_targets: shiftType.groupTargets ?? {},
   };
 }
 

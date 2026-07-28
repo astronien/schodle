@@ -150,6 +150,7 @@ export function AdminTabs({
           {activeTab === 'shifts' && (
             <ShiftTypesTab
               shiftTypes={shiftTypes}
+              positionGroups={positionGroups}
               onCreate={createShiftType}
               onUpdate={updateShiftType}
               onDelete={deleteShiftType}

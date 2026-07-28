@@ -24,6 +24,11 @@ export type ShiftType = {
   annualQuota?: number;
   /** When true this shift is skipped by "ล้างตารางเดือนนี้". */
   preserveOnClear?: boolean;
+  /**
+   * Staffing target per position group: { [positionGroupId]: headcount }.
+   * When empty the store-wide `targetStaff` is used instead.
+   */
+  groupTargets?: Record<string, number>;
 };
 
 export type PositionGroup = {

@@ -88,6 +88,7 @@ export interface Database {
           target_staff: number | null;
           category: 'morning' | 'afternoon' | 'other' | null;
           preserve_on_clear: boolean;
+          group_targets: Record<string, number>;
           created_at: string;
         };
         Insert: {
@@ -104,6 +105,7 @@ export interface Database {
           target_staff?: number | null;
           category?: 'morning' | 'afternoon' | 'other' | null;
           preserve_on_clear?: boolean;
+          group_targets?: Record<string, number>;
           created_at?: string;
         };
         Update: {
@@ -120,6 +122,7 @@ export interface Database {
           target_staff?: number | null;
           category?: 'morning' | 'afternoon' | 'other' | null;
           preserve_on_clear?: boolean;
+          group_targets?: Record<string, number>;
           created_at?: string;
         };
       };

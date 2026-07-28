@@ -145,7 +145,10 @@ export function generateSmartSchedule({
 }: SmartScheduleOptions): SmartScheduleResult {
   const warnings: string[] = [];
   const idFactory = newId ?? (() => crypto.randomUUID());
-  const targetShiftTypes = shiftTypes.filter((t) => (t.targetStaff || 0) > 0);
+  const hasAnyTarget = (t: ShiftType) =>
+    (t.targetStaff || 0) > 0 ||
+    Object.values(t.groupTargets ?? {}).some((n) => (n || 0) > 0);
+  const targetShiftTypes = shiftTypes.filter(hasAnyTarget);
   const xShift = shiftTypes.find((t) => t.code === 'X');
 
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
@@ -220,6 +223,61 @@ export function generateSmartSchedule({
     }
   }
 
+  // ── Scheduling groups ──────────────────────────────────────────
+  // Each position group (พนักงานขาย, หัวหน้า, support…) is scheduled on its
+  // own: its own headcount targets and its own candidate pool, so roles are
+  // never substituted for one another.
+  //
+  // Shift types can carry per-group targets. If none are configured anywhere
+  // we fall back to the previous behaviour — one store-wide pool using
+  // targetStaff — so existing setups keep working until targets are entered.
+  const usesGroupTargets = targetShiftTypes.some(
+    (t) => t.groupTargets && Object.keys(t.groupTargets).length > 0,
+  );
+
+  type ScheduleGroup = { id: string | null; name: string; employees: Employee[] };
+  const scheduleGroups: ScheduleGroup[] = [];
+  if (usesGroupTargets) {
+    const known = positionGroups ?? [];
+    for (const g of known) {
+      const members = employees.filter((e) => e.groupId === g.id);
+      if (members.length > 0) scheduleGroups.push({ id: g.id, name: g.name, employees: members });
+    }
+    const ungrouped = employees.filter(
+      (e) => !e.groupId || !known.some((g) => g.id === e.groupId),
+    );
+    if (ungrouped.length > 0) {
+      scheduleGroups.push({ id: null, name: 'ไม่ได้อยู่กลุ่ม', employees: ungrouped });
+    }
+  } else {
+    scheduleGroups.push({ id: null, name: 'ทั้งร้าน', employees: [...employees] });
+  }
+
+  const groupIdOfEmployee = (emp: Employee): string | null => {
+    if (!usesGroupTargets) return null;
+    const known = positionGroups ?? [];
+    return emp.groupId && known.some((g) => g.id === emp.groupId) ? emp.groupId : null;
+  };
+
+  /** How many of the people already on this shift belong to the given group. */
+  const countInGroup = (assigned: Set<string> | undefined, groupId: string | null): number => {
+    if (!assigned) return 0;
+    if (!usesGroupTargets) return assigned.size;
+    let n = 0;
+    for (const id of assigned) {
+      const emp = employees.find((e) => e.id === id);
+      if (emp && groupIdOfEmployee(emp) === groupId) n += 1;
+    }
+    return n;
+  };
+
+  /** Headcount this shift needs from this group on a single day. */
+  const targetFor = (shiftType: ShiftType, groupId: string | null): number => {
+    if (!usesGroupTargets) return shiftType.targetStaff || 0;
+    if (groupId === null) return 0; // ungrouped staff have no configured demand
+    return shiftType.groupTargets?.[groupId] ?? 0;
+  };
+
   // ── Weekly shift blocks ────────────────────────────────────────
   // People can't flip between morning and afternoon day to day — their body
   // clock can't keep up. So each employee is locked to ONE category for the
@@ -230,20 +288,13 @@ export function generateSmartSchedule({
   // afternoons, then they trade. Splitting per position keeps each half able
   // to cover the roles a shift needs.
   const rotationGroupOf = new Map<string, 0 | 1>();
-  {
-    const byPosition = new Map<string, Employee[]>();
-    for (const emp of employees) {
-      const key = emp.positionId || '__none__';
-      const list = byPosition.get(key) ?? [];
-      list.push(emp);
-      byPosition.set(key, list);
-    }
-    // Deterministic order so the same roster always yields the same groups —
-    // regenerating a month must not reshuffle who works mornings.
-    for (const list of byPosition.values()) {
-      list.sort((a, b) => a.id.localeCompare(b.id));
-      list.forEach((emp, i) => rotationGroupOf.set(emp.id, (i % 2) as 0 | 1));
-    }
+  for (const group of scheduleGroups) {
+    // Split each scheduling group in half so the group itself always covers
+    // both morning and afternoon. Deterministic order so the same roster
+    // always yields the same halves — regenerating must not reshuffle who
+    // works mornings.
+    const ordered = [...group.employees].sort((a, b) => a.id.localeCompare(b.id));
+    ordered.forEach((emp, i) => rotationGroupOf.set(emp.id, (i % 2) as 0 | 1));
   }
 
   /** The category an employee is supposed to work for the week containing `date`. */
@@ -286,9 +337,6 @@ export function generateSmartSchedule({
     const day = days[dayIdx];
     const dateStr = format(day, 'yyyy-MM-dd');
     const assignedThisDay = new Set<string>();
-    const shuffledEmployees = shuffleEmployees
-      ? [...employees].sort(() => Math.random() - 0.5)
-      : [...employees];
 
     // Auto-fill weekly off days with X shift.
     for (const emp of employees) {
@@ -313,239 +361,250 @@ export function generateSmartSchedule({
       assignedThisDay.add(emp.id);
     }
 
-    const remainingByType = new Map<string, number>(
-      targetShiftTypes.map((t) => [t.id, t.targetStaff || 0]),
-    );
+    // Each position group is scheduled independently: its own staffing
+    // targets, its own candidate pool, its own morning/afternoon balance.
+    // A supervisor must never be used to fill a sales slot.
+    for (const group of scheduleGroups) {
+      const groupEmployees = group.employees;
+      if (groupEmployees.length === 0) continue;
+      const shuffledEmployees = shuffleEmployees
+        ? [...groupEmployees].sort(() => Math.random() - 0.5)
+        : [...groupEmployees];
 
-    let assignedMorningSlots = 0;
-    let assignedAfternoonSlots = 0;
+      const remainingByType = new Map<string, number>(
+        targetShiftTypes.map((t) => [t.id, targetFor(t, group.id)]),
+      );
 
-    const getRemainingSlots = (category: ShiftCategory) =>
-      targetShiftTypes
-        .filter((t) => (t.category || 'other') === category)
-        .reduce((sum, t) => sum + (remainingByType.get(t.id) || 0), 0);
+      let assignedMorningSlots = 0;
+      let assignedAfternoonSlots = 0;
 
-    const canAssignEmployeeToShift = (
-      employeeId: string,
-      shiftTypeId: string,
-      lateEarly: LateEarlyStrictness,
-    ): boolean => {
-      const nextShiftTypeForGroup = shiftTypes.find((t) => t.id === shiftTypeId);
-      const nextCategory = (nextShiftTypeForGroup?.category || 'other') as ShiftCategory;
-      if (nextCategory !== 'other') {
-        for (const [, memberIds] of enforceBalanceGroupMembers.entries()) {
-          if (memberIds.has(employeeId)) {
-            for (const otherId of memberIds) {
-              if (otherId === employeeId) continue;
-              if (!assignedThisDay.has(otherId)) continue;
-              const otherEntry = entries.find(
-                (e) => e.employeeId === otherId && e.date === dateStr
-              );
-              if (!otherEntry) continue;
-              const otherShiftType = shiftTypes.find((t) => t.id === otherEntry.shiftTypeId);
-              const otherCategory = otherShiftType?.category || 'other';
-              if (otherCategory !== 'other' && otherCategory === nextCategory) {
-                return false;
+      const getRemainingSlots = (category: ShiftCategory) =>
+        targetShiftTypes
+          .filter((t) => (t.category || 'other') === category)
+          .reduce((sum, t) => sum + (remainingByType.get(t.id) || 0), 0);
+
+      const canAssignEmployeeToShift = (
+        employeeId: string,
+        shiftTypeId: string,
+        lateEarly: LateEarlyStrictness,
+      ): boolean => {
+        const nextShiftTypeForGroup = shiftTypes.find((t) => t.id === shiftTypeId);
+        const nextCategory = (nextShiftTypeForGroup?.category || 'other') as ShiftCategory;
+        if (nextCategory !== 'other') {
+          for (const [, memberIds] of enforceBalanceGroupMembers.entries()) {
+            if (memberIds.has(employeeId)) {
+              for (const otherId of memberIds) {
+                if (otherId === employeeId) continue;
+                if (!assignedThisDay.has(otherId)) continue;
+                const otherEntry = entries.find(
+                  (e) => e.employeeId === otherId && e.date === dateStr
+                );
+                if (!otherEntry) continue;
+                const otherShiftType = shiftTypes.find((t) => t.id === otherEntry.shiftTypeId);
+                const otherCategory = otherShiftType?.category || 'other';
+                if (otherCategory !== 'other' && otherCategory === nextCategory) {
+                  return false;
+                }
               }
             }
           }
         }
-      }
-      if (assignedThisDay.has(employeeId)) return false;
-      const existingKey = `${employeeId}:${dateStr}`;
-      if (existingByEmployeeDate.has(existingKey)) return false;
-      if (leaveByEmployeeDate.has(existingKey)) return false;
-      if (dayIdx === 0) return true;
-      if (lateEarly === 'off') return true;
-      const yesterday = format(addDays(day, -1), 'yyyy-MM-dd');
-      const yesterdayShift = entries.find(
-        (e) => e.employeeId === employeeId && e.date === yesterday,
-      );
-      let yesterdayShiftType: ShiftType | undefined;
-      if (yesterdayShift) {
-        yesterdayShiftType = shiftTypes.find((t) => t.id === yesterdayShift.shiftTypeId);
-      } else {
-        const existingYesterday = existingEntries.find(
+        if (assignedThisDay.has(employeeId)) return false;
+        const existingKey = `${employeeId}:${dateStr}`;
+        if (existingByEmployeeDate.has(existingKey)) return false;
+        if (leaveByEmployeeDate.has(existingKey)) return false;
+        if (dayIdx === 0) return true;
+        if (lateEarly === 'off') return true;
+        const yesterday = format(addDays(day, -1), 'yyyy-MM-dd');
+        const yesterdayShift = entries.find(
           (e) => e.employeeId === employeeId && e.date === yesterday,
         );
-        if (existingYesterday) {
-          yesterdayShiftType = shiftTypes.find((t) => t.id === existingYesterday.shiftTypeId);
-        } else if (lateEarly === 'relaxed') {
+        let yesterdayShiftType: ShiftType | undefined;
+        if (yesterdayShift) {
+          yesterdayShiftType = shiftTypes.find((t) => t.id === yesterdayShift.shiftTypeId);
+        } else {
+          const existingYesterday = existingEntries.find(
+            (e) => e.employeeId === employeeId && e.date === yesterday,
+          );
+          if (existingYesterday) {
+            yesterdayShiftType = shiftTypes.find((t) => t.id === existingYesterday.shiftTypeId);
+          } else if (lateEarly === 'relaxed') {
+            return true;
+          }
+        }
+        const nextShiftType = shiftTypes.find((t) => t.id === shiftTypeId);
+        if (!yesterdayShiftType || !nextShiftType) return true;
+        if (
+          lateCodes.includes(yesterdayShiftType.code) &&
+          earlyCodes.includes(nextShiftType.code)
+        ) {
+          return false;
+        }
+        return true;
+      };
+
+      const tryAssignFrom = (
+        candidates: Employee[],
+        shiftTypeId: string,
+        lateEarly: LateEarlyStrictness,
+        /** Allow pulling someone onto the opposite category (spends budget). */
+        allowOffCategory = false,
+      ): boolean => {
+        const shiftType = shiftTypes.find((t) => t.id === shiftTypeId);
+        if (!shiftType) return false;
+        const category = (shiftType.category || 'other') as ShiftCategory;
+
+        const sortedCandidates = [...candidates].sort((a, b) => {
+          // When breaking the weekly block, hurt the person who has been pulled
+          // off their shift the least so far this week — spreads the pain.
+          if (allowOffCategory) {
+            const offA = offCategoryUsed(a.id, day);
+            const offB = offCategoryUsed(b.id, day);
+            if (offA !== offB) return offA - offB;
+          }
+          // Then by workload: employees with fewer assignments get priority.
+          const countA = monthlyAssignedCount.get(a.id) || 0;
+          const countB = monthlyAssignedCount.get(b.id) || 0;
+          return countA - countB;
+        });
+
+        for (const employee of sortedCandidates) {
+          if (!canAssignEmployeeToShift(employee.id, shiftTypeId, lateEarly)) continue;
+
+          const offCategory = !matchesWeeklyCategory(employee.id, day, category);
+          // The weekly block is a rule, not a preference: only break it when the
+          // caller explicitly allows it and the person still has budget left.
+          if (offCategory && (!allowOffCategory || !canGoOffCategory(employee.id, day))) {
+            continue;
+          }
+
+          entries.push({
+            id: idFactory(),
+            employeeId: employee.id,
+            shiftTypeId: shiftType.id,
+            date: dateStr,
+            status: 'approved',
+            requestType: 'shift_change',
+            createdBy: 'system',
+          });
+          assignedThisDay.add(employee.id);
+          monthlyAssignedCount.set(employee.id, (monthlyAssignedCount.get(employee.id) || 0) + 1);
+          remainingByType.set(shiftTypeId, (remainingByType.get(shiftTypeId) || 0) - 1);
+          if (offCategory) recordOffCategory(employee.id, day);
+          if (shiftType.category === 'morning') assignedMorningSlots += 1;
+          if (shiftType.category === 'afternoon') assignedAfternoonSlots += 1;
           return true;
         }
-      }
-      const nextShiftType = shiftTypes.find((t) => t.id === shiftTypeId);
-      if (!yesterdayShiftType || !nextShiftType) return true;
-      if (
-        lateCodes.includes(yesterdayShiftType.code) &&
-        earlyCodes.includes(nextShiftType.code)
-      ) {
         return false;
-      }
-      return true;
-    };
+      };
 
-    const tryAssignFrom = (
-      candidates: Employee[],
-      shiftTypeId: string,
-      lateEarly: LateEarlyStrictness,
-      /** Allow pulling someone onto the opposite category (spends budget). */
-      allowOffCategory = false,
-    ): boolean => {
-      const shiftType = shiftTypes.find((t) => t.id === shiftTypeId);
-      if (!shiftType) return false;
-      const category = (shiftType.category || 'other') as ShiftCategory;
+      const tryFillShift = (
+        shiftType: ShiftType,
+        lateEarly: LateEarlyStrictness,
+        requirePositionMatch: boolean,
+        /** Last resort: permit crossing the weekly block to avoid an empty shift. */
+        allowOffCategory = false,
+      ): boolean => {
+        const preferredPos = getPreferredPosition(shiftType.id);
 
-      const sortedCandidates = [...candidates].sort((a, b) => {
-        // When breaking the weekly block, hurt the person who has been pulled
-        // off their shift the least so far this week — spreads the pain.
-        if (allowOffCategory) {
-          const offA = offCategoryUsed(a.id, day);
-          const offB = offCategoryUsed(b.id, day);
-          if (offA !== offB) return offA - offB;
+        // Candidate pool: filter by position preference if we have one AND caller
+        // wants strict position matching.
+        const positionFiltered = requirePositionMatch && preferredPos
+          ? shuffledEmployees.filter((e) => e.positionId === preferredPos)
+          : shuffledEmployees;
+        const pool = positionFiltered.length > 0 ? positionFiltered : shuffledEmployees;
+
+        // tryAssignFrom enforces the weekly category itself, so a single pass
+        // over the full pool is enough — no more silent "anyone will do" retry.
+        return tryAssignFrom(pool, shiftType.id, lateEarly, allowOffCategory);
+      };
+
+      let iterations = 0;
+      const MAX_ITERATIONS = targetShiftTypes.length * MAX_ITERATIONS_PER_DAY_MULTIPLIER + MAX_ITERATIONS_PER_DAY_BASE;
+
+      // Tier 1: strict — respect all rules including position preference.
+      while (iterations < MAX_ITERATIONS) {
+        iterations += 1;
+        const remainingTotal = Array.from(remainingByType.values()).reduce((s, n) => s + n, 0);
+        if (remainingTotal <= 0) break;
+
+        const remainingMorning = getRemainingSlots('morning');
+        const remainingAfternoon = getRemainingSlots('afternoon');
+
+        let desiredCategory: ShiftCategory = 'other';
+        if (remainingMorning > 0 || remainingAfternoon > 0) {
+          if (remainingMorning > 0 && remainingAfternoon > 0) {
+            if (assignedMorningSlots - assignedAfternoonSlots >= 1) desiredCategory = 'afternoon';
+            else if (assignedAfternoonSlots - assignedMorningSlots >= 1) desiredCategory = 'morning';
+            else desiredCategory = remainingMorning >= remainingAfternoon ? 'morning' : 'afternoon';
+          } else {
+            desiredCategory = remainingMorning > 0 ? 'morning' : 'afternoon';
+          }
         }
-        // Then by workload: employees with fewer assignments get priority.
-        const countA = monthlyAssignedCount.get(a.id) || 0;
-        const countB = monthlyAssignedCount.get(b.id) || 0;
-        return countA - countB;
-      });
 
-      for (const employee of sortedCandidates) {
-        if (!canAssignEmployeeToShift(employee.id, shiftTypeId, lateEarly)) continue;
+        let candidates = targetShiftTypes.filter((t) => (remainingByType.get(t.id) || 0) > 0);
+        const filteredByCategory = candidates.filter(
+          (t) => (t.category || 'other') === desiredCategory,
+        );
+        if (filteredByCategory.length > 0) candidates = filteredByCategory;
+        candidates.sort((a, b) => (remainingByType.get(b.id) || 0) - (remainingByType.get(a.id) || 0));
+        const shiftType = candidates[0];
+        if (!shiftType) break;
 
-        const offCategory = !matchesWeeklyCategory(employee.id, day, category);
-        // The weekly block is a rule, not a preference: only break it when the
-        // caller explicitly allows it and the person still has budget left.
-        if (offCategory && (!allowOffCategory || !canGoOffCategory(employee.id, day))) {
-          continue;
-        }
-
-        entries.push({
-          id: idFactory(),
-          employeeId: employee.id,
-          shiftTypeId: shiftType.id,
-          date: dateStr,
-          status: 'approved',
-          requestType: 'shift_change',
-          createdBy: 'system',
-        });
-        assignedThisDay.add(employee.id);
-        monthlyAssignedCount.set(employee.id, (monthlyAssignedCount.get(employee.id) || 0) + 1);
-        remainingByType.set(shiftTypeId, (remainingByType.get(shiftTypeId) || 0) - 1);
-        if (offCategory) recordOffCategory(employee.id, day);
-        if (shiftType.category === 'morning') assignedMorningSlots += 1;
-        if (shiftType.category === 'afternoon') assignedAfternoonSlots += 1;
-        return true;
-      }
-      return false;
-    };
-
-    const tryFillShift = (
-      shiftType: ShiftType,
-      lateEarly: LateEarlyStrictness,
-      requirePositionMatch: boolean,
-      /** Last resort: permit crossing the weekly block to avoid an empty shift. */
-      allowOffCategory = false,
-    ): boolean => {
-      const preferredPos = getPreferredPosition(shiftType.id);
-
-      // Candidate pool: filter by position preference if we have one AND caller
-      // wants strict position matching.
-      const positionFiltered = requirePositionMatch && preferredPos
-        ? shuffledEmployees.filter((e) => e.positionId === preferredPos)
-        : shuffledEmployees;
-      const pool = positionFiltered.length > 0 ? positionFiltered : shuffledEmployees;
-
-      // tryAssignFrom enforces the weekly category itself, so a single pass
-      // over the full pool is enough — no more silent "anyone will do" retry.
-      return tryAssignFrom(pool, shiftType.id, lateEarly, allowOffCategory);
-    };
-
-    let iterations = 0;
-    const MAX_ITERATIONS = targetShiftTypes.length * MAX_ITERATIONS_PER_DAY_MULTIPLIER + MAX_ITERATIONS_PER_DAY_BASE;
-
-    // Tier 1: strict — respect all rules including position preference.
-    while (iterations < MAX_ITERATIONS) {
-      iterations += 1;
-      const remainingTotal = Array.from(remainingByType.values()).reduce((s, n) => s + n, 0);
-      if (remainingTotal <= 0) break;
-
-      const remainingMorning = getRemainingSlots('morning');
-      const remainingAfternoon = getRemainingSlots('afternoon');
-
-      let desiredCategory: ShiftCategory = 'other';
-      if (remainingMorning > 0 || remainingAfternoon > 0) {
-        if (remainingMorning > 0 && remainingAfternoon > 0) {
-          if (assignedMorningSlots - assignedAfternoonSlots >= 1) desiredCategory = 'afternoon';
-          else if (assignedAfternoonSlots - assignedMorningSlots >= 1) desiredCategory = 'morning';
-          else desiredCategory = remainingMorning >= remainingAfternoon ? 'morning' : 'afternoon';
-        } else {
-          desiredCategory = remainingMorning > 0 ? 'morning' : 'afternoon';
+        const filled = tryFillShift(shiftType, 'strict', true);
+        if (!filled) {
+          // Mark the day's remaining quota for this shift as zero so we move on.
+          remainingByType.set(shiftType.id, 0);
         }
       }
 
-      let candidates = targetShiftTypes.filter((t) => (remainingByType.get(t.id) || 0) > 0);
-      const filteredByCategory = candidates.filter(
-        (t) => (t.category || 'other') === desiredCategory,
-      );
-      if (filteredByCategory.length > 0) candidates = filteredByCategory;
-      candidates.sort((a, b) => (remainingByType.get(b.id) || 0) - (remainingByType.get(a.id) || 0));
-      const shiftType = candidates[0];
-      if (!shiftType) break;
-
-      const filled = tryFillShift(shiftType, 'strict', true);
-      if (!filled) {
-        // Mark the day's remaining quota for this shift as zero so we move on.
-        remainingByType.set(shiftType.id, 0);
-      }
-    }
-
-    // Tier 2: relaxed — for shifts that still have remaining quota, try again
-    // ignoring the position preference.
-    for (const shiftType of targetShiftTypes) {
-      const remaining = remainingByType.get(shiftType.id) || 0;
-      if (remaining <= 0) continue;
-      for (let i = 0; i < remaining; i += 1) {
-        const filled = tryFillShift(shiftType, 'strict', false);
-        if (!filled) break;
-      }
-    }
-
-    // Tier 3: still short — start breaking weekly shift blocks, spending each
-    // person's off-category budget. Done before relaxing the late→early rest
-    // rule: working the wrong half of the day is inconvenient, working with too
-    // little rest is a safety issue.
-    let offCategoryWarnCount = 0;
-    for (const shiftType of targetShiftTypes) {
-      const remaining = remainingByType.get(shiftType.id) || 0;
-      if (remaining <= 0) continue;
-      for (let i = 0; i < remaining; i += 1) {
-        const filled = tryFillShift(shiftType, 'strict', false, true);
-        if (!filled) break;
-        if (offCategoryWarnCount < 3) {
-          warnings.push(
-            `${dateStr}: กะ ${shiftType.code} ต้องดึงคนจากกะประจำสัปดาห์อีกฝั่ง (คนไม่พอ)`,
-          );
-          offCategoryWarnCount += 1;
+      // Tier 2: relaxed — for shifts that still have remaining quota, try again
+      // ignoring the position preference.
+      for (const shiftType of targetShiftTypes) {
+        const remaining = remainingByType.get(shiftType.id) || 0;
+        if (remaining <= 0) continue;
+        for (let i = 0; i < remaining; i += 1) {
+          const filled = tryFillShift(shiftType, 'strict', false);
+          if (!filled) break;
         }
       }
-    }
 
-    // Tier 4: warn-only — allow late→early if it would otherwise leave a shift
-    // empty. Cap warnings at 3/day.
-    let warnCount = 0;
-    for (const shiftType of targetShiftTypes) {
-      const remaining = remainingByType.get(shiftType.id) || 0;
-      if (remaining <= 0) continue;
-      for (let i = 0; i < remaining; i += 1) {
-        const filled = tryFillShift(shiftType, 'off', false, true);
-        if (filled && warnCount < 3) {
-          warnings.push(
-            `${dateStr}: กะ ${shiftType.code} ต้องจัดแบบละเมิดกฎดึก→เช้า (ไม่มีคนเหลือ)`,
-          );
-          warnCount += 1;
-        } else if (!filled) {
-          break;
+      // Tier 3: still short — start breaking weekly shift blocks, spending each
+      // person's off-category budget. Done before relaxing the late→early rest
+      // rule: working the wrong half of the day is inconvenient, working with too
+      // little rest is a safety issue.
+      let offCategoryWarnCount = 0;
+      for (const shiftType of targetShiftTypes) {
+        const remaining = remainingByType.get(shiftType.id) || 0;
+        if (remaining <= 0) continue;
+        for (let i = 0; i < remaining; i += 1) {
+          const filled = tryFillShift(shiftType, 'strict', false, true);
+          if (!filled) break;
+          if (offCategoryWarnCount < 3) {
+            warnings.push(
+              `${dateStr}: กะ ${shiftType.code} ต้องดึงคนจากกะประจำสัปดาห์อีกฝั่ง (คนไม่พอ)`,
+            );
+            offCategoryWarnCount += 1;
+          }
+        }
+      }
+
+      // Tier 4: warn-only — allow late→early if it would otherwise leave a shift
+      // empty. Cap warnings at 3/day.
+      let warnCount = 0;
+      for (const shiftType of targetShiftTypes) {
+        const remaining = remainingByType.get(shiftType.id) || 0;
+        if (remaining <= 0) continue;
+        for (let i = 0; i < remaining; i += 1) {
+          const filled = tryFillShift(shiftType, 'off', false, true);
+          if (filled && warnCount < 3) {
+            warnings.push(
+              `${dateStr}: กะ ${shiftType.code} ต้องจัดแบบละเมิดกฎดึก→เช้า (ไม่มีคนเหลือ)`,
+            );
+            warnCount += 1;
+          } else if (!filled) {
+            break;
+          }
         }
       }
     }
@@ -590,15 +649,18 @@ export function generateSmartSchedule({
       // weekly block — only shifts matching the employee's category for the
       // week are eligible. Leaving someone idle is better than bouncing them
       // between mornings and afternoons.
+      const empGroupId = groupIdOfEmployee(emp);
       const eligible = targetShiftTypes.filter((st) =>
         matchesWeeklyCategory(emp.id, day, (st.category || 'other') as ShiftCategory),
       );
 
-      // Build candidate shifts
+      // Build candidate shifts. "Below target" is measured against this
+      // employee's own group, counting only their group-mates — topping up
+      // sales must not be satisfied by supervisors already on the shift.
       const belowTarget: ShiftType[] = [];
       for (const st of eligible) {
-        const current = dayCounts.get(st.id)?.size || 0;
-        const target = st.targetStaff || 0;
+        const current = countInGroup(dayCounts.get(st.id), empGroupId);
+        const target = targetFor(st, empGroupId);
         if (current < target) belowTarget.push(st);
       }
 
@@ -610,8 +672,8 @@ export function generateSmartSchedule({
       } else {
         // All targets met → balance: pick shift with fewest current people
         const sorted = [...eligible].sort((a, b) => {
-          const ca = dayCounts.get(a.id)?.size || 0;
-          const cb = dayCounts.get(b.id)?.size || 0;
+          const ca = countInGroup(dayCounts.get(a.id), empGroupId);
+          const cb = countInGroup(dayCounts.get(b.id), empGroupId);
           return ca - cb;
         });
         chosen = sorted[0] ?? null;
