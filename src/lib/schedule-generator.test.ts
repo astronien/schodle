@@ -319,3 +319,122 @@ describe('generateSmartSchedule — cross-month fairness (regression)', () => {
     expect(max - min).toBeLessThanOrEqual(8);
   });
 });
+
+describe('generateSmartSchedule — weekly shift blocks', () => {
+  // 2 morning + 2 afternoon slots a day, 5 people → enough slack that nobody
+  // should need to be pulled across categories.
+  const blockShiftTypes: ShiftType[] = [
+    { ...shiftTypes[0], targetStaff: 2 },
+    { ...shiftTypes[1], targetStaff: 2 },
+  ];
+  const team: Employee[] = ['e1', 'e2', 'e3', 'e4', 'e5'].map((id) => ({
+    id,
+    employeeCode: id,
+    fullName: id.toUpperCase(),
+    positionId: 'p1',
+    role: 'employee',
+  })) as Employee[];
+
+  const categoryOf = (shiftTypeId: string) =>
+    blockShiftTypes.find((t) => t.id === shiftTypeId)?.category;
+
+  /** Group a person's entries by ISO week (Mon-based), returning category counts. */
+  const byWeek = (entries: { employeeId: string; date: string; shiftTypeId: string }[]) => {
+    const map = new Map<string, Map<string, number>>();
+    for (const e of entries) {
+      const d = new Date(`${e.date}T00:00:00`);
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      const key = `${e.employeeId}|${monday.toISOString().slice(0, 10)}`;
+      const cat = categoryOf(e.shiftTypeId);
+      if (cat !== 'morning' && cat !== 'afternoon') continue;
+      const counts = map.get(key) ?? new Map<string, number>();
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+      map.set(key, counts);
+    }
+    return map;
+  };
+
+  it('gives each employee one dominant category per week', () => {
+    const { entries } = generateSmartSchedule({
+      month: new Date('2026-09-01'),
+      employees: team,
+      shiftTypes: blockShiftTypes,
+      shuffleEmployees: false,
+    });
+
+    const weeks = byWeek(entries);
+    expect(weeks.size).toBeGreaterThan(0);
+
+    for (const [key, counts] of weeks) {
+      const morning = counts.get('morning') || 0;
+      const afternoon = counts.get('afternoon') || 0;
+      const total = morning + afternoon;
+      const dominant = Math.max(morning, afternoon);
+      const offCategory = total - dominant;
+      // The week must be predominantly one shift, and any deviation must stay
+      // inside the per-week budget.
+      expect(dominant / total, `week ${key} was not dominated by one category`)
+        .toBeGreaterThan(0.5);
+      expect(offCategory, `week ${key} exceeded the off-category budget`)
+        .toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('alternates an employee between categories across consecutive weeks', () => {
+    const { entries } = generateSmartSchedule({
+      month: new Date('2026-09-01'),
+      employees: team,
+      shiftTypes: blockShiftTypes,
+      shuffleEmployees: false,
+    });
+
+    // Dominant category per (employee, week), ordered by week.
+    const dominantByEmpWeek = new Map<string, { monday: string; cat: string }[]>();
+    for (const [key, counts] of byWeek(entries)) {
+      const [employeeId, monday] = key.split('|');
+      const morning = counts.get('morning') || 0;
+      const afternoon = counts.get('afternoon') || 0;
+      const cat = morning >= afternoon ? 'morning' : 'afternoon';
+      const list = dominantByEmpWeek.get(employeeId) ?? [];
+      list.push({ monday, cat });
+      dominantByEmpWeek.set(employeeId, list);
+    }
+
+    let flips = 0;
+    let comparisons = 0;
+    for (const list of dominantByEmpWeek.values()) {
+      list.sort((a, b) => a.monday.localeCompare(b.monday));
+      // Ignore partial weeks at the month edges, which can be a single day.
+      for (let i = 1; i < list.length - 1; i += 1) {
+        comparisons += 1;
+        if (list[i].cat !== list[i - 1].cat) flips += 1;
+      }
+    }
+    expect(comparisons).toBeGreaterThan(0);
+    // Every full week-to-week transition should be a flip.
+    expect(flips).toBe(comparisons);
+  });
+
+  it('covers both categories every day (the two halves work opposite shifts)', () => {
+    const { entries } = generateSmartSchedule({
+      month: new Date('2026-09-01'),
+      employees: team,
+      shiftTypes: blockShiftTypes,
+      shuffleEmployees: false,
+    });
+
+    const byDate = new Map<string, Set<string>>();
+    for (const e of entries) {
+      const cat = categoryOf(e.shiftTypeId);
+      if (!cat) continue;
+      const set = byDate.get(e.date) ?? new Set<string>();
+      set.add(cat);
+      byDate.set(e.date, set);
+    }
+    for (const [date, cats] of byDate) {
+      expect(cats.has('morning'), `${date} had no morning cover`).toBe(true);
+      expect(cats.has('afternoon'), `${date} had no afternoon cover`).toBe(true);
+    }
+  });
+});

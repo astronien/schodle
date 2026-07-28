@@ -15,6 +15,7 @@ import {
   BALANCE_TOLERANCE,
   MAX_ITERATIONS_PER_DAY_MULTIPLIER,
   MAX_ITERATIONS_PER_DAY_BASE,
+  MAX_OFF_CATEGORY_DAYS_PER_WEEK,
 } from '../config/constants';
 
 export type SmartScheduleDraft = Omit<ScheduleEntry, 'status' | 'requestType'> & {
@@ -219,21 +220,66 @@ export function generateSmartSchedule({
     }
   }
 
-  // Compute weekly preferred category per week using rotation start.
-  // week 0 of this month follows rotationStart; week 1 flips; week 2 flips back; etc.
-  // The whole team rotates together — target quotas still guarantee both
-  // morning and afternoon coverage via the fallback pool in tryFillShift.
-  const getWeeklyPreferredFor = (employeeId: string, date: Date): ShiftCategory => {
-    const emp = employees.find((e) => e.id === employeeId);
-    if (!emp) return rotationStart;
-    // Off day → not preferred
-    if (typeof emp.weeklyOffDay === 'number' && date.getDay() === emp.weeklyOffDay) {
-      return 'other';
+  // ── Weekly shift blocks ────────────────────────────────────────
+  // People can't flip between morning and afternoon day to day — their body
+  // clock can't keep up. So each employee is locked to ONE category for the
+  // whole week (Mon–Sun) and swaps the following week.
+  //
+  // Both categories still need covering every day, so the team is split into
+  // two stable halves: half work mornings this week while the other half work
+  // afternoons, then they trade. Splitting per position keeps each half able
+  // to cover the roles a shift needs.
+  const rotationGroupOf = new Map<string, 0 | 1>();
+  {
+    const byPosition = new Map<string, Employee[]>();
+    for (const emp of employees) {
+      const key = emp.positionId || '__none__';
+      const list = byPosition.get(key) ?? [];
+      list.push(emp);
+      byPosition.set(key, list);
     }
+    // Deterministic order so the same roster always yields the same groups —
+    // regenerating a month must not reshuffle who works mornings.
+    for (const list of byPosition.values()) {
+      list.sort((a, b) => a.id.localeCompare(b.id));
+      list.forEach((emp, i) => rotationGroupOf.set(emp.id, (i % 2) as 0 | 1));
+    }
+  }
+
+  /** The category an employee is supposed to work for the week containing `date`. */
+  const getWeeklyCategoryFor = (employeeId: string, date: Date): ShiftCategory => {
     const weekIdx = weekIndexFromFirstMonday(date, firstMondayOfMonth);
-    // Whole-team rotation: everyone follows the same category each week and
-    // flips together the next week (morning ↔ afternoon).
-    return weekIdx % 2 === 0 ? rotationStart : opposite(rotationStart);
+    const group = rotationGroupOf.get(employeeId) ?? 0;
+    // Group 0 starts on rotationStart; group 1 starts opposite. Every week
+    // both groups flip, so each person alternates week to week.
+    const startsOnRotation = group === 0;
+    const flipped = weekIdx % 2 === 1;
+    return startsOnRotation !== flipped ? rotationStart : opposite(rotationStart);
+  };
+
+  // Off-category budget: an employee may be pulled onto the other category at
+  // most this many days per week, and only when a shift would otherwise go
+  // unfilled. Keeps "the week is mostly my shift" true even when short-staffed.
+  const offCategoryDaysThisWeek = new Map<string, number>();
+  const offCategoryKey = (employeeId: string, date: Date) =>
+    `${employeeId}:${weekIndexFromFirstMonday(date, firstMondayOfMonth)}`;
+  const offCategoryUsed = (employeeId: string, date: Date) =>
+    offCategoryDaysThisWeek.get(offCategoryKey(employeeId, date)) ?? 0;
+  const canGoOffCategory = (employeeId: string, date: Date) =>
+    offCategoryUsed(employeeId, date) < MAX_OFF_CATEGORY_DAYS_PER_WEEK;
+  const recordOffCategory = (employeeId: string, date: Date) => {
+    const key = offCategoryKey(employeeId, date);
+    offCategoryDaysThisWeek.set(key, (offCategoryDaysThisWeek.get(key) ?? 0) + 1);
+  };
+
+  /** Is this shift the employee's assigned category for the week? */
+  const matchesWeeklyCategory = (
+    employeeId: string,
+    date: Date,
+    category: ShiftCategory,
+  ): boolean => {
+    if (category !== 'morning' && category !== 'afternoon') return true;
+    return getWeeklyCategoryFor(employeeId, date) === category;
   };
 
   for (let dayIdx = 0; dayIdx < days.length; dayIdx += 1) {
@@ -343,17 +389,37 @@ export function generateSmartSchedule({
       candidates: Employee[],
       shiftTypeId: string,
       lateEarly: LateEarlyStrictness,
+      /** Allow pulling someone onto the opposite category (spends budget). */
+      allowOffCategory = false,
     ): boolean => {
-      // Sort by workload: employees with fewer assignments get priority.
+      const shiftType = shiftTypes.find((t) => t.id === shiftTypeId);
+      if (!shiftType) return false;
+      const category = (shiftType.category || 'other') as ShiftCategory;
+
       const sortedCandidates = [...candidates].sort((a, b) => {
+        // When breaking the weekly block, hurt the person who has been pulled
+        // off their shift the least so far this week — spreads the pain.
+        if (allowOffCategory) {
+          const offA = offCategoryUsed(a.id, day);
+          const offB = offCategoryUsed(b.id, day);
+          if (offA !== offB) return offA - offB;
+        }
+        // Then by workload: employees with fewer assignments get priority.
         const countA = monthlyAssignedCount.get(a.id) || 0;
         const countB = monthlyAssignedCount.get(b.id) || 0;
         return countA - countB;
       });
+
       for (const employee of sortedCandidates) {
         if (!canAssignEmployeeToShift(employee.id, shiftTypeId, lateEarly)) continue;
-        const shiftType = shiftTypes.find((t) => t.id === shiftTypeId);
-        if (!shiftType) return false;
+
+        const offCategory = !matchesWeeklyCategory(employee.id, day, category);
+        // The weekly block is a rule, not a preference: only break it when the
+        // caller explicitly allows it and the person still has budget left.
+        if (offCategory && (!allowOffCategory || !canGoOffCategory(employee.id, day))) {
+          continue;
+        }
+
         entries.push({
           id: idFactory(),
           employeeId: employee.id,
@@ -366,6 +432,7 @@ export function generateSmartSchedule({
         assignedThisDay.add(employee.id);
         monthlyAssignedCount.set(employee.id, (monthlyAssignedCount.get(employee.id) || 0) + 1);
         remainingByType.set(shiftTypeId, (remainingByType.get(shiftTypeId) || 0) - 1);
+        if (offCategory) recordOffCategory(employee.id, day);
         if (shiftType.category === 'morning') assignedMorningSlots += 1;
         if (shiftType.category === 'afternoon') assignedAfternoonSlots += 1;
         return true;
@@ -377,8 +444,9 @@ export function generateSmartSchedule({
       shiftType: ShiftType,
       lateEarly: LateEarlyStrictness,
       requirePositionMatch: boolean,
+      /** Last resort: permit crossing the weekly block to avoid an empty shift. */
+      allowOffCategory = false,
     ): boolean => {
-      const shiftCategory = (shiftType.category || 'other') as ShiftCategory;
       const preferredPos = getPreferredPosition(shiftType.id);
 
       // Candidate pool: filter by position preference if we have one AND caller
@@ -388,14 +456,9 @@ export function generateSmartSchedule({
         : shuffledEmployees;
       const pool = positionFiltered.length > 0 ? positionFiltered : shuffledEmployees;
 
-      if (shiftCategory === 'morning' || shiftCategory === 'afternoon') {
-        const preferred = pool.filter(
-          (e) => getWeeklyPreferredFor(e.id, day) === shiftCategory,
-        );
-        if (tryAssignFrom(preferred, shiftType.id, lateEarly)) return true;
-        return tryAssignFrom(pool, shiftType.id, lateEarly);
-      }
-      return tryAssignFrom(pool, shiftType.id, lateEarly);
+      // tryAssignFrom enforces the weekly category itself, so a single pass
+      // over the full pool is enough — no more silent "anyone will do" retry.
+      return tryAssignFrom(pool, shiftType.id, lateEarly, allowOffCategory);
     };
 
     let iterations = 0;
@@ -448,14 +511,34 @@ export function generateSmartSchedule({
       }
     }
 
-    // Tier 3: warn-only — allow late→early if it would otherwise leave a shift
+    // Tier 3: still short — start breaking weekly shift blocks, spending each
+    // person's off-category budget. Done before relaxing the late→early rest
+    // rule: working the wrong half of the day is inconvenient, working with too
+    // little rest is a safety issue.
+    let offCategoryWarnCount = 0;
+    for (const shiftType of targetShiftTypes) {
+      const remaining = remainingByType.get(shiftType.id) || 0;
+      if (remaining <= 0) continue;
+      for (let i = 0; i < remaining; i += 1) {
+        const filled = tryFillShift(shiftType, 'strict', false, true);
+        if (!filled) break;
+        if (offCategoryWarnCount < 3) {
+          warnings.push(
+            `${dateStr}: กะ ${shiftType.code} ต้องดึงคนจากกะประจำสัปดาห์อีกฝั่ง (คนไม่พอ)`,
+          );
+          offCategoryWarnCount += 1;
+        }
+      }
+    }
+
+    // Tier 4: warn-only — allow late→early if it would otherwise leave a shift
     // empty. Cap warnings at 3/day.
     let warnCount = 0;
     for (const shiftType of targetShiftTypes) {
       const remaining = remainingByType.get(shiftType.id) || 0;
       if (remaining <= 0) continue;
       for (let i = 0; i < remaining; i += 1) {
-        const filled = tryFillShift(shiftType, 'off', false);
+        const filled = tryFillShift(shiftType, 'off', false, true);
         if (filled && warnCount < 3) {
           warnings.push(
             `${dateStr}: กะ ${shiftType.code} ต้องจัดแบบละเมิดกฎดึก→เช้า (ไม่มีคนเหลือ)`,
@@ -502,12 +585,18 @@ export function generateSmartSchedule({
       // Find a shift for this employee:
       // Priority 1: shifts that haven't hit target yet (fill target first)
       // Priority 2: balance equally — pick shift with fewest current people
-      // In both cases, prefer the employee's weekly preferred category
-      const empPreferred = getWeeklyPreferredFor(emp.id, day);
+      //
+      // This phase only tops up spare capacity, so it must never break the
+      // weekly block — only shifts matching the employee's category for the
+      // week are eligible. Leaving someone idle is better than bouncing them
+      // between mornings and afternoons.
+      const eligible = targetShiftTypes.filter((st) =>
+        matchesWeeklyCategory(emp.id, day, (st.category || 'other') as ShiftCategory),
+      );
 
       // Build candidate shifts
       const belowTarget: ShiftType[] = [];
-      for (const st of targetShiftTypes) {
+      for (const st of eligible) {
         const current = dayCounts.get(st.id)?.size || 0;
         const target = st.targetStaff || 0;
         if (current < target) belowTarget.push(st);
@@ -516,20 +605,13 @@ export function generateSmartSchedule({
       let chosen: ShiftType | null = null;
 
       if (belowTarget.length > 0) {
-        // Fill below-target first, prefer same category as preferred
-        const sameCat = belowTarget.filter(
-          (s) => (s.category || 'other') === empPreferred,
-        );
-        chosen = sameCat[0] ?? belowTarget[0];
+        // Fill below-target first
+        chosen = belowTarget[0];
       } else {
-        // All targets met → balance: pick shift with smallest current count
-        // Prefer same category as preferred, then fewest people
-        const sorted = [...targetShiftTypes].sort((a, b) => {
+        // All targets met → balance: pick shift with fewest current people
+        const sorted = [...eligible].sort((a, b) => {
           const ca = dayCounts.get(a.id)?.size || 0;
           const cb = dayCounts.get(b.id)?.size || 0;
-          const aPref = (a.category || 'other') === empPreferred ? -1 : 0;
-          const bPref = (b.category || 'other') === empPreferred ? -1 : 0;
-          if (aPref !== bPref) return aPref - bPref;
           return ca - cb;
         });
         chosen = sorted[0] ?? null;

@@ -22,6 +22,13 @@ export const BALANCE_TOLERANCE = 1;
 /** Batch size when deleting a month's schedules, to bound the `in` list. */
 export const CLEAR_MONTH_CHUNK_SIZE = 200;
 
+/**
+ * How many days a week an employee may be pulled onto the opposite shift
+ * category when a shift would otherwise go unfilled. Keeps each week
+ * predominantly one shift so people can actually adjust their sleep.
+ */
+export const MAX_OFF_CATEGORY_DAYS_PER_WEEK = 2;
+
 export const MAX_ITERATIONS_PER_DAY_MULTIPLIER = 8;
 export const MAX_ITERATIONS_PER_DAY_BASE = 10;
 
