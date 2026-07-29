@@ -21,13 +21,20 @@ if [ -z "$PROJECT_REF" ]; then
   exit 1
 fi
 
-FUNCTIONS=(
-  verify-password
-  change-password
-  create-employee
-  swap-schedule-shifts
-  send-push
-)
+# Derived from the directory rather than hardcoded — a hardcoded list silently
+# skipped db-query, reset-employee-password and self-reset-password, so those
+# ran stale code in production while the deploy reported success.
+FUNCTIONS=()
+for dir in supabase/functions/*/; do
+  [ -f "$dir/index.ts" ] || continue
+  FUNCTIONS+=("$(basename "$dir")")
+done
+
+if [ ${#FUNCTIONS[@]} -eq 0 ]; then
+  echo "ERROR: no functions found under supabase/functions/"
+  exit 1
+fi
+echo "Deploying ${#FUNCTIONS[@]} functions: ${FUNCTIONS[*]}"
 
 for fn in "${FUNCTIONS[@]}"; do
   echo "→ deploying $fn"
