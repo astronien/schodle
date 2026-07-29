@@ -110,7 +110,11 @@ serve(async (req) => {
     return json({ error: "รหัสพนักงานในระบบไม่ตรงกับที่ส่งมา" }, 409);
   }
 
-  const newHash = await bcrypt.hash(employeeCode, 10);
+  // Hash the code as STORED, not as the caller spelled it. The check above is
+  // case-insensitive, so a client sending "e001" for a stored "E001" would
+  // otherwise produce a hash the employee can never reproduce by typing their
+  // code as it appears in the app.
+  const newHash = await bcrypt.hash(employee.employee_code, 10);
   const { error: updateError } = await supabase
     .from("employees")
     .update({ password_hash: newHash, must_change_password: true })
