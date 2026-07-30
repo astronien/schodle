@@ -241,6 +241,7 @@ function AppShell() {
                       shiftTypes={shiftTypes}
                       employees={employees}
                       positions={positions}
+                      positionGroups={positionGroups}
                       uploadFile={uploadFile}
                       settings={settings}
                       activeView={activeView}
@@ -320,6 +321,7 @@ function AppShell() {
                 shiftTypes={shiftTypes}
                 employees={employees}
                 positions={positions}
+                positionGroups={positionGroups}
                 uploadFile={uploadFile}
                 settings={settings}
                 activeView={activeView}

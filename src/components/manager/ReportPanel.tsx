@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Download, Bell, Image, Clock, Users, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getEmployeeMonthlyStats } from '../../lib/schedule-utils';
 import { supabase } from '../../lib/supabase';
-import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
+import { groupEmployeesForSchedule } from '../../lib/employee-order';
+import type { Employee, Position, PositionGroup, ScheduleEntry, ShiftType } from '../../types';
 
 interface ReportPanelProps {
   currentMonth: Date;
@@ -13,6 +14,7 @@ interface ReportPanelProps {
   employees: Employee[];
   shiftTypes: ShiftType[];
   positions: Position[];
+  positionGroups?: PositionGroup[];
 }
 
 export function ReportPanel({
@@ -21,6 +23,7 @@ export function ReportPanel({
   employees,
   shiftTypes,
   positions,
+  positionGroups,
 }: ReportPanelProps) {
   const [reportEmployeeId, setReportEmployeeId] = useState<string | null>(null);
   const [confirmations, setConfirmations] = useState<Record<string, string>>({});
@@ -48,6 +51,14 @@ export function ReportPanel({
     return () => { cancelled = true; };
   }, [monthKey]);
 
+  // Same position-group ordering as the coverage grid, so the report list and
+  // its CSV read in the same order as the schedule itself.
+  const employeeSections = useMemo(
+    () => groupEmployeesForSchedule(employees, positionGroups ?? [], positions),
+    [employees, positionGroups, positions],
+  );
+  const showGroupHeadings = employeeSections.length > 1;
+
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthSchedules = schedules.filter((s) => {
     const d = new Date(`${s.date}T00:00:00`);
@@ -68,11 +79,11 @@ export function ReportPanel({
 
   const handleExportCSV = () => {
     const headers = [
-      'รหัส', 'ชื่อ', 'ตำแหน่ง',
+      'รหัส', 'ชื่อ', 'ตำแหน่ง', 'กลุ่ม',
       ...daysInMonth.map((d) => format(d, 'd/MM')),
       'วันทำงาน', 'ขาด', 'ลา', 'ป่วย', 'สาย',
     ];
-    const rows = employees.map((emp) => {
+    const rows = employeeSections.flatMap((section) => section.employees.map((emp) => {
       const stats = getEmployeeStats(emp.id);
       const pos = positions.find((p) => p.id === emp.positionId);
       const dayCols = daysInMonth.map((d) => {
@@ -86,13 +97,13 @@ export function ReportPanel({
         return label;
       });
       return [
-        emp.employeeCode, emp.fullName, pos?.name || '',
+        emp.employeeCode, emp.fullName, pos?.name || '', section.groupName,
         ...dayCols,
         stats.workDays,
         stats.counts['XC'] || 0, stats.counts['V'] || 0, stats.counts['SICK'] || 0,
         stats.lateCount,
       ];
-    });
+    }));
     const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -395,54 +406,68 @@ export function ReportPanel({
       })()}
 
       <div className="space-y-3">
-        {employees.map((emp) => {
-          const stats = getEmployeeStats(emp.id);
-          const pos = positions.find((p) => p.id === emp.positionId);
-          const hasAlert = stats.pendingCount > 0 || stats.swapCount > 0;
-          return (
-            <button
-              key={emp.id}
-              onClick={() => setReportEmployeeId(emp.id)}
-              className="w-full card p-4 sm:p-5 rounded-xl flex items-center gap-4 hover:border-brand/30 transition-all text-left group"
-            >
-              <div className="w-11 h-11 rounded-xl overflow-hidden bg-bg-surface border border-border-solid shrink-0">
-                <img
-                  src={emp.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
+        {employeeSections.map((section) => (
+          <Fragment key={section.groupId}>
+            {showGroupHeadings && (
+              <div className="flex items-center gap-2 pt-2">
+                <div className={cn('w-1 h-3.5 rounded-full shrink-0', section.isUngrouped ? 'bg-text-quaternary/50' : 'bg-brand')}></div>
+                <span className={cn('text-[10px] font-bold uppercase tracking-wider', section.isUngrouped ? 'text-text-quaternary' : 'text-text-tertiary')}>
+                  {section.groupName}
+                </span>
+                <span className="text-[9px] font-semibold text-text-quaternary">({section.employees.length})</span>
+                <div className="flex-1 h-px bg-border-solid"></div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-text-primary truncate">{emp.fullName}</p>
-                  <div className="flex items-center gap-1">
-                    {confirmations[emp.id] ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
-                    ) : (
-                      <span className="w-3.5 h-3.5 rounded-full border-2 border-text-quaternary/30 shrink-0" />
-                    )}
-                    {hasAlert && <span className="w-2 h-2 bg-warn rounded-full animate-pulse shrink-0"></span>}
+            )}
+            {section.employees.map((emp) => {
+              const stats = getEmployeeStats(emp.id);
+              const pos = positions.find((p) => p.id === emp.positionId);
+              const hasAlert = stats.pendingCount > 0 || stats.swapCount > 0;
+              return (
+                <button
+                  key={emp.id}
+                  onClick={() => setReportEmployeeId(emp.id)}
+                  className="w-full card p-4 sm:p-5 rounded-xl flex items-center gap-4 hover:border-brand/30 transition-all text-left group"
+                >
+                  <div className="w-11 h-11 rounded-xl overflow-hidden bg-bg-surface border border-border-solid shrink-0">
+                    <img
+                      src={emp.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${emp.fullName}`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                </div>
-                <p className="text-[10px] font-semibold text-text-quaternary uppercase tracking-wider">
-                  {emp.employeeCode} · {pos?.name}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="hidden sm:flex items-center gap-2">
-                  <span className="text-[10px] font-bold bg-success/10 text-success px-2 py-1 rounded-md">{stats.workDays} ทำงาน</span>
-                  {stats.counts['XC'] > 0 && <span className="text-[10px] font-bold bg-danger/10 text-danger px-2 py-1 rounded-md">{stats.counts['XC']} ขาด</span>}
-                  {stats.counts['V'] > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.counts['V']} ลา</span>}
-                  {(stats.counts['SICK'] || 0) > 0 && <span className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-1 rounded-md">{stats.counts['SICK']} ป่วย</span>}
-                  {stats.lateCount > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.lateCount} สาย</span>}
-                  {stats.pendingCount > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.pendingCount} รอ</span>}
-                  {stats.swapCount > 0 && <span className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-1 rounded-md">{stats.swapCount} สลับ</span>}
-                </div>
-                <ChevronRight className="w-4 h-4 text-text-quaternary group-hover:text-brand transition-colors" />
-              </div>
-            </button>
-          );
-        })}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-text-primary truncate">{emp.fullName}</p>
+                      <div className="flex items-center gap-1">
+                        {confirmations[emp.id] ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                        ) : (
+                          <span className="w-3.5 h-3.5 rounded-full border-2 border-text-quaternary/30 shrink-0" />
+                        )}
+                        {hasAlert && <span className="w-2 h-2 bg-warn rounded-full animate-pulse shrink-0"></span>}
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-semibold text-text-quaternary uppercase tracking-wider">
+                      {emp.employeeCode} · {pos?.name}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="hidden sm:flex items-center gap-2">
+                      <span className="text-[10px] font-bold bg-success/10 text-success px-2 py-1 rounded-md">{stats.workDays} ทำงาน</span>
+                      {stats.counts['XC'] > 0 && <span className="text-[10px] font-bold bg-danger/10 text-danger px-2 py-1 rounded-md">{stats.counts['XC']} ขาด</span>}
+                      {stats.counts['V'] > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.counts['V']} ลา</span>}
+                      {(stats.counts['SICK'] || 0) > 0 && <span className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-1 rounded-md">{stats.counts['SICK']} ป่วย</span>}
+                      {stats.lateCount > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.lateCount} สาย</span>}
+                      {stats.pendingCount > 0 && <span className="text-[10px] font-bold bg-warn/10 text-warn px-2 py-1 rounded-md">{stats.pendingCount} รอ</span>}
+                      {stats.swapCount > 0 && <span className="text-[10px] font-bold bg-brand/10 text-brand-accent px-2 py-1 rounded-md">{stats.swapCount} สลับ</span>}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-text-quaternary group-hover:text-brand transition-colors" />
+                  </div>
+                </button>
+              );
+            })}
+          </Fragment>
+        ))}
       </div>
     </div>
   );

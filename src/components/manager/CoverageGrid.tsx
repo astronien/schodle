@@ -1,14 +1,15 @@
-import { useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone, Calendar, CheckSquare, X, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getCoverageLookup } from '../../lib/schedule-utils';
+import { groupEmployeesForSchedule } from '../../lib/employee-order';
 import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
 import { SALES_POSITION_IDS } from '../../config/constants';
 import { sendPushToRole } from '../../lib/push';
 import { buildICS, downloadICS } from '../../lib/calendar-export';
-import type { Employee, Position, ScheduleEntry, ShiftType } from '../../types';
+import type { Employee, Position, PositionGroup, ScheduleEntry, ShiftType } from '../../types';
 import { CellEditor } from './Modals/CellEditor';
 import { TemplateManager } from './Modals/TemplateManager';
 import { ConfirmModal } from '../ConfirmModal';
@@ -20,6 +21,7 @@ interface CoverageGridProps {
   schedules: ScheduleEntry[];
   shiftTypes: ShiftType[];
   positions: Position[];
+  positionGroups?: PositionGroup[];
   editingCell: { employeeId: string; date: string; currentShiftId?: string } | null;
   onOpenCell: (employeeId: string, date: string) => void;
   onAssignShift: (shiftTypeId: string) => void;
@@ -44,6 +46,7 @@ export function CoverageGrid({
   schedules,
   shiftTypes,
   positions,
+  positionGroups,
   editingCell,
   onOpenCell,
   onAssignShift,
@@ -59,6 +62,20 @@ export function CoverageGrid({
 }: CoverageGridProps) {
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
+
+  // Rows are grouped by position group (ungrouped / deleted-group staff last).
+  // Same helper feeds the CSV / print / PDF exports so paper matches screen.
+  const employeeSections = useMemo(
+    () => groupEmployeesForSchedule(employees, positionGroups ?? [], positions),
+    [employees, positionGroups, positions],
+  );
+  const orderedEmployees = useMemo(
+    () => employeeSections.flatMap((section) => section.employees),
+    [employeeSections],
+  );
+  // A single section means one group (or none at all) — a heading row there
+  // would just be noise, so separators only appear when they separate something.
+  const showGroupSeparators = employeeSections.length > 1;
 
   const [swapMode, setSwapMode] = useState(false);
   const [swapFirst, setSwapFirst] = useState<{ employeeId: string; date: string } | null>(null);
@@ -205,7 +222,7 @@ export function CoverageGrid({
               </button>
             )}
             <button
-              onClick={() => exportCSV(currentMonth, employees, schedules, shiftTypes, positions)}
+              onClick={() => exportCSV(currentMonth, employees, schedules, shiftTypes, positions, positionGroups)}
               className="btn btn-ghost text-xs px-3 py-2"
               title="Export CSV"
             >
@@ -213,7 +230,7 @@ export function CoverageGrid({
               CSV
             </button>
             <button
-              onClick={() => printSchedule(currentMonth, employees, schedules, shiftTypes, positions, storeName || 'Store')}
+              onClick={() => printSchedule(currentMonth, employees, schedules, shiftTypes, positions, storeName || 'Store', positionGroups)}
               className="btn btn-ghost text-xs px-3 py-2"
               title="พิมพ์ตาราง"
             >
@@ -224,7 +241,7 @@ export function CoverageGrid({
               onClick={async () => {
                 setPdfLoading(true);
                 try {
-                  await exportPDF(currentMonth, employees, schedules, shiftTypes, positions, storeName || 'Store');
+                  await exportPDF(currentMonth, employees, schedules, shiftTypes, positions, storeName || 'Store', positionGroups);
                 } catch (err: unknown) {
                   console.error('PDF export failed:', err);
                 } finally {
@@ -244,7 +261,7 @@ export function CoverageGrid({
             </button>
             <button
               onClick={() => {
-                const events = employees.flatMap((emp) => {
+                const events = orderedEmployees.flatMap((emp) => {
                   const pos = positions.find((p) => p.id === emp.positionId);
                   return schedules
                     .filter((s) => s.employeeId === emp.id && s.status === 'approved')
@@ -363,100 +380,120 @@ export function CoverageGrid({
             </tr>
           </thead>
           <tbody>
-            {employees.map((employee) => (
-              <tr key={employee.id} className="group hover:bg-bg-panel/50 transition-colors">
-                <td className={cn('sticky left-0 z-10 bg-bg-surface group-hover:bg-bg-panel border-b border-white/[0.03] shadow-[2px_0_0_rgba(0,0,0,0.04)]', fitMonth ? 'p-2 w-[110px] min-w-[110px] max-w-[110px]' : 'p-3 sm:p-4 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px]')}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden bg-bg-surface border border-surface-200 shrink-0">
-                      <img
-                        src={
-                          employee.avatar ||
-                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.fullName}`
-                        }
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs sm:text-sm font-bold text-text-primary leading-none mb-1 truncate">
-                        {employee.fullName}
+            {employeeSections.map((section) => (
+              <Fragment key={section.groupId}>
+                {showGroupSeparators && (
+                  <tr>
+                    <td className={cn('sticky left-0 z-10 bg-bg-panel border-y border-success/20 shadow-[2px_0_0_rgba(0,0,0,0.04)]', fitMonth ? 'px-2 py-1 w-[110px] min-w-[110px] max-w-[110px]' : 'px-3 py-1.5 sm:px-4 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px]')}>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className={cn('w-1 rounded-full shrink-0', fitMonth ? 'h-3' : 'h-3.5', section.isUngrouped ? 'bg-text-quaternary/50' : 'bg-brand')}></div>
+                        <span className={cn('font-bold uppercase tracking-wider truncate', fitMonth ? 'text-[8px]' : 'text-[10px]', section.isUngrouped ? 'text-text-quaternary' : 'text-text-tertiary')}>
+                          {section.groupName}
+                        </span>
+                        <span className={cn('font-semibold text-text-quaternary shrink-0', fitMonth ? 'text-[8px]' : 'text-[9px]')}>
+                          ({section.employees.length})
+                        </span>
                       </div>
-                      <div className="text-[9px] sm:text-[10px] font-semibold text-text-quaternary uppercase tracking-wider truncate">
-                        {positions.find((p) => p.id === employee.positionId)?.code}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                {daysInMonth.map((day) => {
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const shift = schedules.find(
-                    (s) => s.employeeId === employee.id && s.date === dateStr && s.status === 'approved'
-                  );
-                  const shiftType = shift ? shiftTypes.find((t) => t.id === shift.shiftTypeId) : null;
-                  const cellKey = `${employee.id}-${dateStr}`;
-                  const isSwapFirst = swapFirst?.employeeId === employee.id && swapFirst?.date === dateStr;
-                  const isDragOver = dragOverCell === cellKey;
-                  const isMultiSelected = multiSelectMode && selectedCells.has(cellKey);
-                  const hasTargetShift = shift && shiftType;
-                  return (
-                    <td
-                      key={day.toString()}
-                      className={cn(
-                        fitMonth ? 'p-[1px] border-b border-white/[0.03] transition-colors' : 'p-1 border-b border-white/[0.03] transition-colors',
-                        (swapMode || multiSelectMode) && 'cursor-pointer',
-                        isSwapFirst && 'bg-brand/20 ring-2 ring-brand ring-inset',
-                        isMultiSelected && 'bg-brand/20 ring-2 ring-brand ring-inset',
-                        isDragOver && hasTargetShift && 'bg-warn/20 ring-2 ring-warn ring-inset',
-                        isDragOver && !hasTargetShift && 'bg-success/20 ring-2 ring-success ring-inset',
-                      )}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setDragOverCell(cellKey);
-                      }}
-                      onDragLeave={() => setDragOverCell(null)}
-                      onDrop={(e) => {
-                        setDragOverCell(null);
-                        onDropShift(e, employee.id, dateStr);
-                      }}
-                    >
-                      {shift && shiftType ? (
-                        <div
-                          draggable={!swapMode}
-                          onClick={() => handleCellClick(employee.id, dateStr)}
-                          onDragStart={(e) =>
-                            e.dataTransfer.setData(
-                              'shift',
-                              JSON.stringify({ employeeId: employee.id, date: dateStr })
-                            )
-                          }
-                          className={cn(
-                            fitMonth
-                              ? 'w-full h-6 rounded flex items-center justify-center text-[8px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing'
-                              : 'w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing',
-                            !swapMode && 'hover:scale-105',
-                            swapMode && 'hover:ring-2 hover:ring-white/60',
-                          )}
-                          style={{ backgroundColor: shiftType.color }}
-                        >
-                          {shiftType.code}
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => handleCellClick(employee.id, dateStr)}
-                          className={cn(
-                            fitMonth
-                              ? 'w-full h-6 rounded border border-dashed cursor-pointer transition-colors'
-                              : 'w-full h-7 sm:h-9 rounded-md border border-dashed cursor-pointer transition-colors',
-                            swapMode
-                              ? 'border-brand/40 bg-brand/5 hover:bg-brand/10'
-                              : 'border-surface-200 bg-bg-panel hover:bg-bg-surface',
-                          )}
-                        ></div>
-                      )}
                     </td>
-                  );
-                })}
-              </tr>
+                    <td colSpan={daysInMonth.length} className="bg-bg-panel border-y border-success/20"></td>
+                  </tr>
+                )}
+                {section.employees.map((employee) => (
+                  <tr key={employee.id} className="group hover:bg-bg-panel/50 transition-colors">
+                    <td className={cn('sticky left-0 z-10 bg-bg-surface group-hover:bg-bg-panel border-b border-white/[0.03] shadow-[2px_0_0_rgba(0,0,0,0.04)]', fitMonth ? 'p-2 w-[110px] min-w-[110px] max-w-[110px]' : 'p-3 sm:p-4 w-[140px] min-w-[140px] max-w-[140px] sm:w-[200px] sm:min-w-[200px] sm:max-w-[200px]')}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden bg-bg-surface border border-surface-200 shrink-0">
+                          <img
+                            src={
+                              employee.avatar ||
+                              `https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.fullName}`
+                            }
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm font-bold text-text-primary leading-none mb-1 truncate">
+                            {employee.fullName}
+                          </div>
+                          <div className="text-[9px] sm:text-[10px] font-semibold text-text-quaternary uppercase tracking-wider truncate">
+                            {positions.find((p) => p.id === employee.positionId)?.code}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    {daysInMonth.map((day) => {
+                      const dateStr = format(day, 'yyyy-MM-dd');
+                      const shift = schedules.find(
+                        (s) => s.employeeId === employee.id && s.date === dateStr && s.status === 'approved'
+                      );
+                      const shiftType = shift ? shiftTypes.find((t) => t.id === shift.shiftTypeId) : null;
+                      const cellKey = `${employee.id}-${dateStr}`;
+                      const isSwapFirst = swapFirst?.employeeId === employee.id && swapFirst?.date === dateStr;
+                      const isDragOver = dragOverCell === cellKey;
+                      const isMultiSelected = multiSelectMode && selectedCells.has(cellKey);
+                      const hasTargetShift = shift && shiftType;
+                      return (
+                        <td
+                          key={day.toString()}
+                          className={cn(
+                            fitMonth ? 'p-[1px] border-b border-white/[0.03] transition-colors' : 'p-1 border-b border-white/[0.03] transition-colors',
+                            (swapMode || multiSelectMode) && 'cursor-pointer',
+                            isSwapFirst && 'bg-brand/20 ring-2 ring-brand ring-inset',
+                            isMultiSelected && 'bg-brand/20 ring-2 ring-brand ring-inset',
+                            isDragOver && hasTargetShift && 'bg-warn/20 ring-2 ring-warn ring-inset',
+                            isDragOver && !hasTargetShift && 'bg-success/20 ring-2 ring-success ring-inset',
+                          )}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragOverCell(cellKey);
+                          }}
+                          onDragLeave={() => setDragOverCell(null)}
+                          onDrop={(e) => {
+                            setDragOverCell(null);
+                            onDropShift(e, employee.id, dateStr);
+                          }}
+                        >
+                          {shift && shiftType ? (
+                            <div
+                              draggable={!swapMode}
+                              onClick={() => handleCellClick(employee.id, dateStr)}
+                              onDragStart={(e) =>
+                                e.dataTransfer.setData(
+                                  'shift',
+                                  JSON.stringify({ employeeId: employee.id, date: dateStr })
+                                )
+                              }
+                              className={cn(
+                                fitMonth
+                                  ? 'w-full h-6 rounded flex items-center justify-center text-[8px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing'
+                                  : 'w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing',
+                                !swapMode && 'hover:scale-105',
+                                swapMode && 'hover:ring-2 hover:ring-white/60',
+                              )}
+                              style={{ backgroundColor: shiftType.color }}
+                            >
+                              {shiftType.code}
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => handleCellClick(employee.id, dateStr)}
+                              className={cn(
+                                fitMonth
+                                  ? 'w-full h-6 rounded border border-dashed cursor-pointer transition-colors'
+                                  : 'w-full h-7 sm:h-9 rounded-md border border-dashed cursor-pointer transition-colors',
+                                swapMode
+                                  ? 'border-brand/40 bg-brand/5 hover:bg-brand/10'
+                                  : 'border-surface-200 bg-bg-panel hover:bg-bg-surface',
+                              )}
+                            ></div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
 

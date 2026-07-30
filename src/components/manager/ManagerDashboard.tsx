@@ -292,6 +292,7 @@ export function ManagerDashboard({
               schedules={schedules}
               shiftTypes={shiftTypes}
               positions={positions}
+              positionGroups={positionGroups}
               editingCell={editingCell}
               onOpenCell={handleOpenEditCell}
               onAssignShift={handleAssignShift}
@@ -362,6 +363,7 @@ export function ManagerDashboard({
               employees={employees}
               shiftTypes={shiftTypes}
               positions={positions}
+              positionGroups={positionGroups}
             />
           )}
 

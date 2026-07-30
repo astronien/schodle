@@ -1,9 +1,11 @@
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
-import type { Employee, Position, ScheduleEntry, ShiftType } from '../types';
+import type { Employee, Position, PositionGroup, ScheduleEntry, ShiftType } from '../types';
 import { DAY_NAMES_SHORT } from '../config/constants';
+import { groupEmployeesForSchedule, orderEmployeesForSchedule } from './employee-order';
 
 /**
- * Export schedules as CSV
+ * Export schedules as CSV.
+ * Rows follow the same position-group ordering as the on-screen grid.
  */
 export function exportCSV(
   currentMonth: Date,
@@ -11,6 +13,7 @@ export function exportCSV(
   schedules: ScheduleEntry[],
   shiftTypes: ShiftType[],
   positions: Position[],
+  positionGroups: PositionGroup[] = [],
 ) {
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthSchedules = schedules.filter((s) => {
@@ -24,22 +27,24 @@ export function exportCSV(
     'จำนวนวันที่ทำงาน',
   ];
 
-  const rows = employees.map((emp) => {
-    const pos = positions.find((p) => p.id === emp.positionId);
-    const dayCols = days.map((d) => {
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
-      if (!s) return '';
-      const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
-      return st?.code || '';
-    });
-    const workDays = dayCols.filter((c) => c && c !== 'X' && c !== 'OFF').length;
-    return [
-      emp.employeeCode, emp.fullName, pos?.name || '', emp.groupId || '',
-      ...dayCols,
-      workDays,
-    ];
-  });
+  const rows = groupEmployeesForSchedule(employees, positionGroups, positions).flatMap((section) =>
+    section.employees.map((emp) => {
+      const pos = positions.find((p) => p.id === emp.positionId);
+      const dayCols = days.map((d) => {
+        const dateStr = format(d, 'yyyy-MM-dd');
+        const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
+        if (!s) return '';
+        const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+        return st?.code || '';
+      });
+      const workDays = dayCols.filter((c) => c && c !== 'X' && c !== 'OFF').length;
+      return [
+        emp.employeeCode, emp.fullName, pos?.name || '', section.groupName,
+        ...dayCols,
+        workDays,
+      ];
+    }),
+  );
 
   const csvEscape = (val: string) => {
     if (/^[=+\-@\t\r]/.test(val)) return `"'${val}"`;
@@ -67,8 +72,9 @@ export function printSchedule(
   employees: Employee[],
   schedules: ScheduleEntry[],
   shiftTypes: ShiftType[],
-  _positions: Position[],
+  positions: Position[],
   storeName: string,
+  positionGroups: PositionGroup[] = [],
 ) {
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthStr = format(currentMonth, 'MMMM yyyy');
@@ -86,22 +92,32 @@ export function printSchedule(
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-  const tableRows = employees
-    .map((emp) => {
-      const dayCells = days
-        .map((d) => {
-          const dateStr = format(d, 'yyyy-MM-dd');
-          const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
-          if (!s) return '<td class="empty"></td>';
-          const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
-          return `<td class="shift" style="background:${st?.color || '#ccc'};color:#fff">${safe(st?.code || '')}</td>`;
-        })
-        .join('');
-      return `<tr>
+  const sections = groupEmployeesForSchedule(employees, positionGroups, positions);
+  const showGroupRows = sections.length > 1;
+  const tableRows = sections
+    .map((section) => {
+      const groupRow = showGroupRows
+        ? `<tr class="group-row"><td colspan="${days.length + 2}">${safe(section.groupName)} (${section.employees.length})</td></tr>`
+        : '';
+      const memberRows = section.employees
+        .map((emp) => {
+          const dayCells = days
+            .map((d) => {
+              const dateStr = format(d, 'yyyy-MM-dd');
+              const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
+              if (!s) return '<td class="empty"></td>';
+              const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+              return `<td class="shift" style="background:${st?.color || '#ccc'};color:#fff">${safe(st?.code || '')}</td>`;
+            })
+            .join('');
+          return `<tr>
         <td class="emp-name">${safe(emp.fullName)}</td>
         <td class="emp-code">${safe(emp.employeeCode)}</td>
         ${dayCells}
       </tr>`;
+        })
+        .join('');
+      return groupRow + memberRows;
     })
     .join('');
 
@@ -139,6 +155,7 @@ export function printSchedule(
     th small { font-weight: normal; opacity: 0.8; }
     .emp-name { text-align: left; font-weight: 600; white-space: nowrap; background: #fafafa; position: sticky; left: 0; font-size: 7px; padding-left: 3px; }
     .emp-code { text-align: center; font-size: 6px; color: #666; }
+    tr.group-row td { text-align: left; font-weight: 700; font-size: 7px; background: #e6e6ee; color: #1a1a2e; padding: 2px 4px; letter-spacing: 0.3px; }
     td.shift { font-weight: 700; font-size: 7px; border-radius: 1px; }
     td.empty { background: #fafafa; }
     tr:nth-child(even) { background: #fafafa; }
@@ -206,6 +223,8 @@ export function exportTextSummary(
   employees: Employee[],
   schedules: ScheduleEntry[],
   shiftTypes: ShiftType[],
+  positionGroups: PositionGroup[] = [],
+  positions: Position[] = [],
 ): string {
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const monthStr = format(currentMonth, 'MMMM yyyy');
@@ -216,7 +235,7 @@ export function exportTextSummary(
 
   const dayShort = days.map((d) => format(d, 'd'));
   const header = 'พนักงาน\t' + dayShort.join('\t');
-  const rows = employees.map((emp) => {
+  const rows = orderEmployeesForSchedule(employees, positionGroups, positions).map((emp) => {
     const cells = days.map((d) => {
       const dateStr = format(d, 'yyyy-MM-dd');
       const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
@@ -240,6 +259,7 @@ export async function exportPDF(
   shiftTypes: ShiftType[],
   positions: Position[],
   storeName: string,
+  positionGroups: PositionGroup[] = [],
 ): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
@@ -256,16 +276,24 @@ export async function exportPDF(
 
   const headerCells = days.map((d) => `<th style="padding:4px 2px;font-size:9px;font-weight:700;border-bottom:1px solid #ddd;min-width:22px;text-align:center;">${format(d, 'd')}</th>`).join('');
 
-  const rows = employees.map((emp) => {
-    const pos = positions.find((p) => p.id === emp.positionId);
-    const cells = days.map((d) => {
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
-      if (!s) return '<td style="padding:3px 2px;border-bottom:1px solid #eee;font-size:9px;text-align:center;"></td>';
-      const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
-      return `<td style="padding:3px 2px;border-bottom:1px solid #eee;font-size:9px;text-align:center;"><span style="display:inline-block;padding:1px 4px;border-radius:3px;background:${st?.color || '#999'};color:#fff;font-weight:700;font-size:8px;">${st?.code || '?'}</span></td>`;
+  const sections = groupEmployeesForSchedule(employees, positionGroups, positions);
+  const showGroupRows = sections.length > 1;
+  const rows = sections.map((section) => {
+    const groupRow = showGroupRows
+      ? `<tr><td colspan="${days.length + 3}" style="padding:4px 6px;background:#ececf3;border-bottom:1px solid #ddd;font-size:9px;font-weight:800;letter-spacing:0.4px;color:#1a1a2e;">${section.groupName} (${section.employees.length})</td></tr>`
+      : '';
+    const memberRows = section.employees.map((emp) => {
+      const pos = positions.find((p) => p.id === emp.positionId);
+      const cells = days.map((d) => {
+        const dateStr = format(d, 'yyyy-MM-dd');
+        const s = monthSchedules.find((sc) => sc.employeeId === emp.id && sc.date === dateStr);
+        if (!s) return '<td style="padding:3px 2px;border-bottom:1px solid #eee;font-size:9px;text-align:center;"></td>';
+        const st = shiftTypes.find((t) => t.id === s.shiftTypeId);
+        return `<td style="padding:3px 2px;border-bottom:1px solid #eee;font-size:9px;text-align:center;"><span style="display:inline-block;padding:1px 4px;border-radius:3px;background:${st?.color || '#999'};color:#fff;font-weight:700;font-size:8px;">${st?.code || '?'}</span></td>`;
+      }).join('');
+      return `<tr><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:10px;font-weight:600;white-space:nowrap;">${emp.fullName}</td><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;color:#888;">${emp.employeeCode}</td><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;">${pos?.code || ''}</td>${cells}</tr>`;
     }).join('');
-    return `<tr><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:10px;font-weight:600;white-space:nowrap;">${emp.fullName}</td><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;color:#888;">${emp.employeeCode}</td><td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;">${pos?.code || ''}</td>${cells}</tr>`;
+    return groupRow + memberRows;
   }).join('');
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,system-ui,sans-serif;padding:16px;color:#333;}</style></head><body>

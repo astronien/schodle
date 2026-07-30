@@ -18,7 +18,7 @@ import { Calendar } from './Calendar';
 import { CoverageView } from './CoverageView';
 import { ShiftEditor } from './ShiftEditor';
 import { buildICS, downloadICS } from '../../lib/calendar-export';
-import type { AppSettings, Employee, Position, ScheduleEntry, ShiftType } from '../../types';
+import type { AppSettings, Employee, Position, PositionGroup, ScheduleEntry, ShiftType } from '../../types';
 
 interface EmployeeDashboardProps {
   currentUser: Employee;
@@ -26,6 +26,7 @@ interface EmployeeDashboardProps {
   shiftTypes: ShiftType[];
   employees: Employee[];
   positions: Position[];
+  positionGroups?: PositionGroup[];
   updateSchedule: (entry: ScheduleEntry, forceNotify?: boolean) => Promise<void>;
   uploadFile: (file: File) => Promise<string>;
   settings: AppSettings;
@@ -42,6 +43,7 @@ export function EmployeeDashboard({
   shiftTypes,
   employees,
   positions,
+  positionGroups,
   uploadFile,
   settings,
   activeView: activeViewProp,
@@ -406,6 +408,7 @@ export function EmployeeDashboard({
             days={days}
             employees={employees}
             positions={positions}
+            positionGroups={positionGroups}
             schedules={schedules}
             shiftTypes={shiftTypes}
           />
