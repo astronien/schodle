@@ -95,6 +95,10 @@ export function mapShiftTypeRow(s: any): ShiftType {
     groupTargets: (s.group_targets && typeof s.group_targets === 'object')
       ? (s.group_targets as Record<string, number>)
       : {},
+    boundaryRole:
+      s.boundary_role === 'opening' || s.boundary_role === 'closing'
+        ? s.boundary_role
+        : null,
   };
 }
 

@@ -29,6 +29,13 @@ export type ShiftType = {
    * When empty the store-wide `targetStaff` is used instead.
    */
   groupTargets?: Record<string, number>;
+  /**
+   * Which end of the trading day this shift is responsible for — the shift that
+   * unlocks the store ('opening') or the one that locks it up ('closing').
+   * At most one shift type holds each role. Left unset (null/undefined) the
+   * generator works it out from the start/end times instead.
+   */
+  boundaryRole?: 'opening' | 'closing' | null;
 };
 
 export type PositionGroup = {

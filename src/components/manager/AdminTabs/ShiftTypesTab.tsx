@@ -14,6 +14,15 @@ const SHIFT_CATEGORIES: Array<{ id: 'morning' | 'afternoon' | 'other'; label: st
   { id: 'other', label: 'อื่นๆ' },
 ];
 
+type BoundaryRole = 'opening' | 'closing' | null;
+
+/** กะเปิดร้าน / กะปิดร้าน — เลือกได้กะเดียวต่อบทบาท */
+const BOUNDARY_ROLES: Array<{ id: BoundaryRole; label: string }> = [
+  { id: 'opening', label: 'กะเปิดร้าน' },
+  { id: 'closing', label: 'กะปิดร้าน' },
+  { id: null, label: 'ไม่ระบุ' },
+];
+
 const TOGGLEABLE: Array<{
   key: keyof ShiftType;
   label: string;
@@ -79,6 +88,46 @@ export function ShiftTypesTab({
 
   const showError = (err: unknown) =>
     toast.error('อัปเดตไม่สำเร็จ', err instanceof Error ? err.message : undefined);
+
+  // Optimistic overlay for the opening/closing choice. Picking a role rewrites
+  // TWO shift types (the new holder and the one losing it), so the buttons
+  // would otherwise stay stale until both round trips finish.
+  const [pendingBoundary, setPendingBoundary] = useState<Record<string, BoundaryRole>>({});
+  const boundaryRoleOf = (type: ShiftType): BoundaryRole =>
+    Object.prototype.hasOwnProperty.call(pendingBoundary, type.id)
+      ? pendingBoundary[type.id]
+      : type.boundaryRole ?? null;
+
+  /**
+   * Hand the opening/closing role to this shift type. Each role belongs to at
+   * most one shift, so whoever held it before is cleared in the same action.
+   */
+  const setBoundaryRole = async (type: ShiftType, role: BoundaryRole) => {
+    if (boundaryRoleOf(type) === role) return;
+    const previousHolder = role
+      ? shiftTypes.find((t) => t.id !== type.id && boundaryRoleOf(t) === role)
+      : undefined;
+
+    setPendingBoundary((prev) => ({
+      ...prev,
+      ...(previousHolder ? { [previousHolder.id]: null } : {}),
+      [type.id]: role,
+    }));
+    try {
+      if (previousHolder) await onUpdate({ ...previousHolder, boundaryRole: null });
+      await onUpdate({ ...type, boundaryRole: role });
+    } catch (err) {
+      showError(err);
+    } finally {
+      // Props are authoritative again — drop the overlay (also reverts on error).
+      setPendingBoundary((prev) => {
+        const next = { ...prev };
+        delete next[type.id];
+        if (previousHolder) delete next[previousHolder.id];
+        return next;
+      });
+    }
+  };
 
   const visible = shiftTypes.filter((t) => t.isVisible);
   const leaveCount = shiftTypes.filter((t) => t.isLeave).length;
@@ -161,6 +210,8 @@ export function ShiftTypesTab({
                       {type.startTime} – {type.endTime}
                       {type.targetStaff ? ` · เป้า ${type.targetStaff} คน` : ''}
                       {type.isLeave ? ' · กะลา' : ''}
+                      {boundaryRoleOf(type) === 'opening' ? ' · เปิดร้าน' : ''}
+                      {boundaryRoleOf(type) === 'closing' ? ' · ปิดร้าน' : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -311,6 +362,32 @@ export function ShiftTypesTab({
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold text-text-quaternary uppercase tracking-wider mb-1.5">
+                        กะเปิด–ปิดร้าน
+                      </p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {BOUNDARY_ROLES.map((role) => (
+                          <button
+                            key={role.id ?? 'none'}
+                            onClick={() => setBoundaryRole(type, role.id)}
+                            className={cn(
+                              'py-2 rounded-lg text-xs font-bold transition-all border',
+                              boundaryRoleOf(type) === role.id
+                                ? 'bg-brand/20 border-brand/50 text-brand-accent shadow-sm'
+                                : 'bg-white/60 border-border-solid text-text-tertiary hover:bg-white/80',
+                            )}
+                          >
+                            {role.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-text-tertiary mt-1.5">
+                        AI จะจัดคนให้กะเปิดร้านและกะปิดร้านก่อนกะอื่นเสมอ · เลือกได้กะเดียวต่อบทบาท
+                        (เลือกกะใหม่แล้วกะเดิมจะถูกยกเลิกให้อัตโนมัติ) · ไม่ระบุ = ให้ AI เดาจากเวลาเข้า–เลิกงาน
+                      </p>
                     </div>
 
                     <div className="space-y-1">

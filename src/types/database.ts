@@ -89,6 +89,7 @@ export interface Database {
           category: 'morning' | 'afternoon' | 'other' | null;
           preserve_on_clear: boolean;
           group_targets: Record<string, number>;
+          boundary_role: 'opening' | 'closing' | null;
           created_at: string;
         };
         Insert: {
@@ -106,6 +107,7 @@ export interface Database {
           category?: 'morning' | 'afternoon' | 'other' | null;
           preserve_on_clear?: boolean;
           group_targets?: Record<string, number>;
+          boundary_role?: 'opening' | 'closing' | null;
           created_at?: string;
         };
         Update: {
@@ -123,6 +125,7 @@ export interface Database {
           category?: 'morning' | 'afternoon' | 'other' | null;
           preserve_on_clear?: boolean;
           group_targets?: Record<string, number>;
+          boundary_role?: 'opening' | 'closing' | null;
           created_at?: string;
         };
       };

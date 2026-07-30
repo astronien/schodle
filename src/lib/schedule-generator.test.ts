@@ -584,6 +584,124 @@ describe('generateSmartSchedule — opening & closing shifts', () => {
     // The wording must be distinguishable from ordinary understaffing.
     for (const w of unmanned) expect(w).not.toContain('คนไม่พอ');
   });
+
+  it('uses the shift the manager marked as opening, not the earliest one', () => {
+    // 'EA' starts first, so the time-based guess would call it the opener —
+    // but the manager says 'OP' is the shift that unlocks the door.
+    const shifts = [
+      mkShift('st-early', 'EA', '05:00', '13:00', 'morning', 1),
+      { ...mkShift('st-open', 'OP', '09:00', '17:00', 'morning', 1), boundaryRole: 'opening' as const },
+      mkShift('st-close', 'CL', '16:00', '00:00', 'afternoon', 1),
+    ];
+
+    const { entries } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    expectOpenAndClose(entries, 'st-open', 'st-close');
+    // Two people, two protected shifts — the early shift is what gives way.
+    expect(entries.filter((e) => e.shiftTypeId === 'st-early').length).toBe(0);
+  });
+
+  it('uses the shift the manager marked as closing, not the latest one', () => {
+    // 'LT' locks up last by the clock, yet 'CL' is the marked closing shift.
+    const shifts = [
+      mkShift('st-open', 'OP', '06:00', '14:00', 'morning', 1),
+      { ...mkShift('st-close', 'CL', '14:00', '22:00', 'afternoon', 1), boundaryRole: 'closing' as const },
+      mkShift('st-late', 'LT', '16:00', '02:00', 'afternoon', 1),
+    ];
+
+    const { entries } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    expectOpenAndClose(entries, 'st-open', 'st-close');
+    expect(entries.filter((e) => e.shiftTypeId === 'st-late').length).toBe(0);
+  });
+
+  it('lets a shift with no fixed hours be the closing shift when marked', () => {
+    // The time-based fallback can't rank a '-' shift at all. An explicit choice
+    // has to override that, and it must still be protected every day.
+    const shifts = [
+      mkShift('st-open', 'OP', '08:00', '16:00', 'morning', 1),
+      mkShift('st-late', 'LT', '16:00', '01:00', 'afternoon', 1),
+      { ...mkShift('st-flex', 'FX', '-', '-', 'other', 1), boundaryRole: 'closing' as const },
+    ];
+
+    const { entries } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    expectOpenAndClose(entries, 'st-open', 'st-flex');
+  });
+
+  it('still reports the opening/closing shift unmanned by role when marked', () => {
+    const shifts = [
+      { ...mkShift('st-open', 'OP', '10:00', '18:00', 'morning', 1), boundaryRole: 'opening' as const },
+      { ...mkShift('st-close', 'CL', '06:00', '14:00', 'afternoon', 1), boundaryRole: 'closing' as const },
+    ];
+
+    const { warnings } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(1),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    const unmanned = unmannedWarnings(warnings);
+    expect(unmanned.length).toBe(juneDates.length);
+    expect(unmanned.some((w) => w.includes('ไม่มีคนเปิดร้าน (กะ OP)'))).toBe(true);
+    expect(unmanned.some((w) => w.includes('ไม่มีคนปิดร้าน (กะ CL)'))).toBe(true);
+  });
+
+  it('falls back to the times when nothing is marked', () => {
+    // Same roster as the marked case above but with boundaryRole left unset —
+    // the clock must still decide, so 'EA' (05:00) opens and 'LT' (02:00,
+    // past midnight) closes.
+    const shifts = [
+      mkShift('st-early', 'EA', '05:00', '13:00', 'morning', 1),
+      mkShift('st-mid', 'MD', '09:00', '17:00', 'morning', 1),
+      mkShift('st-late', 'LT', '16:00', '02:00', 'afternoon', 1),
+    ];
+
+    const { entries } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    expectOpenAndClose(entries, 'st-early', 'st-late');
+    expect(entries.filter((e) => e.shiftTypeId === 'st-mid').length).toBe(0);
+  });
+
+  it('falls back per role: a marked opening still leaves closing to the times', () => {
+    const shifts = [
+      mkShift('st-early', 'EA', '05:00', '13:00', 'morning', 1),
+      { ...mkShift('st-open', 'OP', '09:00', '17:00', 'morning', 1), boundaryRole: 'opening' as const },
+      mkShift('st-late', 'LT', '16:00', '02:00', 'afternoon', 1),
+    ];
+
+    const { entries } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    // Opening comes from the marking, closing from the clock.
+    expectOpenAndClose(entries, 'st-open', 'st-late');
+    expect(entries.filter((e) => e.shiftTypeId === 'st-early').length).toBe(0);
+  });
 });
 
 describe('generateSmartSchedule — per-group scheduling', () => {

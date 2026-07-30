@@ -91,14 +91,24 @@ function endRankOf(shiftType: ShiftType): number | null {
 }
 
 /**
- * The shifts that unlock and lock up the store: earliest start and latest end
- * among the shifts that carry staffing targets. Derived from the times alone —
- * nothing to configure, and shifts with no fixed hours are ignored.
+ * The shifts that unlock and lock up the store.
+ *
+ * The manager can say so outright by marking a shift type's `boundaryRole` in
+ * ตั้งค่า → ประเภทกะ; an explicit choice always wins. Where no shift carries the
+ * role we fall back to reading it off the clock — earliest start opens, latest
+ * end closes — so stores that never touch the setting behave as before. Shifts
+ * with no fixed hours are ignored by that fallback (they can't be compared),
+ * but they can still be chosen explicitly.
  */
 function findBoundaryShifts(targetShiftTypes: ShiftType[]): {
   opening: ShiftType | null;
   closing: ShiftType | null;
 } {
+  const chosenOpening =
+    targetShiftTypes.find((t) => t.boundaryRole === 'opening') ?? null;
+  const chosenClosing =
+    targetShiftTypes.find((t) => t.boundaryRole === 'closing') ?? null;
+
   let opening: ShiftType | null = null;
   let openingAt = Number.POSITIVE_INFINITY;
   let closing: ShiftType | null = null;
@@ -117,7 +127,10 @@ function findBoundaryShifts(targetShiftTypes: ShiftType[]): {
     }
   }
 
-  return { opening, closing };
+  return {
+    opening: chosenOpening ?? opening,
+    closing: chosenClosing ?? closing,
+  };
 }
 
 /** Monday of the week containing the given date, snapped to the same month reference. */
@@ -216,8 +229,9 @@ export function generateSmartSchedule({
   const targetShiftTypes = shiftTypes.filter(hasAnyTarget);
   const xShift = shiftTypes.find((t) => t.code === 'X');
 
-  // Somebody has to unlock the store in the morning and lock it up at night,
-  // so the earliest-starting and latest-ending shifts are never optional.
+  // Somebody has to unlock the store in the morning and lock it up at night, so
+  // the opening and closing shifts are never optional. Which ones those are is
+  // whatever the manager marked, or the earliest/latest times if nothing is.
   const { opening: openingShift, closing: closingShift } =
     findBoundaryShifts(targetShiftTypes);
   /** date:role:code keys already warned about, so groups don't repeat a warning. */
