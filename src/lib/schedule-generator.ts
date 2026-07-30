@@ -9,6 +9,7 @@ import {
 } from 'date-fns';
 
 import type { Employee, PositionGroup, ScheduleEntry, ShiftType } from '../types';
+import { NO_FIXED_TIME, toTimeInputValue } from './dates';
 import {
   DEFAULT_LATE_SHIFT_CODES,
   DEFAULT_EARLY_SHIFT_CODES,
@@ -54,6 +55,70 @@ type LateEarlyStrictness = 'strict' | 'relaxed' | 'off';
 
 const opposite = (c: ShiftCategory): ShiftCategory =>
   c === 'morning' ? 'afternoon' : c === 'afternoon' ? 'morning' : 'other';
+
+/** Which end of the trading day a shift is responsible for. */
+type BoundaryRole = 'opening' | 'closing';
+
+const MINUTES_PER_DAY = 24 * 60;
+
+/**
+ * Stored shift time ('HH:MM') → minutes since midnight.
+ * Returns null for shifts with no fixed hours ('-') or unparsable values, so
+ * they are excluded from any earliest/latest comparison.
+ */
+function toMinutesOfDay(stored: string | undefined | null): number | null {
+  if (!stored || stored.trim() === NO_FIXED_TIME) return null;
+  const value = toTimeInputValue(stored);
+  if (!value) return null;
+  const [hours, minutes] = value.split(':');
+  return Number(hours) * 60 + Number(minutes);
+}
+
+/**
+ * A shift's end time as a sortable number.
+ *
+ * A shift whose end is earlier than its own start runs past midnight
+ * ('16:00' → '00:00'), so it locks up LATER than anything ending the same day.
+ * Ranking it beyond the 24h mark avoids treating '00:00' as the earliest
+ * moment of the day, which would hand "closing" to a mid-day shift.
+ */
+function endRankOf(shiftType: ShiftType): number | null {
+  const end = toMinutesOfDay(shiftType.endTime);
+  if (end === null) return null;
+  const start = toMinutesOfDay(shiftType.startTime);
+  if (start !== null && end < start) return end + MINUTES_PER_DAY;
+  return end;
+}
+
+/**
+ * The shifts that unlock and lock up the store: earliest start and latest end
+ * among the shifts that carry staffing targets. Derived from the times alone —
+ * nothing to configure, and shifts with no fixed hours are ignored.
+ */
+function findBoundaryShifts(targetShiftTypes: ShiftType[]): {
+  opening: ShiftType | null;
+  closing: ShiftType | null;
+} {
+  let opening: ShiftType | null = null;
+  let openingAt = Number.POSITIVE_INFINITY;
+  let closing: ShiftType | null = null;
+  let closingAt = Number.NEGATIVE_INFINITY;
+
+  for (const shiftType of targetShiftTypes) {
+    const start = toMinutesOfDay(shiftType.startTime);
+    if (start !== null && start < openingAt) {
+      opening = shiftType;
+      openingAt = start;
+    }
+    const end = endRankOf(shiftType);
+    if (end !== null && end > closingAt) {
+      closing = shiftType;
+      closingAt = end;
+    }
+  }
+
+  return { opening, closing };
+}
 
 /** Monday of the week containing the given date, snapped to the same month reference. */
 function getMondayOfWeek(date: Date): Date {
@@ -150,6 +215,13 @@ export function generateSmartSchedule({
     Object.values(t.groupTargets ?? {}).some((n) => (n || 0) > 0);
   const targetShiftTypes = shiftTypes.filter(hasAnyTarget);
   const xShift = shiftTypes.find((t) => t.code === 'X');
+
+  // Somebody has to unlock the store in the morning and lock it up at night,
+  // so the earliest-starting and latest-ending shifts are never optional.
+  const { opening: openingShift, closing: closingShift } =
+    findBoundaryShifts(targetShiftTypes);
+  /** date:role:code keys already warned about, so groups don't repeat a warning. */
+  const boundaryWarned = new Set<string>();
 
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
   const monthStart = startOfMonth(month);
@@ -518,6 +590,61 @@ export function generateSmartSchedule({
         // over the full pool is enough — no more silent "anyone will do" retry.
         return tryAssignFrom(pool, shiftType.id, lateEarly, allowOffCategory);
       };
+
+      // ── Tier 0: open & close first ───────────────────────────────
+      // The opening and closing shifts outrank the day's morning/afternoon
+      // balance: an unmanned mid-day shift is an inconvenience, an unmanned
+      // opening means the store never opens. They also escalate through every
+      // tier immediately instead of waiting their turn — by the time the
+      // balanced pass is done there may be nobody left to open up.
+      const fillBoundaryShift = (shiftType: ShiftType, roles: BoundaryRole[]) => {
+        while ((remainingByType.get(shiftType.id) || 0) > 0) {
+          // Tiers 1–2: all rules respected, then position preference dropped.
+          if (tryFillShift(shiftType, 'strict', true)) continue;
+          if (tryFillShift(shiftType, 'strict', false)) continue;
+          // Tier 3: break the weekly morning/afternoon block (budgeted).
+          if (tryFillShift(shiftType, 'strict', false, true)) {
+            warnings.push(
+              `${dateStr}: กะ ${shiftType.code} ต้องดึงคนจากกะประจำสัปดาห์อีกฝั่ง (คนไม่พอ)`,
+            );
+            continue;
+          }
+          // Tier 4: last resort — accept a late→early turnaround.
+          if (tryFillShift(shiftType, 'off', false, true)) {
+            warnings.push(
+              `${dateStr}: กะ ${shiftType.code} ต้องจัดแบบละเมิดกฎดึก→เช้า (ไม่มีคนเหลือ)`,
+            );
+            continue;
+          }
+          // Out of options: the store would be left unopened or unlocked.
+          for (const role of roles) {
+            const key = `${dateStr}:${role}:${shiftType.code}`;
+            if (boundaryWarned.has(key)) continue;
+            boundaryWarned.add(key);
+            warnings.push(
+              role === 'opening'
+                ? `${dateStr}: ไม่มีคนเปิดร้าน (กะ ${shiftType.code})`
+                : `${dateStr}: ไม่มีคนปิดร้าน (กะ ${shiftType.code})`,
+            );
+          }
+          remainingByType.set(shiftType.id, 0);
+          return;
+        }
+      };
+
+      const boundaryTargets: { shiftType: ShiftType; roles: BoundaryRole[] }[] = [];
+      if (openingShift) {
+        boundaryTargets.push({ shiftType: openingShift, roles: ['opening'] });
+      }
+      if (closingShift) {
+        // One shift type can be both (a single all-day shift, for instance).
+        const alsoOpening = boundaryTargets.find((b) => b.shiftType.id === closingShift.id);
+        if (alsoOpening) alsoOpening.roles.push('closing');
+        else boundaryTargets.push({ shiftType: closingShift, roles: ['closing'] });
+      }
+      for (const boundary of boundaryTargets) {
+        fillBoundaryShift(boundary.shiftType, boundary.roles);
+      }
 
       let iterations = 0;
       const MAX_ITERATIONS = targetShiftTypes.length * MAX_ITERATIONS_PER_DAY_MULTIPLIER + MAX_ITERATIONS_PER_DAY_BASE;

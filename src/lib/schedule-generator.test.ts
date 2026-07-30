@@ -439,6 +439,153 @@ describe('generateSmartSchedule — weekly shift blocks', () => {
   });
 });
 
+describe('generateSmartSchedule — opening & closing shifts', () => {
+  const mkShift = (
+    id: string,
+    code: string,
+    startTime: string,
+    endTime: string,
+    category: 'morning' | 'afternoon' | 'other',
+    targetStaff: number,
+  ): ShiftType => ({
+    id,
+    code,
+    name: code,
+    startTime,
+    endTime,
+    color: '#111827',
+    isVisible: true,
+    isLeave: false,
+    requiresApproval: false,
+    requiresReason: false,
+    requiresEvidence: false,
+    category,
+    targetStaff,
+  });
+
+  const mkTeam = (size: number): Employee[] =>
+    Array.from({ length: size }, (_, i) => ({
+      id: `e${i + 1}`,
+      employeeCode: String(i + 1).padStart(3, '0'),
+      fullName: `Emp ${i + 1}`,
+      positionId: 'p1',
+      role: 'employee' as const,
+    }));
+
+  const JUNE = new Date('2026-06-01');
+  const juneDates = Array.from(
+    { length: 30 },
+    (_, i) => `2026-06-${String(i + 1).padStart(2, '0')}`,
+  );
+
+  const expectOpenAndClose = (
+    entries: { date: string; shiftTypeId: string }[],
+    openId: string,
+    closeId: string,
+  ) => {
+    for (const date of juneDates) {
+      const onDay = entries.filter((e) => e.date === date);
+      expect(
+        onDay.some((e) => e.shiftTypeId === openId),
+        `${date} had nobody to open the store`,
+      ).toBe(true);
+      expect(
+        onDay.some((e) => e.shiftTypeId === closeId),
+        `${date} had nobody to close the store`,
+      ).toBe(true);
+    }
+  };
+
+  const unmannedWarnings = (warnings: string[]) =>
+    warnings.filter(
+      (w) => w.includes('ไม่มีคนเปิดร้าน') || w.includes('ไม่มีคนปิดร้าน'),
+    );
+
+  it('staffs the opening and closing shifts every day even when short-handed', () => {
+    // 4 slots a day but only 2 people. The mid-day shift is the one that has
+    // to give way — never the shift that unlocks or locks up the store.
+    const shifts = [
+      mkShift('st-open', 'OP', '06:00', '14:00', 'morning', 1),
+      mkShift('st-mid', 'MD', '10:00', '18:00', 'morning', 2),
+      mkShift('st-close', 'CL', '16:00', '00:00', 'afternoon', 1),
+    ];
+
+    const { entries, warnings } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    expectOpenAndClose(entries, 'st-open', 'st-close');
+    expect(unmannedWarnings(warnings)).toEqual([]);
+  });
+
+  it('ranks a past-midnight end time as the latest shift of the day', () => {
+    // 'CL' ends at 00:00 — that is the next day, so it closes later than the
+    // 23:00 shift. Comparing the raw times would pick 'LT' as the closer.
+    const shifts = [
+      mkShift('st-open', 'OP', '08:00', '16:00', 'morning', 1),
+      mkShift('st-late', 'LT', '12:00', '23:00', 'afternoon', 1),
+      mkShift('st-close', 'CL', '16:00', '00:00', 'afternoon', 1),
+    ];
+
+    const { entries } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    expectOpenAndClose(entries, 'st-open', 'st-close');
+    // With only 2 people the 23:00 shift is what goes unstaffed.
+    expect(entries.filter((e) => e.shiftTypeId === 'st-late').length).toBe(0);
+  });
+
+  it('ignores shifts with no fixed hours when picking opening and closing', () => {
+    // A '-' shift has no hours at all, so it can neither open nor close.
+    const shifts = [
+      mkShift('st-nofixed', 'NF', '-', '-', 'other', 1),
+      mkShift('st-open', 'OP', '09:00', '17:00', 'morning', 1),
+      mkShift('st-mid', 'MD', '11:00', '19:00', 'morning', 2),
+      mkShift('st-close', 'CL', '17:00', '01:00', 'afternoon', 1),
+    ];
+
+    const { entries } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(2),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    expectOpenAndClose(entries, 'st-open', 'st-close');
+    expect(entries.filter((e) => e.shiftTypeId === 'st-nofixed').length).toBe(0);
+  });
+
+  it('warns clearly when the opening or closing shift cannot be filled', () => {
+    const shifts = [
+      mkShift('st-open', 'OP', '06:00', '14:00', 'morning', 1),
+      mkShift('st-close', 'CL', '16:00', '00:00', 'afternoon', 1),
+    ];
+
+    const { warnings } = generateSmartSchedule({
+      month: JUNE,
+      employees: mkTeam(1),
+      shiftTypes: shifts,
+      shuffleEmployees: false,
+    });
+
+    // One person cannot open and close the same day, so exactly one of the two
+    // is reported unmanned on every single day of the month.
+    const unmanned = unmannedWarnings(warnings);
+    expect(unmanned.length).toBe(juneDates.length);
+    expect(unmanned.some((w) => w.includes('ไม่มีคนเปิดร้าน (กะ OP)'))).toBe(true);
+    expect(unmanned.some((w) => w.includes('ไม่มีคนปิดร้าน (กะ CL)'))).toBe(true);
+    // The wording must be distinguishable from ordinary understaffing.
+    for (const w of unmanned) expect(w).not.toContain('คนไม่พอ');
+  });
+});
+
 describe('generateSmartSchedule — per-group scheduling', () => {
   const SALES = 'grp-sales';
   const LEAD = 'grp-lead';
