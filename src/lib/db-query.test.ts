@@ -15,6 +15,7 @@ import {
   dbSelectAll,
   dbUpsert,
   fetchAllPages,
+  isLegacyOrderRejection,
   normalizeOnConflict,
   normalizeRange,
   type QueryRange,
@@ -247,5 +248,53 @@ describe('dbUpsert', () => {
     expect(data).toBeNull();
     expect(error?.message).toContain('Invalid onConflict');
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('isLegacyOrderRejection', () => {
+  const selectWithArrayOrder = {
+    table: 'schedules',
+    operation: 'select' as const,
+    order: [
+      { column: 'date', ascending: true },
+      { column: 'id', ascending: true },
+    ],
+  };
+
+  it('recognises the old function rejecting a multi-key sort', () => {
+    expect(
+      isLegacyOrderRejection('column schedules.undefined does not exist', selectWithArrayOrder),
+    ).toBe(true);
+  });
+
+  it('ignores a genuinely missing column', () => {
+    expect(
+      isLegacyOrderRejection('column schedules.boundary_role does not exist', selectWithArrayOrder),
+    ).toBe(false);
+  });
+
+  it('does not fire when only one sort key was sent', () => {
+    expect(
+      isLegacyOrderRejection('column schedules.undefined does not exist', {
+        table: 'schedules',
+        operation: 'select',
+        order: { column: 'date', ascending: true },
+      }),
+    ).toBe(false);
+  });
+
+  it('does not fire for non-select operations', () => {
+    expect(
+      isLegacyOrderRejection('column schedules.undefined does not exist', {
+        ...selectWithArrayOrder,
+        operation: 'upsert',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not fire on an unrelated error', () => {
+    expect(
+      isLegacyOrderRejection('permission denied for table schedules', selectWithArrayOrder),
+    ).toBe(false);
   });
 });

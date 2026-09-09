@@ -114,6 +114,20 @@ export function normalizeRange(value: unknown): QueryRange | null {
 }
 
 /**
+ * Does this failure look like an old db-query rejecting a multi-key sort?
+ *
+ * The pre-pagination function did `query.order(order.column)`, so an array
+ * yields `undefined` and Postgres answers "column <table>.undefined does not
+ * exist". Matched narrowly — only a select that actually sent an array — so a
+ * genuinely missing column still surfaces as an error.
+ */
+export function isLegacyOrderRejection(message: string, options: QueryOptions): boolean {
+  if (options.operation !== 'select') return false;
+  if (!Array.isArray(options.order) || options.order.length < 2) return false;
+  return /column\s+\S*\.?undefined\s+does not exist/i.test(message);
+}
+
+/**
  * Execute a database query — try Edge Function first, fall back to direct Supabase.
  * Falls back on ANY error from the Edge Function (CORS, 401, 500, network, etc.)
  * so the app works even if the function isn't deployed or configured correctly.
@@ -169,6 +183,23 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
       console.error(
         `[db-query] ${safeOptions.operation} on "${safeOptions.table}" failed: ${detail}`,
       );
+
+      // Compatibility shim for a db-query deployment that predates multi-key
+      // ordering. The old function read `order.column` straight off the value,
+      // so an array arrives as `undefined` and Postgres reports the missing
+      // column below. Retry with a single sort key so the app keeps working,
+      // and say plainly what needs deploying — silently degrading here would
+      // just hide the version skew that caused this.
+      if (isLegacyOrderRejection(detail, safeOptions)) {
+        const [firstSpec] = safeOptions.order as OrderSpec[];
+        console.warn(
+          `[db-query] the deployed db-query function does not support multi-key ordering — ` +
+            `retrying "${safeOptions.table}" sorted by "${firstSpec.column}" only. ` +
+            `Run "npm run deploy:functions" to deploy the current version.`,
+        );
+        return dbQuery<T>({ ...safeOptions, order: firstSpec });
+      }
+
       return { data: null, error: new Error(detail) };
     }
 
