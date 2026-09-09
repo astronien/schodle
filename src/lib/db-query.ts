@@ -9,6 +9,32 @@
 import { supabase } from './supabase';
 import { getSessionToken } from './session';
 
+/**
+ * Pull the server's actual message out of a supabase-js FunctionsHttpError.
+ *
+ * supabase-js collapses every non-2xx response into the same string ("Edge
+ * Function returned a non-2xx status code") and stashes the real Response on
+ * `error.context`. Reading it turns an undebuggable generic failure into the
+ * concrete reason (missing column, rejected query, forbidden write…).
+ */
+async function readEdgeFunctionError(error: unknown): Promise<string | null> {
+  const ctx = (error as { context?: Response }).context;
+  if (!ctx || typeof ctx.json !== 'function') return null;
+  try {
+    const parsed = (await ctx.clone().json()) as { error?: string };
+    return parsed?.error ?? null;
+  } catch {
+    // Not JSON — fall back to the raw text, which is still more useful than
+    // the generic message.
+    try {
+      const text = await ctx.clone().text();
+      return text ? text.slice(0, 300) : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 interface FilterCondition {
   eq?: unknown;
   gte?: unknown;
@@ -134,7 +160,16 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
         console.warn(`[db-query] Edge Function unreachable, falling back: ${error.message}`);
         return fallbackQuery<T>(safeOptions);
       }
-      return { data: null, error: new Error(error.message || 'Edge Function error') };
+      // supabase-js reports every HTTP error as the same opaque string
+      // ("Edge Function returned a non-2xx status code") and hides the real
+      // reason in error.context. Surface the server's message instead —
+      // without this, a missing column or a rejected query is undebuggable.
+      const serverMsg = await readEdgeFunctionError(error);
+      const detail = serverMsg ?? error.message ?? 'Edge Function error';
+      console.error(
+        `[db-query] ${safeOptions.operation} on "${safeOptions.table}" failed: ${detail}`,
+      );
+      return { data: null, error: new Error(detail) };
     }
 
     return { data: data?.data ?? null, error: null };

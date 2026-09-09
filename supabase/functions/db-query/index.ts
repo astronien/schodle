@@ -321,11 +321,21 @@ serve(async (req) => {
 
     const { data: result, error } = await query;
     if (error) {
-      return json({ error: error.message }, 500);
+      // Log the failing table/operation too — the client only sees the
+      // message, and "column does not exist" is meaningless without knowing
+      // which query raised it.
+      console.error(
+        `[db-query] ${operation} on "${table}" failed:`,
+        error.message,
+        error.details ?? "",
+        error.hint ?? "",
+      );
+      return json({ error: error.message, table, operation }, 500);
     }
 
     return json({ data: result });
   } catch (err) {
-    return json({ error: err.message }, 500);
+    console.error(`[db-query] unhandled error on "${table}" (${operation}):`, err);
+    return json({ error: err.message, table, operation }, 500);
   }
 });
