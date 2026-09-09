@@ -19,13 +19,72 @@ interface FilterCondition {
   in?: unknown[];
 }
 
+/** Inclusive, zero-based row range (mirrors PostgREST's `Range` header). */
+export interface QueryRange {
+  from: number;
+  to: number;
+}
+
+/**
+ * Sort key(s). A list applies them in order — paginated reads need a total
+ * order (e.g. `date` then `id`), otherwise rows that tie can move between
+ * pages and get duplicated or skipped.
+ */
+export type OrderSpec = { column: string; ascending?: boolean };
+
 interface QueryOptions {
   table: string;
   operation: 'select' | 'insert' | 'update' | 'upsert' | 'delete';
   data?: unknown;
   filter?: Record<string, unknown | FilterCondition>;
   select?: string;
-  order?: { column: string; ascending?: boolean };
+  order?: OrderSpec | OrderSpec[];
+  range?: QueryRange;
+  /**
+   * Conflict target for UPSERT, e.g. `'employee_id,date'`. Without it PostgREST
+   * resolves conflicts on the PRIMARY KEY only, so a row carrying a fresh id
+   * for an already-taken (employee_id, date) pair raises a 23505 unique
+   * violation instead of updating the existing row.
+   */
+  onConflict?: string;
+}
+
+/** A single Postgres identifier — no quotes, no whitespace, no punctuation. */
+const COLUMN_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const MAX_CONFLICT_COLUMNS = 10;
+/** Rows fetched per page by {@link fetchAllPages} — PostgREST's usual cap. */
+export const DB_PAGE_SIZE = 1000;
+/** Hard ceiling on a single range request, so a bad range can't ask for the world. */
+const MAX_RANGE_SIZE = 100000;
+/** Safety valve: stop paginating rather than loop forever on a misbehaving API. */
+const MAX_PAGES = 200;
+
+/**
+ * Validate an `onConflict` value and return it normalised (`"a, b"` → `"a,b"`),
+ * or null when it is anything other than a simple comma-separated column list.
+ * The value ends up in a PostgREST query string, so it is never passed through
+ * unchecked.
+ */
+export function normalizeOnConflict(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const parts = value.split(',').map((part) => part.trim());
+  if (parts.length === 0 || parts.length > MAX_CONFLICT_COLUMNS) return null;
+  for (const part of parts) {
+    if (part.length === 0 || part.length > 63 || !COLUMN_NAME_PATTERN.test(part)) return null;
+  }
+  return parts.join(',');
+}
+
+/** Validate a row range; returns null when it is not a sane, finite window. */
+export function normalizeRange(value: unknown): QueryRange | null {
+  if (!value || typeof value !== 'object') return null;
+  const { from, to } = value as { from?: unknown; to?: unknown };
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return null;
+  const f = from as number;
+  const t = to as number;
+  if (f < 0 || t < f) return null;
+  if (t - f + 1 > MAX_RANGE_SIZE) return null;
+  return { from: f, to: t };
 }
 
 /**
@@ -39,10 +98,28 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
     return { data: null, error: new Error('Session expired') };
   }
 
+  // Validate here as well as in the Edge Function so both paths (function and
+  // direct fallback) reject the same inputs, and reject them before any I/O.
+  let safeOptions = options;
+  if (options.onConflict !== undefined) {
+    const onConflict = normalizeOnConflict(options.onConflict);
+    if (!onConflict) {
+      return { data: null, error: new Error(`Invalid onConflict: ${String(options.onConflict)}`) };
+    }
+    safeOptions = { ...safeOptions, onConflict };
+  }
+  if (options.range !== undefined) {
+    const range = normalizeRange(options.range);
+    if (!range) {
+      return { data: null, error: new Error(`Invalid range: ${JSON.stringify(options.range)}`) };
+    }
+    safeOptions = { ...safeOptions, range };
+  }
+
   try {
     // Try Edge Function
     const { data, error } = await supabase.functions.invoke<{ data: T }>('db-query', {
-      body: options,
+      body: safeOptions,
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -55,7 +132,7 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
       const name = (error as Error).name || '';
       if (name === 'FunctionsFetchError' || name === 'FunctionsRelayError') {
         console.warn(`[db-query] Edge Function unreachable, falling back: ${error.message}`);
-        return fallbackQuery<T>(options);
+        return fallbackQuery<T>(safeOptions);
       }
       return { data: null, error: new Error(error.message || 'Edge Function error') };
     }
@@ -65,7 +142,7 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
     // Network error, CORS, function not found, etc. — fall back
     const msg = catchErr instanceof Error ? catchErr.message : 'Unknown error';
     console.warn(`[db-query] Edge Function unavailable (${msg}), falling back to direct query`);
-    return fallbackQuery<T>(options);
+    return fallbackQuery<T>(safeOptions);
   }
 }
 
@@ -76,7 +153,18 @@ export async function dbQuery<T = unknown>(options: QueryOptions): Promise<{ dat
    Supabase's query-builder generics change type on every chained call;
    typing them here adds noise without real safety. */
 async function fallbackQuery<T>(options: QueryOptions): Promise<{ data: T | null; error: Error | null }> {
-  const { table, operation, data, filter, select, order } = options;
+  const { table, operation, data, filter, select, order, range, onConflict } = options;
+
+  // dbQuery normalises these before we get here; re-check so a direct caller
+  // can't slip an unvalidated conflict target / range into the query string.
+  const safeConflict = onConflict === undefined ? undefined : normalizeOnConflict(onConflict);
+  if (onConflict !== undefined && !safeConflict) {
+    return { data: null, error: new Error(`Invalid onConflict: ${String(onConflict)}`) };
+  }
+  const safeRange = range === undefined ? undefined : normalizeRange(range);
+  if (range !== undefined && !safeRange) {
+    return { data: null, error: new Error(`Invalid range: ${JSON.stringify(range)}`) };
+  }
 
   try {
     let query: any;
@@ -104,8 +192,11 @@ async function fallbackQuery<T>(options: QueryOptions): Promise<{ data: T | null
       case 'select':
         query = supabase.from(table).select(select || '*');
         query = applyFilters(query, filter);
-        if (order) {
-          query = query.order(order.column, { ascending: order.ascending ?? true });
+        for (const spec of order ? (Array.isArray(order) ? order : [order]) : []) {
+          query = query.order(spec.column, { ascending: spec.ascending ?? true });
+        }
+        if (safeRange) {
+          query = query.range(safeRange.from, safeRange.to);
         }
         break;
 
@@ -120,7 +211,9 @@ async function fallbackQuery<T>(options: QueryOptions): Promise<{ data: T | null
         break;
 
       case 'upsert':
-        query = supabase.from(table).upsert(data as Record<string, unknown>);
+        query = supabase
+          .from(table)
+          .upsert(data as Record<string, unknown>, safeConflict ? { onConflict: safeConflict } : undefined);
         break;
 
       case 'delete':
@@ -150,9 +243,69 @@ export async function dbSelect<T = unknown>(
   table: string,
   filter?: Record<string, unknown | FilterCondition>,
   select?: string,
-  order?: { column: string; ascending?: boolean }
+  order?: OrderSpec | OrderSpec[],
+  range?: QueryRange
 ): Promise<{ data: T[] | null; error: Error | null }> {
-  return dbQuery<T[]>({ table, operation: 'select', filter, select, order });
+  return dbQuery<T[]>({ table, operation: 'select', filter, select, order, range });
+}
+
+/**
+ * Run a paged reader until it returns a short page, concatenating the results.
+ *
+ * PostgREST caps the rows a single request may return (1000 by default), and it
+ * does so silently: an over-large SELECT looks like a complete, successful
+ * answer. Callers that need the whole set must ask for explicit ranges instead
+ * of assuming one request is enough.
+ *
+ * @param fetchPage reader for one inclusive, zero-based range
+ * @returns every row, or the first error encountered
+ */
+export async function fetchAllPages<T>(
+  fetchPage: (range: QueryRange) => Promise<{ data: T[] | null; error: Error | null }>,
+  options?: { pageSize?: number; label?: string },
+): Promise<{ data: T[] | null; error: Error | null }> {
+  const pageSize = options?.pageSize ?? DB_PAGE_SIZE;
+  const label = options?.label ?? 'query';
+  const all: T[] = [];
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await fetchPage({ from, to: from + pageSize - 1 });
+    if (error) return { data: null, error };
+
+    const rows = data ?? [];
+    all.push(...rows);
+
+    // A short page means we reached the end. A full page means the server hit
+    // its row cap — say so out loud, because this is exactly the silent
+    // truncation that used to leave later dates missing from the client.
+    if (rows.length < pageSize) return { data: all, error: null };
+    console.warn(
+      `[db-query] "${label}" page ${page + 1} came back exactly at the ${pageSize}-row cap — fetching the next page (${all.length} rows so far)`,
+    );
+  }
+
+  console.warn(
+    `[db-query] "${label}" hit the ${MAX_PAGES}-page limit (${all.length} rows); results may be incomplete`,
+  );
+  return { data: all, error: null };
+}
+
+/**
+ * SELECT every matching row, paging through PostgREST's row cap.
+ * Use instead of {@link dbSelect} whenever a partial result would be wrong.
+ */
+export async function dbSelectAll<T = unknown>(
+  table: string,
+  filter?: Record<string, unknown | FilterCondition>,
+  select?: string,
+  order?: OrderSpec | OrderSpec[],
+  pageSize: number = DB_PAGE_SIZE,
+): Promise<{ data: T[] | null; error: Error | null }> {
+  return fetchAllPages<T>((range) => dbSelect<T>(table, filter, select, order, range), {
+    pageSize,
+    label: table,
+  });
 }
 
 /**
@@ -177,13 +330,20 @@ export async function dbUpdate<T = unknown>(
 }
 
 /**
- * Convenience function for UPSERT operations
+ * Convenience function for UPSERT operations.
+ *
+ * Pass `onConflict` whenever the table has a unique constraint other than the
+ * primary key that the rows may collide on — e.g. `schedules` is unique on
+ * (employee_id, date), so without it a row carrying a newly generated id for an
+ * existing employee/date fails with a 23505 unique violation (surfacing as a
+ * 500 from the db-query Edge Function) instead of updating that row.
  */
 export async function dbUpsert<T = unknown>(
   table: string,
-  data: unknown
+  data: unknown,
+  options?: { onConflict?: string }
 ): Promise<{ data: T | null; error: Error | null }> {
-  return dbQuery<T>({ table, operation: 'upsert', data });
+  return dbQuery<T>({ table, operation: 'upsert', data, onConflict: options?.onConflict });
 }
 
 /**

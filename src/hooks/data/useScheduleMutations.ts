@@ -10,6 +10,12 @@ import type { Employee, RecurringSchedule, ScheduleEntry, ShiftType } from '../.
 import { scheduleEntryToRow } from './mappers';
 import type { NotifType } from './usePushNotifier';
 
+// schedules is UNIQUE (employee_id, date). Every upsert must name that
+// constraint: without it PostgREST only resolves conflicts on the primary key,
+// so a row carrying a freshly generated id for an existing employee/date pair
+// fails with a unique violation (a 500 from db-query) instead of updating it.
+const SCHEDULES_CONFLICT_TARGET = 'employee_id,date';
+
 interface ScheduleMutationDeps {
   employees: Employee[];
   shiftTypes: ShiftType[];
@@ -59,8 +65,14 @@ export function useScheduleMutations({
 
       // Optimistic: reflect the change locally right away; resync from the
       // server on failure.
+      // Match on id first, then on (employeeId, date) — the upsert resolves
+      // conflicts on that pair, so a caller working from a stale list (which
+      // hands us a brand-new id for a day that already has a row) must not
+      // leave a duplicate cell behind until refreshSchedules lands.
       setSchedules((prev) => {
-        const idx = prev.findIndex((s) => s.id === entry.id);
+        const idx = prev.findIndex(
+          (s) => s.id === entry.id || (s.employeeId === entry.employeeId && s.date === entry.date),
+        );
         if (idx >= 0) {
           const next = [...prev];
           next[idx] = entry;
@@ -69,10 +81,14 @@ export function useScheduleMutations({
         return [...prev, entry];
       });
 
-      const { error: upsertErr } = await dbUpsert('schedules', {
-        ...scheduleEntryToRow(entry),
-        updated_at: new Date().toISOString(),
-      });
+      const { error: upsertErr } = await dbUpsert(
+        'schedules',
+        {
+          ...scheduleEntryToRow(entry),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: SCHEDULES_CONFLICT_TARGET },
+      );
 
       if (upsertErr) {
         await refreshSchedules(); // revert optimistic state
@@ -163,7 +179,7 @@ export function useScheduleMutations({
         ...scheduleEntryToRow(e),
         updated_at: new Date().toISOString(),
       }));
-      const { error } = await dbUpsert('schedules', rows);
+      const { error } = await dbUpsert('schedules', rows, { onConflict: SCHEDULES_CONFLICT_TARGET });
       if (error) throw error;
       await refreshSchedules();
     },

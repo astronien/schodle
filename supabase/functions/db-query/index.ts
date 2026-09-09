@@ -70,13 +70,65 @@ interface FilterCondition {
   in?: unknown[];
 }
 
+interface OrderSpec {
+  column: string;
+  ascending?: boolean;
+}
+
+interface QueryRange {
+  from: number;
+  to: number;
+}
+
 interface QueryRequest {
   table: string;
   operation: "select" | "insert" | "update" | "upsert" | "delete";
   data?: unknown;
   filter?: Record<string, unknown | FilterCondition>;
   select?: string;
-  order?: { column: string; ascending?: boolean };
+  order?: OrderSpec | OrderSpec[];
+  /** Inclusive, zero-based row window — lets clients page past PostgREST's row cap. */
+  range?: QueryRange;
+  /**
+   * Conflict target for UPSERT, e.g. "employee_id,date". Without it PostgREST
+   * resolves conflicts on the PRIMARY KEY only, so a row carrying a fresh id
+   * for an already-taken (employee_id, date) pair raises a 23505 unique
+   * violation instead of updating the existing row.
+   */
+  onConflict?: string;
+}
+
+// Mirrors src/lib/db-query.ts — keep the two in step.
+const COLUMN_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const MAX_CONFLICT_COLUMNS = 10;
+const MAX_RANGE_SIZE = 100000;
+
+/**
+ * Validate an onConflict value and return it normalised ("a, b" → "a,b"), or
+ * null when it is anything other than a simple comma-separated column list.
+ * The value is interpolated into a PostgREST query string, so it is never
+ * passed through unchecked.
+ */
+function normalizeOnConflict(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const parts = value.split(",").map((part) => part.trim());
+  if (parts.length === 0 || parts.length > MAX_CONFLICT_COLUMNS) return null;
+  for (const part of parts) {
+    if (part.length === 0 || part.length > 63 || !COLUMN_NAME_PATTERN.test(part)) return null;
+  }
+  return parts.join(",");
+}
+
+/** Validate a row range; returns null when it is not a sane, finite window. */
+function normalizeRange(value: unknown): QueryRange | null {
+  if (!value || typeof value !== "object") return null;
+  const { from, to } = value as { from?: unknown; to?: unknown };
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return null;
+  const f = from as number;
+  const t = to as number;
+  if (f < 0 || t < f) return null;
+  if (t - f + 1 > MAX_RANGE_SIZE) return null;
+  return { from: f, to: t };
 }
 
 serve(async (req) => {
@@ -143,6 +195,20 @@ serve(async (req) => {
 
   if (!ALLOWED_TABLES.has(table)) {
     return json({ error: `Table not allowed: ${table}` }, 403);
+  }
+
+  // Validate the raw client-supplied conflict target / range before use.
+  let onConflict: string | undefined;
+  if (body.onConflict !== undefined) {
+    const normalized = normalizeOnConflict(body.onConflict);
+    if (!normalized) return json({ error: "Invalid onConflict" }, 400);
+    onConflict = normalized;
+  }
+  let range: QueryRange | undefined;
+  if (body.range !== undefined) {
+    const normalized = normalizeRange(body.range);
+    if (!normalized) return json({ error: "Invalid range" }, 400);
+    range = normalized;
   }
 
   // Never expose password_hash, even to managers.
@@ -216,8 +282,13 @@ serve(async (req) => {
       case "select":
         query = supabase.from(table).select(effectiveSelect || "*");
         query = applyFilters(query, effectiveFilter);
-        if (order) {
-          query = query.order(order.column, { ascending: order.ascending ?? true });
+        // A list applies the sort keys in order — paginated reads need a total
+        // order so tied rows can't move between pages.
+        for (const spec of order ? (Array.isArray(order) ? order : [order]) : []) {
+          query = query.order(spec.column, { ascending: spec.ascending ?? true });
+        }
+        if (range) {
+          query = query.range(range.from, range.to);
         }
         break;
 
@@ -231,7 +302,12 @@ serve(async (req) => {
         break;
 
       case "upsert":
-        query = supabase.from(table).upsert(effectiveData as Record<string, unknown>);
+        query = supabase
+          .from(table)
+          .upsert(
+            effectiveData as Record<string, unknown>,
+            onConflict ? { onConflict } : undefined,
+          );
         break;
 
       case "delete":

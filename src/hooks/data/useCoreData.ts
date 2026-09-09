@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addMonths, endOfYear, format, startOfYear, subMonths } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { getSessionToken } from '../../lib/session';
-import { dbSelect } from '../../lib/db-query';
+import { dbSelect, dbSelectAll } from '../../lib/db-query';
 import { getCachedData, setCachedData } from '../../lib/offline-cache';
 import type {
   AppSettings,
@@ -26,6 +26,15 @@ import {
 
 const EMPLOYEE_COLUMNS =
   'id, employee_code, full_name, position_id, group_id, role, phone, email, avatar, weekly_off_day, must_change_password, created_at';
+
+// The schedules window spans ~14 months, which for a full roster is well past
+// PostgREST's 1000-row cap — it must be read page by page. Sorting by date
+// alone is not a total order, so `id` breaks ties and keeps page boundaries
+// stable between requests.
+const SCHEDULES_ORDER = [
+  { column: 'date', ascending: true },
+  { column: 'id', ascending: true },
+];
 
 const DEFAULT_SETTINGS: AppSettings = {
   storeName: 'Central Plaza Rama 9',
@@ -61,11 +70,11 @@ export function useCoreData(currentMonth: Date = new Date()) {
     const token = getSessionToken();
     if (!token) return [];
 
-    const { data, error: schedErr } = await dbSelect<any>(
+    const { data, error: schedErr } = await dbSelectAll<any>(
       'schedules',
       { date: { gte: scheduleWindow.from, lte: scheduleWindow.to } },
       '*',
-      { column: 'date', ascending: true },
+      SCHEDULES_ORDER,
     );
     if (schedErr) throw schedErr;
     return (data || []).map(mapScheduleRow);
@@ -87,7 +96,7 @@ export function useCoreData(currentMonth: Date = new Date()) {
         dbSelect<any>('employees', undefined, EMPLOYEE_COLUMNS, { column: 'full_name', ascending: true }),
         dbSelect<any>('shift_types', undefined, '*', { column: 'code', ascending: true }),
         dbSelect<any>('position_groups', undefined, '*', { column: 'name', ascending: true }),
-        dbSelect<any>('schedules', { date: { gte: scheduleWindow.from, lte: scheduleWindow.to } }, '*', { column: 'date', ascending: true }),
+        dbSelectAll<any>('schedules', { date: { gte: scheduleWindow.from, lte: scheduleWindow.to } }, '*', SCHEDULES_ORDER),
         dbSelect<any>('recurring_schedules', undefined, '*', { column: 'created_at', ascending: true }),
         dbSelect<any>('settings'),
       ]);
