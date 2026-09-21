@@ -3,6 +3,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from '
 import { th } from 'date-fns/locale';
 import { AlertTriangle, Download, Printer, Copy, ArrowLeftRight, LayoutTemplate, Megaphone, Calendar, CheckSquare, X, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { pastelOf } from '../../lib/colors';
 import { getCoverageLookup } from '../../lib/schedule-utils';
 import { groupEmployeesForSchedule } from '../../lib/employee-order';
 import { exportCSV, printSchedule, exportPDF } from '../../lib/export-utils';
@@ -315,7 +316,13 @@ export function CoverageGrid({
                   key={type.id}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-bg-surface rounded-lg shadow-sm border border-success/20"
                 >
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: type.color }}></div>
+                  <div
+                    className="w-2.5 h-2.5 rounded-full border"
+                    style={{
+                      backgroundColor: pastelOf(type.color).background,
+                      borderColor: pastelOf(type.color).border,
+                    }}
+                  ></div>
                   <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wide">
                     {type.code}
                   </span>
@@ -428,6 +435,7 @@ export function CoverageGrid({
                         (s) => s.employeeId === employee.id && s.date === dateStr && s.status === 'approved'
                       );
                       const shiftType = shift ? shiftTypes.find((t) => t.id === shift.shiftTypeId) : null;
+                      const palette = shiftType ? pastelOf(shiftType.color) : null;
                       const cellKey = `${employee.id}-${dateStr}`;
                       const isSwapFirst = swapFirst?.employeeId === employee.id && swapFirst?.date === dateStr;
                       const isDragOver = dragOverCell === cellKey;
@@ -466,12 +474,16 @@ export function CoverageGrid({
                               }
                               className={cn(
                                 fitMonth
-                                  ? 'w-full h-6 rounded flex items-center justify-center text-[8px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing'
-                                  : 'w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-all cursor-grab active:cursor-grabbing',
+                                  ? 'w-full h-6 rounded flex items-center justify-center text-[8px] font-bold border transition-all cursor-grab active:cursor-grabbing'
+                                  : 'w-full h-7 sm:h-9 rounded-md flex items-center justify-center text-[10px] font-bold border transition-all cursor-grab active:cursor-grabbing',
                                 !swapMode && 'hover:scale-105',
-                                swapMode && 'hover:ring-2 hover:ring-white/60',
+                                swapMode && 'hover:ring-2 hover:ring-brand/60',
                               )}
-                              style={{ backgroundColor: shiftType.color }}
+                              style={{
+                                backgroundColor: palette?.background,
+                                borderColor: palette?.border,
+                                color: palette?.text,
+                              }}
                             >
                               {shiftType.code}
                             </div>
@@ -548,7 +560,7 @@ export function CoverageGrid({
                               key={type.id}
                               className="flex items-center justify-between px-2.5 py-1 bg-bg-surface rounded-lg border border-success/20 shadow-xs"
                             >
-                              <span className="text-[9px] font-bold" style={{ color: type.color }}>
+                              <span className="text-[9px] font-bold" style={{ color: pastelOf(type.color).text }}>
                                 {type.code}
                               </span>
                               <div className="flex items-center gap-1">
@@ -639,8 +651,12 @@ export function CoverageGrid({
                   className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border-solid bg-white/50 hover:bg-white/80 hover:border-brand/40 transition-all active:scale-[0.98]"
                 >
                   <div
-                    className="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-sm"
-                    style={{ backgroundColor: type.color }}
+                    className="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold border"
+                    style={{
+                      backgroundColor: pastelOf(type.color).background,
+                      borderColor: pastelOf(type.color).border,
+                      color: pastelOf(type.color).text,
+                    }}
                   >
                     {type.code}
                   </div>
