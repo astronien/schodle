@@ -10,6 +10,13 @@ export const PUSH_DEDUP_WINDOW_MS = 30000;
 export const PUSH_DEDUP_MAP_MAX_SIZE = 200;
 export const POLL_INTERVAL_MS = 15000;
 
+/**
+ * Minimum gap between full reloads triggered by realtime channel failures.
+ * A broken channel retries continuously; without this every retry reloaded
+ * all tables.
+ */
+export const REALTIME_ERROR_RELOAD_COOLDOWN_MS = 30000;
+
 /* ── Session ──────────────────────────────────────────────────── */
 export const SESSION_TTL_SECONDS_DEFAULT = 8 * 60 * 60; // 8 hours
 

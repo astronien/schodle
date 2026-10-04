@@ -21,8 +21,7 @@ export function useData(currentMonth?: Date) {
 
   useRealtimeSchedules({
     fetchAll: core.fetchAll,
-    fetchSchedulesOnly: core.fetchSchedulesOnly,
-    setSchedules: core.setSchedules,
+    refreshSchedules: core.refreshSchedules,
     sendPush,
     recentNotificationRef,
     pruneRecentNotifications,

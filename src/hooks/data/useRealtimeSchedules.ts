@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getSessionToken } from '../../lib/session';
-import { REALTIME_THROTTLE_MS, POLL_INTERVAL_MS } from '../../config/constants';
-import type { ScheduleEntry } from '../../types';
+import { REALTIME_THROTTLE_MS, POLL_INTERVAL_MS, REALTIME_ERROR_RELOAD_COOLDOWN_MS } from '../../config/constants';
 import type { ScheduleRow } from './mappers';
 import type { NotifType } from './usePushNotifier';
 
 interface RealtimeDeps {
   fetchAll: (silent?: boolean) => Promise<void>;
-  fetchSchedulesOnly: () => Promise<ScheduleEntry[]>;
-  setSchedules: React.Dispatch<React.SetStateAction<ScheduleEntry[]>>;
+  /** Sequenced schedules refresh — never lets an older response win. */
+  refreshSchedules: () => Promise<void>;
   sendPush: (employeeId: string, title: string, body: string, url?: string, notifType?: NotifType) => Promise<void>;
   recentNotificationRef: React.RefObject<Map<string, number>>;
   pruneRecentNotifications: () => void;
@@ -19,8 +18,7 @@ interface RealtimeDeps {
 
 export function useRealtimeSchedules({
   fetchAll,
-  fetchSchedulesOnly,
-  setSchedules,
+  refreshSchedules,
   sendPush,
   recentNotificationRef,
   pruneRecentNotifications,
@@ -28,18 +26,21 @@ export function useRealtimeSchedules({
   const realtimeInFlightRef = useRef<Promise<void> | null>(null);
   const realtimePendingRef = useRef<boolean>(false);
 
+  // Coalesces bursts into at most one in-flight refresh plus one queued.
   const refreshSchedulesThrottled = useCallback(() => {
-    const run = async () => {
+    const run = async (): Promise<void> => {
       try {
-        const fresh = await fetchSchedulesOnly();
-        setSchedules(fresh);
+        await refreshSchedules();
       } catch (err) {
         console.error('[refreshSchedulesThrottled] failed:', err);
       } finally {
-        realtimeInFlightRef.current = null;
         if (realtimePendingRef.current) {
           realtimePendingRef.current = false;
-          void run();
+          // Track the chained run as in flight too — previously it was not,
+          // so new triggers started yet more overlapping fetches.
+          realtimeInFlightRef.current = run();
+        } else {
+          realtimeInFlightRef.current = null;
         }
       }
     };
@@ -48,24 +49,35 @@ export function useRealtimeSchedules({
       return;
     }
     realtimeInFlightRef.current = run();
-  }, [fetchSchedulesOnly, setSchedules]);
+  }, [refreshSchedules]);
 
   useEffect(() => {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    // supabase-js keeps retrying a broken channel, firing CHANNEL_ERROR /
+    // TIMED_OUT over and over. Each used to trigger a full 7-table reload
+    // (twice), flooding the backend — and every failed reload was a chance to
+    // clobber fresh data. Throttle those reloads; the 15s poll keeps
+    // schedules current regardless.
+    let lastErrorReloadAt = 0;
+    const reloadAfterRealtimeFailure = () => {
+      const now = Date.now();
+      if (now - lastErrorReloadAt < REALTIME_ERROR_RELOAD_COOLDOWN_MS) return;
+      lastErrorReloadAt = now;
+      void fetchAll(true);
+    };
+
     const channel = supabase
       .channel('realtime:schedules')
       .on('system', { event: 'CHANNEL_ERROR' }, () => {
         const token = getSessionToken();
         if (token) console.warn('[realtime] channel error — will refresh data and retry');
-        void fetchAll(true);
+        reloadAfterRealtimeFailure();
         if (reconnectTimer) clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(() => {
-          void fetchAll(true);
-        }, 5000);
+        reconnectTimer = setTimeout(refreshSchedulesThrottled, 5000);
       })
       .on('system', { event: 'TIMED_OUT' }, () => {
         if (getSessionToken()) console.warn('[realtime] timed out — refreshing');
-        void fetchAll(true);
+        reloadAfterRealtimeFailure();
       })
       .on(
         'postgres_changes',

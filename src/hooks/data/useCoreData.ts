@@ -1,11 +1,12 @@
 // Core data state: fetch-all, targeted refreshers, and the offline-cache
 // fallback. Mutation hooks receive the pieces they need from here.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addMonths, endOfYear, format, startOfYear, subMonths } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { getSessionToken } from '../../lib/session';
 import { dbSelect, dbSelectAll } from '../../lib/db-query';
 import { getCachedData, setCachedData } from '../../lib/offline-cache';
+import { createResponseSequencer } from '../../lib/response-sequencer';
 import type {
   AppSettings,
   Employee,
@@ -55,6 +56,13 @@ export function useCoreData(currentMonth: Date = new Date()) {
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [positionGroups, setPositionGroups] = useState<PositionGroup[]>([]);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+  // Several refetches of schedules overlap (poll, realtime, mutations); only a
+  // result newer than what's already on screen may be applied. See
+  // lib/response-sequencer.ts.
+  const scheduleSequencerRef = useRef(createResponseSequencer());
+  // Once real data has loaded, the offline cache must never replace it — the
+  // cache is an older snapshot and would silently drop newer rows.
+  const hasLiveSchedulesRef = useRef(false);
   const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -90,6 +98,7 @@ export function useCoreData(currentMonth: Date = new Date()) {
       return;
     }
 
+    const scheduleTicket = scheduleSequencerRef.current.begin();
     try {
       const [posRes, empRes, shiftRes, groupRes, schedRes, recurringRes, settingsRes] = await Promise.all([
         dbSelect<any>('positions', undefined, '*', { column: 'code', ascending: true }),
@@ -113,12 +122,15 @@ export function useCoreData(currentMonth: Date = new Date()) {
       setEmployees((empRes.data || []).map(mapEmployeeRow));
       setShiftTypes((shiftRes.data || []).map(mapShiftTypeRow));
       setRecurringSchedules((recurringRes.data || []).map(mapRecurringRow));
-      setSchedules((schedRes.data || []).map(mapScheduleRow));
+      if (scheduleSequencerRef.current.tryApply(scheduleTicket)) {
+        setSchedules((schedRes.data || []).map(mapScheduleRow));
+        setCachedData('schedules', schedRes.data || []);
+        hasLiveSchedulesRef.current = true;
+      }
 
       setCachedData('employees', empRes.data || []);
       setCachedData('positions', posRes.data || []);
       setCachedData('shift_types', shiftRes.data || []);
-      setCachedData('schedules', schedRes.data || []);
 
       if (settingsRes.data) {
         const settingsMap: Record<string, string> = {};
@@ -134,15 +146,21 @@ export function useCoreData(currentMonth: Date = new Date()) {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
 
-      // Fall back to the offline cache so the app stays usable.
-      const cachedEmps = getCachedData<any>('employees');
-      const cachedPos = getCachedData<any>('positions');
-      const cachedShifts = getCachedData<any>('shift_types');
-      const cachedScheds = getCachedData<any>('schedules');
-      if (cachedEmps) setEmployees(cachedEmps.map(mapEmployeeRow));
-      if (cachedPos) setPositions(cachedPos.map(mapPositionRow));
-      if (cachedShifts) setShiftTypes(cachedShifts.map(mapShiftTypeRow));
-      if (cachedScheds) setSchedules(cachedScheds.map(mapScheduleRow));
+      // Fall back to the offline cache so the app stays usable — but ONLY when
+      // nothing live has loaded yet (genuinely offline at startup). Once real
+      // data is on screen, a transient failure must leave it alone: the cache
+      // is an older snapshot, and swapping it in made newly submitted requests
+      // disappear from the manager's view until the next successful refresh.
+      if (!hasLiveSchedulesRef.current) {
+        const cachedEmps = getCachedData<any>('employees');
+        const cachedPos = getCachedData<any>('positions');
+        const cachedShifts = getCachedData<any>('shift_types');
+        const cachedScheds = getCachedData<any>('schedules');
+        if (cachedEmps) setEmployees(cachedEmps.map(mapEmployeeRow));
+        if (cachedPos) setPositions(cachedPos.map(mapPositionRow));
+        if (cachedShifts) setShiftTypes(cachedShifts.map(mapShiftTypeRow));
+        if (cachedScheds) setSchedules(cachedScheds.map(mapScheduleRow));
+      }
     } finally {
       setLoading(false);
     }
@@ -151,14 +169,19 @@ export function useCoreData(currentMonth: Date = new Date()) {
   // Targeted schedules refresh — the hot path after schedule mutations.
   // Refetches ONLY the schedules table instead of all 7 tables.
   const refreshSchedules = useCallback(async () => {
+    const ticket = scheduleSequencerRef.current.begin();
     try {
       const fresh = await fetchSchedulesOnly();
-      setSchedules(fresh);
+      if (scheduleSequencerRef.current.tryApply(ticket)) {
+        setSchedules(fresh);
+        hasLiveSchedulesRef.current = true;
+      }
     } catch (err) {
-      console.warn('[refreshSchedules] failed, falling back to fetchAll:', err);
-      await fetchAll(true);
+      // Keep what's on screen; the next poll retries. Escalating to fetchAll
+      // here used to multiply load exactly when the backend was struggling.
+      console.warn('[refreshSchedules] failed, keeping current data:', err);
     }
-  }, [fetchSchedulesOnly, fetchAll]);
+  }, [fetchSchedulesOnly]);
 
   useEffect(() => {
     // Deferred to a microtask so fetchAll's synchronous setState calls don't
