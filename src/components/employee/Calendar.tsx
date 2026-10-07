@@ -1,6 +1,7 @@
 import { format, isSameDay, isToday, startOfMonth } from 'date-fns';
 import { XCircle, CheckCircle2, Users } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { isEffectiveOffDay } from '../../lib/dates';
 import type { Employee, ScheduleEntry, ShiftType } from '../../types';
 
 interface CalendarProps {
@@ -42,8 +43,14 @@ export function Calendar({
           {days.map((day) => {
             const schedule = getDaySchedule(day);
             const shift = schedule ? shiftTypes.find((t) => t.id === schedule.shiftTypeId) : null;
-            const isOffDay =
-              typeof currentUser.weeklyOffDay === 'number' && day.getDay() === currentUser.weeklyOffDay;
+            // The actual schedule wins over the weekly-off pattern — a shift
+            // the manager assigned on that weekday must show as a shift.
+            const isOffDay = isEffectiveOffDay(
+              day,
+              currentUser.weeklyOffDay,
+              schedule,
+              (id) => shiftTypes.find((t) => t.id === id)?.code,
+            );
 
             return (
               <button

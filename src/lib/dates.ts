@@ -55,4 +55,28 @@ export function isOffDayForEmployee(date: Date, weeklyOffDay?: number): boolean 
   return date.getDay() === weeklyOffDay;
 }
 
+/** Shift code that marks a day off. */
+export const OFF_SHIFT_CODE = 'X';
+
+/**
+ * Is this employee actually off on `date`?
+ *
+ * The schedule is the source of truth. The weekly-off setting is only a
+ * default pattern: a manager can assign a working shift on that weekday, and
+ * the employee's own view must then show the shift — not "หยุด". Only when
+ * nothing (or only a rejected request) is scheduled do we fall back to the
+ * pattern.
+ */
+export function isEffectiveOffDay(
+  date: Date,
+  weeklyOffDay: number | undefined,
+  schedule: { status: string; shiftTypeId: string } | undefined | null,
+  shiftCodeOf: (shiftTypeId: string) => string | undefined,
+): boolean {
+  if (schedule && schedule.status !== 'rejected') {
+    return shiftCodeOf(schedule.shiftTypeId) === OFF_SHIFT_CODE;
+  }
+  return isOffDayForEmployee(date, weeklyOffDay);
+}
+
 export { addDays, eachDayOfInterval, endOfMonth, format, startOfMonth };

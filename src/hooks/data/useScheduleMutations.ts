@@ -54,7 +54,22 @@ export function useScheduleMutations({
           const day = new Date(`${entry.date}T00:00:00`).getDay();
           if (day === emp.weeklyOffDay) {
             const shiftType = employeeLookupMaps.shiftTypeById.get(entry.shiftTypeId);
-            if (shiftType?.code !== 'X') {
+            // The weekly-off setting is a default, not a lock: if the manager
+            // has already put an approved working shift on this day, the
+            // employee must still be able to act on it (late scan, swap…).
+            let managerAssignedWork = false;
+            for (const s of scheduleById.current.values()) {
+              if (
+                s.employeeId === entry.employeeId &&
+                s.date === entry.date &&
+                s.status === 'approved' &&
+                employeeLookupMaps.shiftTypeById.get(s.shiftTypeId)?.code !== 'X'
+              ) {
+                managerAssignedWork = true;
+                break;
+              }
+            }
+            if (shiftType?.code !== 'X' && !managerAssignedWork) {
               throw new Error(`ไม่สามารถจัดกะวันที่ ${entry.date} ได้ (วันหยุดประจำสัปดาห์)`);
             }
           }

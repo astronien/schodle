@@ -3,6 +3,7 @@ import { format, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { AlertCircle, AlertTriangle, XCircle, CheckCircle2, ChevronRight, Plus, Check, Users } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { isEffectiveOffDay } from '../../lib/dates';
 import { getDiceBearAvatar } from '../../lib/validators';
 import { validateAssignShift } from '../../lib/conflict-validator';
 import { useToast } from '../../lib/toast';
@@ -55,9 +56,16 @@ export function ShiftEditor({
 
   const currentShiftId = selectedShiftId || (selectedDate ? getDaySchedule(selectedDate)?.shiftTypeId : null) || null;
   const shiftType = selectedDate ? shiftTypes.find((t) => t.id === currentShiftId) : null;
-  const isOffDay =
-    typeof currentUser.weeklyOffDay === 'number' &&
-    (selectedDate ? selectedDate.getDay() === currentUser.weeklyOffDay : false);
+  // Same rule as the calendar: if the manager scheduled a working shift on the
+  // weekly-off weekday, the employee is not restricted to the X shift there.
+  const isOffDay = selectedDate
+    ? isEffectiveOffDay(
+        selectedDate,
+        currentUser.weeklyOffDay,
+        getDaySchedule(selectedDate),
+        (id) => shiftTypes.find((t) => t.id === id)?.code,
+      )
+    : false;
 
   const conflictWarnings = useMemo(() => {
     if (!currentShiftId || !selectedDate) return [];

@@ -7,6 +7,7 @@ import {
   getMonthlyOffDates,
   getMonthDays,
   getMonthSchedules,
+  isEffectiveOffDay,
   isOffDayForEmployee,
   toTimeInputValue,
 } from './dates';
@@ -140,5 +141,43 @@ describe('shift time input helpers', () => {
 
   it('round-trips a no-fixed-hours shift without inventing a time', () => {
     expect(fromTimeInputValue(toTimeInputValue('-'))).toBe('-');
+  });
+});
+
+
+describe('isEffectiveOffDay', () => {
+  // 2026-10-05 is a Monday (getDay() === 1).
+  const monday = new Date(2026, 9, 5);
+  const codes: Record<string, string> = { m1: 'M1', x: 'X' };
+  const codeOf = (id: string) => codes[id];
+
+  it('shows a manager-assigned work shift on the weekly-off weekday as a work day', () => {
+    // The reported bug: weekly off = Monday, manager scheduled M1 → must not read "หยุด".
+    expect(isEffectiveOffDay(monday, 1, { status: 'approved', shiftTypeId: 'm1' }, codeOf)).toBe(false);
+  });
+
+  it('treats an X shift as off', () => {
+    expect(isEffectiveOffDay(monday, 1, { status: 'approved', shiftTypeId: 'x' }, codeOf)).toBe(true);
+  });
+
+  it('treats a pending work request as not off', () => {
+    expect(isEffectiveOffDay(monday, 1, { status: 'pending', shiftTypeId: 'm1' }, codeOf)).toBe(false);
+  });
+
+  it('falls back to the weekly pattern when nothing is scheduled', () => {
+    expect(isEffectiveOffDay(monday, 1, undefined, codeOf)).toBe(true);
+    expect(isEffectiveOffDay(monday, 2, undefined, codeOf)).toBe(false);
+  });
+
+  it('ignores a rejected request and falls back to the pattern', () => {
+    expect(isEffectiveOffDay(monday, 1, { status: 'rejected', shiftTypeId: 'm1' }, codeOf)).toBe(true);
+  });
+
+  it('marks an X shift as off even on a non-weekly-off weekday', () => {
+    expect(isEffectiveOffDay(monday, 3, { status: 'approved', shiftTypeId: 'x' }, codeOf)).toBe(true);
+  });
+
+  it('handles employees with no weekly-off day', () => {
+    expect(isEffectiveOffDay(monday, undefined, undefined, codeOf)).toBe(false);
   });
 });
