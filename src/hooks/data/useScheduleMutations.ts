@@ -202,10 +202,15 @@ export function useScheduleMutations({
   );
 
   // Clears a month, keeping approved entries whose shift type is flagged
-  // preserveOnClear (weekly off days, AT, office…). Returns how many rows
-  // were removed vs kept so the caller can report it.
+  // preserveOnClear (weekly off days, AT, office…), then fills in any weekly
+  // off day that is still missing. Returns counts so the caller can report it.
+  //
+  // The fill step matters for a month that has never been set up: there are
+  // no X rows to preserve, so without it a fresh month came out with no off
+  // days at all. (Clearing used to delete everything and re-create every X;
+  // switching to "preserve" alone silently dropped that for new months.)
   const deleteSchedulesByMonth = useCallback(
-    async (month: Date): Promise<{ deleted: number; preserved: number }> => {
+    async (month: Date): Promise<{ deleted: number; preserved: number; offDaysAdded: number }> => {
       const { format } = await import('date-fns');
       const monthPrefix = format(month, 'yyyy-MM');
       const { idsToDelete, preservedCount } = planClearMonth({
@@ -224,10 +229,34 @@ export function useScheduleMutations({
         }
       }
 
+      // What survives the clear, computed locally so the fill below never
+      // collides with a preserved row (e.g. an AT shift on someone's off day).
+      const deleted = new Set(idsToDelete);
+      const remaining = schedules.filter(
+        (s) => s.date.startsWith(monthPrefix) && !deleted.has(s.id),
+      );
+      const offDayEntries = buildWeeklyOffDayEntries({
+        month,
+        employees,
+        shiftTypes,
+        existingSchedules: remaining,
+        createdBy: 'manager',
+      });
+
+      let offDaysAdded = 0;
+      if (offDayEntries.length > 0) {
+        const { error: insErr } = await dbInsert('schedules', offDayEntries.map(scheduleEntryToRow));
+        if (insErr) {
+          await refreshSchedules();
+          throw insErr;
+        }
+        offDaysAdded = offDayEntries.length;
+      }
+
       await refreshSchedules();
-      return { deleted: idsToDelete.length, preserved: preservedCount };
+      return { deleted: idsToDelete.length, preserved: preservedCount, offDaysAdded };
     },
-    [schedules, shiftTypes, refreshSchedules],
+    [schedules, shiftTypes, employees, refreshSchedules],
   );
 
   const deleteSchedulesBeforeDate = useCallback(

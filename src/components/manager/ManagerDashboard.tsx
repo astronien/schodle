@@ -62,7 +62,7 @@ interface ManagerDashboardProps {
   upsertSchedulesBulk: (entries: ScheduleEntry[]) => Promise<void>;
   swapScheduleShifts: (requesterId: string, targetId: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
-  deleteSchedulesByMonth: (month: Date) => Promise<{ deleted: number; preserved: number }>;
+  deleteSchedulesByMonth: (month: Date) => Promise<{ deleted: number; preserved: number; offDaysAdded: number }>;
   deleteSchedulesBeforeDate: (beforeDate: string) => Promise<void>;
   currentMonth: Date;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
@@ -430,19 +430,20 @@ export function ManagerDashboard({
               const monthLabel = format(currentMonth, 'MMMM yyyy', { locale: th });
               const base = `คุณต้องการลบตารางงาน ${plan.idsToDelete.length} รายการของเดือน ${monthLabel} ใช่หรือไม่?`;
               if (plan.preservedCount === 0) {
-                return `${base}\n\nยังไม่ได้ตั้งกะที่ "ไม่ลบตอนล้างตาราง" — ตั้งได้ที่ ตั้งค่า → ประเภทกะ`;
+                return `${base}\n\nวันหยุดประจำสัปดาห์ของพนักงานจะถูกเติมให้อัตโนมัติ (กะ X)`;
               }
-              return `${base}\n\nจะเก็บไว้ ${plan.preservedCount} รายการ (กะ ${plan.preservedCodes.join(', ')}) ตามที่ตั้งค่าไว้`;
+              return `${base}\n\nจะเก็บไว้ ${plan.preservedCount} รายการ (กะ ${plan.preservedCodes.join(', ')}) ตามที่ตั้งค่าไว้ และเติมวันหยุดประจำสัปดาห์ที่ยังขาดให้อัตโนมัติ`;
             })()}
             confirmLabel="ลบตารางเดือนนี้"
             variant="danger"
             onConfirm={async () => {
               try {
-                const { deleted, preserved } = await deleteSchedulesByMonth(currentMonth);
-                toast.success(
-                  `ล้างตารางเดือนนี้เรียบร้อย (${deleted} รายการ)`,
-                  preserved > 0 ? `เก็บกะที่ตั้งค่าไว้ ${preserved} รายการ` : undefined,
-                );
+                const { deleted, preserved, offDaysAdded } = await deleteSchedulesByMonth(currentMonth);
+                const details = [
+                  preserved > 0 ? `เก็บกะที่ตั้งค่าไว้ ${preserved} รายการ` : null,
+                  offDaysAdded > 0 ? `เพิ่มวันหยุดประจำสัปดาห์ ${offDaysAdded} วัน` : null,
+                ].filter(Boolean).join(' · ');
+                toast.success(`ล้างตารางเดือนนี้เรียบร้อย (${deleted} รายการ)`, details || undefined);
               } catch (err: unknown) {
                 toast.error('ล้างตารางไม่สำเร็จ', err instanceof Error ? err.message : undefined);
               }
